@@ -5,6 +5,11 @@ programs embed, from any language with a C FFI, with nothing beyond the C librar
 It is the ledger implementation; the contract is the data in
 [`lib/ledger/testdata`](../../lib/ledger/testdata), and this library is held to it.
 
+Ledger implements storage and machine observations for the shared
+[Ext graph model](../../docs/adr-ext-graph.md). Plugin uses that same model for
+package and dependency facts; ledger accepts its schema and transaction without
+depending on plugin or owning plugin execution.
+
 | Part | State |
 | --- | --- |
 | Store | Done: `include/ext_ledger.h`, memory and file backends, the whole store contract |
@@ -205,3 +210,14 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 | `tests/supervisor.c` | `pkg/ext-go/engine/ledger/supervisor`'s tests, with the test binary as its own child |
 
 Like `lib/plugin`, the tree holds no Go code.
+
+### Reconciling an owned graph
+
+The described store's `reconcile` operation replaces a complete caller-owned
+namespace at `expected_revision`. Its transaction requires `namespace`,
+`expected_revision`, `vertices` and `edges`; omitted records are deleted in the
+same atomic write. Empty arrays clear the namespace. Stale revisions return
+`changed`, and partial observations must use `apply`. Other namespaces remain
+untouched. `process_identity` on handle zero exposes the recorder's canonical
+process reference from a collected host ID, PID and nonempty birth token.
+See [Ext graph](../../docs/adr-ext-graph.md) for cross-library correlation.

@@ -1,0 +1,1510 @@
+{
+  "about": "Pinned package bundle composition through the canonical C engine. Resolves a complete graph without installing or approving any package.",
+  "cases": [
+    {
+      "name": "pinned-chain",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "provider",
+            "revision": "r1"
+          },
+          {
+            "id": "consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": [
+          {
+            "consumer": {
+              "id": "consumer",
+              "revision": "r1"
+            },
+            "requirement": {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read"
+            },
+            "provider": {
+              "id": "provider",
+              "revision": "r1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "ambiguous",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "alternative",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "alternative.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "ambiguous"
+    },
+    {
+      "name": "duplicate-id",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r2"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "ambiguous"
+    },
+    {
+      "name": "cycle",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.consumer",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "bad-version",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v2",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "empty",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": []
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "bad-target",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "bad-pin",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "bad"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "unknown-field",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ],
+        "trusted": true
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "control-source",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ]
+            },
+            "archive": {
+              "source": "bad\nsource",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "bad-manifest",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read"
+                }
+              ],
+              "extra": true
+            },
+            "archive": {
+              "source": "consumer.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "provider",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "data",
+                  "path": "data",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ]
+            },
+            "archive": {
+              "source": "provider.zip",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-envelope",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [
+              "purego"
+            ],
+            "dir": "internal/extlib/demo"
+          }
+        ]
+      },
+      "status": "ok",
+      "result": {
+        "order": null,
+        "bindings": null
+      }
+    },
+    {
+      "name": "native-parent-path",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [
+              "purego"
+            ],
+            "dir": "../escape"
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-absolute-path",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [
+              "purego"
+            ],
+            "dir": "/tmp/x"
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-bad-driver",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [
+              "unknown"
+            ],
+            "dir": "internal/extlib/demo"
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-duplicate-driver",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [
+              "purego",
+              "purego"
+            ],
+            "dir": "internal/extlib/demo"
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-empty-drivers",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [],
+            "dir": "internal/extlib/demo"
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-citation-schema",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "other"
+            },
+            "drivers": [
+              "purego"
+            ],
+            "dir": "internal/extlib/demo"
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-unknown-field",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": [
+          {
+            "citation": {
+              "schema": "ext.library.citation/v1",
+              "library": "ext_demo",
+              "version": "1.0.0",
+              "assets": []
+            },
+            "drivers": [
+              "purego"
+            ],
+            "dir": "internal/extlib/demo",
+            "unknown": true
+          }
+        ]
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "native-null",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": null
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "empty-all-selections",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/amd64",
+        "packages": [],
+        "native": []
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "platform-dependencies",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "linux/arm64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "example/consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "main",
+                  "path": "main.py",
+                  "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read",
+                  "provider": "example/a",
+                  "os": "linux",
+                  "arch": "arm64"
+                },
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read",
+                  "provider": "example/macos",
+                  "os": "darwin",
+                  "arch": "arm64"
+                }
+              ]
+            },
+            "archive": {
+              "source": "example.zip",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "example/a",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "main",
+                  "path": "main.py",
+                  "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+                }
+              ]
+            },
+            "archive": {
+              "source": "example.zip",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          }
+        ]
+      },
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/a",
+            "revision": "r1"
+          },
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": [
+          {
+            "consumer": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "requirement": {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a",
+              "os": "linux",
+              "arch": "arm64"
+            },
+            "provider": {
+              "id": "example/a",
+              "revision": "r1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "platform-dependency-missing",
+      "operation": "bundle.plan",
+      "input": {
+        "apiVersion": "ext.bundle/v1",
+        "target": "darwin/arm64",
+        "packages": [
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "example/consumer",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.consumer",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "main",
+                  "path": "main.py",
+                  "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+                }
+              ],
+              "requires": [
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read",
+                  "provider": "example/a",
+                  "os": "linux",
+                  "arch": "arm64"
+                },
+                {
+                  "contract": {
+                    "name": "example.value",
+                    "version": "v1"
+                  },
+                  "operation": "read",
+                  "provider": "example/macos",
+                  "os": "darwin",
+                  "arch": "arm64"
+                }
+              ]
+            },
+            "archive": {
+              "source": "example.zip",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          },
+          {
+            "manifest": {
+              "apiVersion": "ext.package/v1",
+              "descriptor": {
+                "apiVersion": "ext.plugin/v1",
+                "identity": {
+                  "id": "example/a",
+                  "revision": "r1"
+                },
+                "contracts": [
+                  {
+                    "name": "example.value",
+                    "version": "v1",
+                    "operations": [
+                      {
+                        "name": "read"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "artifacts": [
+                {
+                  "name": "main",
+                  "path": "main.py",
+                  "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+                }
+              ]
+            },
+            "archive": {
+              "source": "example.zip",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          }
+        ]
+      },
+      "status": "not_found"
+    }
+  ]
+}

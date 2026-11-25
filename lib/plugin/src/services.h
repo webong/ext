@@ -14,4 +14,5 @@ int ext_path_fold_tree_contains(const char *tree, const char *path);
  * paths that ext_path_fold_equal calls equal are the same bytes. NULL when the
  * path is not valid UTF-8 or memory runs out; free it. */
 char *ext_path_fold_key(const char *path);
+void ext_package_graph_identity(yyjson_val *identity, char key[65]);
 #endif

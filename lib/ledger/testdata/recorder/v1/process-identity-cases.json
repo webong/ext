@@ -1,0 +1,98 @@
+{
+  "about": "Canonical references shared with observe_processes; a PID without a birth token never identifies an instance.",
+  "cases": [
+    {
+      "name": "original",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 42,
+        "start_id": "boot:100"
+      },
+      "status": "ok",
+      "result": {
+        "namespace": "ext.system",
+        "id": "host-process/644f73cc9c3654099ccae6a8",
+        "host_id": "fixture-host",
+        "pid": 42,
+        "start_id": "boot:100"
+      }
+    },
+    {
+      "name": "reused-pid",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 42,
+        "start_id": "boot:101"
+      },
+      "status": "ok",
+      "result": {
+        "namespace": "ext.system",
+        "id": "host-process/f260b946be624b312355832f",
+        "host_id": "fixture-host",
+        "pid": 42,
+        "start_id": "boot:101"
+      }
+    },
+    {
+      "name": "other-pid",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 43,
+        "start_id": "boot:100"
+      },
+      "status": "ok",
+      "result": {
+        "namespace": "ext.system",
+        "id": "host-process/a443d043dff2eb1c552ed11c",
+        "host_id": "fixture-host",
+        "pid": 43,
+        "start_id": "boot:100"
+      }
+    },
+    {
+      "name": "missing-birth",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 42,
+        "start_id": ""
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "zero-pid",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 0,
+        "start_id": "boot:100"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "fractional-pid",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 1.5,
+        "start_id": "boot:100"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "missing-host",
+      "input": {
+        "host_id": "",
+        "pid": 42,
+        "start_id": "boot:100"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "embedded-nul",
+      "input": {
+        "host_id": "fixture-host",
+        "pid": 42,
+        "start_id": "a\u0000b"
+      },
+      "status": "invalid"
+    }
+  ]
+}

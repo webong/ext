@@ -567,3 +567,5 @@ size_t ext_channel_stderr(ext_channel *c, uint8_t *buffer, size_t capacity) {
   pthread_mutex_unlock(&c->mu);
   return n;
 }
+
+uint64_t ext_channel_process_id(ext_channel *c) { return (uint64_t)GetProcessId(c->process); }

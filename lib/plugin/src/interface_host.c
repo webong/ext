@@ -9,6 +9,7 @@
  * queued, so a binding that has handled every event up to it has seen all a finished call caused. */
 #include "interface_host.h"
 #include "progress.h"
+#include "registry.h"
 #include "sync.h"
 #include "wire.h"
 #include <errno.h>
@@ -33,6 +34,11 @@ typedef struct waiter {
 
 struct ext_interface_host {
   ext_plugin_host *host;
+  ext_interface_host *event_sink;
+  yyjson_val *graph_consumer, *graph_routes;
+  ext_plugin_registry *registry;
+  void **targets;
+  size_t target_count;
   pthread_mutex_t m;
   pthread_cond_t c;
   event *head, *tail;
@@ -189,9 +195,32 @@ static void progress_cb(void *user, const uint8_t *json, size_t len) {
   notify_tagged(c->h, "progress", c->tag, json, len);
 }
 static int32_t reverse_authorize_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
+  ext_interface_host *h = user;
+  char *envelope = NULL;
+  size_t size = len;
+  if (h->event_sink) {
+    yyjson_doc *request = ext_parse(json, len);
+    yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
+    yyjson_val *r = request ? yyjson_doc_get_root(request) : NULL, *provider = NULL, *route;
+    size_t i, n;
+    yyjson_arr_foreach(h->graph_routes, i, n, route)
+      if (ext_same_ref(yyjson_obj_get(route, "contract"), yyjson_obj_get(r, "contract")) &&
+          ext_same(yyjson_obj_get(route, "operation"), yyjson_obj_get(r, "operation")))
+        provider = yyjson_obj_get(route, "provider");
+    yyjson_mut_val *v = d ? yyjson_mut_obj(d) : NULL;
+    if (v && r && provider && yyjson_mut_obj_add_val(d, v, "consumer", yyjson_val_mut_copy(d, h->graph_consumer)) &&
+        yyjson_mut_obj_add_val(d, v, "provider", yyjson_val_mut_copy(d, provider)) &&
+        yyjson_mut_obj_add_val(d, v, "request", yyjson_val_mut_copy(d, r))) {
+      yyjson_mut_doc_set_root(d, v);
+      envelope = yyjson_mut_write(d, 0, &size);
+    }
+    yyjson_mut_doc_free(d); yyjson_doc_free(request);
+    if (!envelope) return 1;
+    json = (const uint8_t *)envelope;
+  }
   waiter w;
-  int answered = ask(user, "reverse_authorize", json, len, o ? o->timeout_ms : 0, &w);
-  free(w.payload);
+  int answered = ask(h->event_sink ? h->event_sink : h, "reverse_authorize", json, size, o ? o->timeout_ms : 0, &w);
+  free(envelope); free(w.payload);
   return answered && w.allow ? 0 : 1;
 }
 static ext_plugin_status reverse_cb(void *user, const ext_plugin_call_options *o, const uint8_t *request,
@@ -266,14 +295,64 @@ static int uint32_of(yyjson_val *o, const char *key, uint32_t *out) {
   return 1;
 }
 
-ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host **out) {
-  *out = NULL;
+/* A source owns its registry and pins target hosts until after its own native
+ * host is destroyed. Edges only reference already-open hosts, so these lifetime
+ * references cannot form a cycle. Closing a target still makes it unavailable. */
+static void free_routes(ext_interface_host *h) {
+  if (h->registry) ext_plugin_registry_destroy(h->registry);
+  for (size_t i = 0; i < h->target_count; i++) ext_interface_host_release(h->targets[i]);
+  free(h->targets);
+}
+
+static ext_plugin_status bind_routes(ext_interface_host *h, yyjson_val *config,
+                                     ext_plugin_host_services *services) {
+  yyjson_val *routes = yyjson_obj_get(config, "routes");
+  if (!yyjson_is_arr(routes) || !yyjson_arr_size(routes) || yyjson_arr_size(routes) > 256)
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status s = ext_plugin_registry_create(&h->registry);
+  if (s) return s;
+  h->targets = calloc(yyjson_arr_size(routes), sizeof *h->targets);
+  if (!h->targets) return EXT_PLUGIN_NOMEM;
+  size_t i, n;
+  yyjson_val *route;
+  yyjson_arr_foreach(routes, i, n, route) {
+    yyjson_val *ref = yyjson_obj_get(route, "contract"), *op = yyjson_obj_get(route, "operation");
+    if (!EXT_FIELDS(route, "contract", "operation", "target") ||
+        !EXT_FIELDS(ref, "name", "version") || !ext_ref(ref) || !ext_text(op, 0, 0))
+      return EXT_PLUGIN_INVALID;
+    if (!ext_lookup_in(yyjson_obj_get(yyjson_obj_get(config, "descriptor"), "reverse"), ref, op))
+      return EXT_PLUGIN_UNSUPPORTED;
+    ext_interface_host *target = NULL;
+    if ((s = ext_interface_host_borrow(yyjson_obj_get(route, "target"), &target, &h->targets[h->target_count]))) return s;
+    h->target_count++;
+    const char *name = yyjson_get_str(yyjson_obj_get(ref, "name")),
+               *version = yyjson_get_str(yyjson_obj_get(ref, "version")), *operation = yyjson_get_str(op);
+    if (ext_plugin_host_get_state(target->host) != EXT_PLUGIN_HOST_READY) return EXT_PLUGIN_UNSUPPORTED;
+    if ((s = ext_registry_register_operation(h->registry, name, version, operation, target->host))) return s;
+    ext_plugin_registry_edge edge = {sizeof edge, name, version, operation, name, version, operation};
+    if ((s = ext_plugin_registry_route(h->registry, &edge))) return s;
+  }
+  services->handle = NULL;
+  return ext_plugin_registry_attach(h->registry, h->host, services);
+}
+
+ext_interface_host *ext_interface_events_new(void) {
   ext_interface_host *h = calloc(1, sizeof *h);
-  if (!h)
-    return EXT_PLUGIN_NOMEM;
+  if (!h) return NULL;
   h->event_timeout_ms = 30000;
   pthread_mutex_init(&h->m, NULL);
   pthread_cond_init(&h->c, NULL);
+  return h;
+}
+void ext_interface_host_event_sink(ext_interface_host *h, ext_interface_host *sink,
+                                  yyjson_val *consumer, yyjson_val *routes) {
+  h->event_sink = sink; h->graph_consumer = consumer; h->graph_routes = routes;
+}
+
+ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host **out) {
+  *out = NULL;
+  ext_interface_host *h = ext_interface_events_new();
+  if (!h) return EXT_PLUGIN_NOMEM;
   ext_plugin_status s = EXT_PLUGIN_INVALID;
   char *descriptor = NULL;
   size_t descriptor_len = 0;
@@ -343,15 +422,16 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
       goto fail;
   }
   yyjson_val *services = yyjson_obj_get(config, "services");
-  if (services) {
+  if (services || yyjson_obj_get(config, "routes")) {
     ext_plugin_host_services sv = {sizeof sv, h, reverse_authorize_cb, reverse_cb, 0, 0, 0, NULL};
-    if (!yyjson_is_obj(services) || !uint32_of(services, "timeout_ms", &sv.timeout_ms) ||
+    if ((services && !yyjson_is_obj(services)) || !uint32_of(services, "timeout_ms", &sv.timeout_ms) ||
         !uint32_of(services, "max_payload_bytes", &sv.max_payload_bytes) ||
         !uint32_of(services, "max_in_flight", &sv.max_in_flight)) {
       s = EXT_PLUGIN_INVALID;
       goto fail;
     }
-    if ((s = ext_plugin_host_set_services(h->host, &sv)))
+    s = yyjson_obj_get(config, "routes") ? bind_routes(h, config, &sv) : ext_plugin_host_set_services(h->host, &sv);
+    if (s)
       goto fail;
   }
   free(descriptor);
@@ -363,8 +443,8 @@ fail:
   free(descriptor);
   free(arguments);
   free(environment);
-  if (h->host)
-    ext_plugin_host_destroy(h->host);
+  if (h->host) ext_plugin_host_destroy(h->host);
+  free_routes(h);
   pthread_cond_destroy(&h->c);
   pthread_mutex_destroy(&h->m);
   free(h);
@@ -376,11 +456,12 @@ void ext_interface_host_shutdown(ext_interface_host *h) {
   h->closing = 1;
   pthread_cond_broadcast(&h->c);
   pthread_mutex_unlock(&h->m);
-  ext_plugin_host_close(h->host);
+  if (h->host) ext_plugin_host_close(h->host);
 }
 
 void ext_interface_host_free(ext_interface_host *h) {
-  ext_plugin_host_destroy(h->host);
+  if (h->host) ext_plugin_host_destroy(h->host);
+  free_routes(h);
   for (event *e = h->head, *next; e; e = next) {
     next = e->next;
     free(e->json);
@@ -532,6 +613,13 @@ ext_plugin_status ext_interface_host_call(ext_interface_host *h, const char *op,
     static const char *names[] = {"\"created\"", "\"ready\"", "\"draining\"", "\"closed\"", "\"failed\""};
     ext_plugin_host_state st = ext_plugin_host_get_state(h->host);
     return literal((size_t)st < 5 ? names[st] : "\"unknown\"", out, out_len);
+  }
+  if (!strcmp(op, "process_id")) {
+    uint64_t pid = 0;
+    ext_plugin_status s = ext_plugin_host_process_id(h->host, &pid);
+    if (s) return s;
+    char json[32]; snprintf(json, sizeof json, "%llu", (unsigned long long)pid);
+    return literal(json, out, out_len);
   }
   if (!strcmp(op, "stderr")) {
     uint8_t buffer[65536];

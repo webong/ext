@@ -116,6 +116,49 @@ static const char conformance[] =
   "{\"name\":\"badjson\"},{\"name\":\"big\"},{\"name\":\"slow\"},{\"name\":\"slowerr\"},"           \
   "{\"name\":\"gate\"},{\"name\":\"hang\"}]}]}"
 
+/* Route handles pin target storage, but never keep a closed provider available. */
+static void routing_lifetime(void) {
+  char config[8192], descriptor[4096], routes[1024];
+  snprintf(config, sizeof config,
+    "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"shared_library\",\"path\":\"%s\"},\"verify\":\"allow\",\"authorize\":\"allow\"}", conformance, EXT_TEST_GUEST);
+  uint64_t target = open_json(config, EXT_PLUGIN_OK);
+  ext_plugin_free(call(target, "start", "{\"timeout_ms\":5000}", EXT_PLUGIN_OK));
+  uint64_t second = open_json(config, EXT_PLUGIN_OK);
+  ext_plugin_free(call(second, "start", "{\"timeout_ms\":5000}", EXT_PLUGIN_OK));
+  snprintf(descriptor, sizeof descriptor,
+    "%.*s,\"reverse\":[{\"name\":\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},{\"name\":\"wait\"}]}]}",
+    (int)strlen(conformance)-1, conformance);
+  snprintf(routes, sizeof routes,
+    "{\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":\"echo\",\"target\":%llu}",
+    (unsigned long long)target);
+  snprintf(config, sizeof config,
+    "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"process\",\"executable\":\"%s\"},\"verify\":\"allow\",\"authorize\":\"allow\",\"routes\":[%s,%s]}", descriptor, EXT_REVERSE_GUEST, routes, routes);
+  open_json(config, EXT_PLUGIN_EXISTS);
+  snprintf(config, sizeof config,
+    "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"process\",\"executable\":\"%s\"},\"verify\":\"allow\",\"authorize\":\"allow\",\"routes\":[%s]}", conformance, EXT_REVERSE_GUEST, routes);
+  open_json(config, EXT_PLUGIN_UNSUPPORTED); /* source did not declare reverse */
+  snprintf(config, sizeof config,
+    "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"process\",\"executable\":\"%s\"},\"verify\":\"allow\",\"authorize\":\"allow\",\"routes\":[%s]}", descriptor, EXT_REVERSE_GUEST, routes);
+  uint64_t source = open_json(config, EXT_PLUGIN_OK);
+  CHECK(ext_plugin_close(source) == EXT_PLUGIN_OK, "close initial source");
+  char single_config[8192];
+  memcpy(single_config, config, sizeof single_config);
+  snprintf(config, sizeof config,
+    "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"process\",\"executable\":\"%s\"},\"verify\":\"allow\",\"authorize\":\"allow\",\"routes\":[%s,{\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":\"wait\",\"target\":%llu}]}", descriptor, EXT_REVERSE_GUEST, routes, (unsigned long long)second);
+  source = open_json(config, EXT_PLUGIN_OK);
+  CHECK(ext_plugin_close(source) == EXT_PLUGIN_OK, "close source with two targets of one contract");
+  CHECK(ext_plugin_close(second) == EXT_PLUGIN_OK, "close second operation provider");
+  memcpy(config, single_config, sizeof config);
+  source = open_json(config, EXT_PLUGIN_OK);
+  CHECK(ext_plugin_close(source) == EXT_PLUGIN_OK, "close source before target");
+  expect(target, "state", NULL, "\"ready\"");
+  source = open_json(config, EXT_PLUGIN_OK);
+  CHECK(ext_plugin_close(target) == EXT_PLUGIN_OK, "close a pinned target");
+  expect(source, "state", NULL, "\"created\"");
+  open_json(config, EXT_PLUGIN_NOT_FOUND);
+  CHECK(ext_plugin_close(source) == EXT_PLUGIN_OK, "release closed target after source");
+}
+
 static void hosts(void) {
   char config[8192];
   /* A shared-library guest whose verify and authorize policies are answered as events. */
@@ -194,6 +237,27 @@ static void hosts(void) {
             EXT_PLUGIN_INVALID);
 }
 
+static void execution_graph(void) {
+  const char *config =
+    "{\"object\":\"execution_graph\",\"temp_root\":\".\",\"os\":\"linux\",\"arch\":\"amd64\","
+    "\"root\":{\"identity\":{\"id\":\"graph/root\",\"revision\":\"r1\"},\"contract\":{\"name\":\"example\",\"version\":\"v1\"}},"
+    "\"packages\":[{\"directory\":\"missing\",\"manifest\":{\"apiVersion\":\"ext.package/v1\","
+    "\"descriptor\":{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"graph/root\",\"revision\":\"r1\"},"
+    "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]},"
+    "\"artifacts\":[{\"name\":\"guest\",\"path\":\"guest\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"}]}}]}";
+  uint64_t g = open_json(config, EXT_PLUGIN_OK);
+  expect(g, "plan", "{}", "\"order\":[0]");
+  ext_plugin_free(call(g, "call", "{\"call\":{}}", EXT_PLUGIN_CLOSED));
+  ext_plugin_free(call(g, "start", "{\"reviews\":[],\"timeout_ms\":0}", EXT_PLUGIN_INVALID));
+  ext_plugin_free(call(g, "start", "{\"reviews\":[]}", EXT_PLUGIN_DENIED));
+  ext_plugin_free(call(g, "start", "{\"reviews\":[]}", EXT_PLUGIN_CLOSED));
+  CHECK(ext_plugin_close(g) == EXT_PLUGIN_OK, "close denied graph");
+  g = open_json(config, EXT_PLUGIN_OK);
+  CHECK(ext_plugin_close(g) == EXT_PLUGIN_OK, "close graph before start");
+  ext_plugin_free(call(g, "plan", "{}", EXT_PLUGIN_NOT_FOUND));
+  open_json("{\"object\":\"execution_graph\"}", EXT_PLUGIN_INVALID);
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "usage: %s <work-dir>\n", argv[0]);
@@ -210,11 +274,37 @@ int main(int argc, char **argv) {
 
   CHECK(ext_plugin_abi_version() == EXT_PLUGIN_ABI_VERSION, "abi version");
 
+  CHECK(open_json("{\"object\":\"package_writer\",\"root\":\"bad\\u0000path\"}", EXT_PLUGIN_INVALID) == 0,
+        "writer accepted a truncated root");
+  /* A described writer contends with existing CLI directory locks. */
+  snprintf(config, sizeof config, "{\"object\":\"package_writer\",\"root\":\"%s\"}", user);
+  ext_plugin_store_writer *direct = NULL;
+  CHECK(ext_plugin_store_writer_acquire(NULL, &direct) == EXT_PLUGIN_INVALID, "null writer home");
+  CHECK(ext_plugin_store_writer_acquire(user, NULL) == EXT_PLUGIN_INVALID, "null writer output");
+  CHECK(ext_plugin_store_writer_acquire(user, &direct) == EXT_PLUGIN_OK, "direct writer acquire");
+  CHECK(open_json(config, EXT_PLUGIN_EXISTS) == 0, "described writer bypassed direct writer");
+  CHECK(ext_plugin_store_writer_release(direct) == EXT_PLUGIN_OK, "direct writer release");
+  CHECK(ext_plugin_store_writer_release(direct) == EXT_PLUGIN_OK, "direct release twice");
+  ext_plugin_store_writer_free(direct);
+  uint64_t writer = open_json(config, EXT_PLUGIN_OK);
+  direct = NULL;
+  CHECK(ext_plugin_store_writer_acquire(user, &direct) == EXT_PLUGIN_EXISTS && direct == NULL,
+        "direct writer bypassed described writer");
+  CHECK(open_json(config, EXT_PLUGIN_EXISTS) == 0, "contended writer returned a handle");
+  ext_plugin_free(call(writer, "unknown", "{}", EXT_PLUGIN_UNSUPPORTED));
+  CHECK(ext_plugin_close(writer) == EXT_PLUGIN_OK, "close writer");
+  writer = open_json(config, EXT_PLUGIN_OK);
+  CHECK(ext_plugin_close(writer) == EXT_PLUGIN_OK, "reacquire writer");
+
   /* Handle 0: a pure service, the digests and the trust records. */
   expect(0, "protocol.negotiate", "{\"preferred\":[\"a\",\"b\"],\"offered\":[\"b\"]}", "\"b\"");
   ext_plugin_free(call(0, "descriptor.match", "{}", EXT_PLUGIN_INVALID));
   ext_plugin_free(call(0, "no.such.service", "{}", EXT_PLUGIN_UNSUPPORTED));
   expect(0, "code_name", "{\"code\":10}", "\"not_found\"");
+  /* The public description accepts manifest arrays, including an empty plan. */
+  expect(0, "package.resolve", "[]", "\"order\":null");
+  ext_plugin_free(call(0, "package.resolve", "{}", EXT_PLUGIN_INVALID));
+  ext_plugin_free(call(0, "package.resolve", "[{}]", EXT_PLUGIN_INVALID));
   /* describe serves interface.json as it is. */
   FILE *f = fopen(EXT_INTERFACE_JSON, "rb");
   CHECK(f != NULL, "open %s", EXT_INTERFACE_JSON);
@@ -252,6 +342,7 @@ int main(int argc, char **argv) {
   expect(store, "list_unverified", NULL, "\"packages\"");
   ext_plugin_free(call(store, "load", "{\"id\":\"example/missing\"}", EXT_PLUGIN_NOT_FOUND));
   ext_plugin_free(call(store, "install", "{}", EXT_PLUGIN_INVALID));
+  ext_plugin_free(call(store, "snapshot", "{}", EXT_PLUGIN_INVALID));
   ext_plugin_free(call(store, "nothing", "{}", EXT_PLUGIN_UNSUPPORTED));
   ext_plugin_free(call(store, "ids", "[1]", EXT_PLUGIN_INVALID));
   make_dir(user);
@@ -270,6 +361,8 @@ int main(int argc, char **argv) {
   open_json("not json", EXT_PLUGIN_INVALID);
 
   hosts();
+  routing_lifetime();
+  execution_graph();
 
   if (failures) {
     fprintf(stderr, "%d failures\n", failures);

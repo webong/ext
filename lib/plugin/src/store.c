@@ -30,6 +30,32 @@
 #define STORE_RECEIPTS ".receipts"
 #define STORE_RECEIPT_MAX (1u << 16)
 
+struct ext_plugin_store_writer { ext_fs_writer *owned; };
+
+ext_plugin_status ext_plugin_store_writer_acquire(const char *home, ext_plugin_store_writer **out) {
+  if (!out) return EXT_PLUGIN_INVALID;
+  *out = NULL;
+  if (!home || !*home) return EXT_PLUGIN_INVALID;
+  ext_plugin_store_writer *writer = calloc(1, sizeof *writer);
+  if (!writer) return EXT_PLUGIN_NOMEM;
+  ext_fs *fs = NULL;
+  ext_plugin_status s = ext_fs_make_root(home);
+  if (!s) s = ext_fs_open(home, &fs);
+  if (!s) s = ext_fs_writer_acquire(fs, &writer->owned);
+  ext_fs_close(fs);
+  if (s) { free(writer); return s; }
+  *out = writer;
+  return EXT_PLUGIN_OK;
+}
+ext_plugin_status ext_plugin_store_writer_release(ext_plugin_store_writer *writer) {
+  return writer ? ext_fs_writer_release(writer->owned) : EXT_PLUGIN_INVALID;
+}
+void ext_plugin_store_writer_free(ext_plugin_store_writer *writer) {
+  if (!writer) return;
+  ext_fs_writer_free(writer->owned);
+  free(writer);
+}
+
 static int valid_id(const char *id) {
   if (!id || !*id)
     return 0;
@@ -483,7 +509,8 @@ static ext_plugin_status check_upgrade(ext_fs *fs, const char *name, yyjson_val 
 
 enum { PUT_INSTALL, PUT_UPGRADE, PUT_REPLACE };
 static ext_plugin_status put(ext_plugin_store *store, int mode, const char *source,
-                      uint32_t flags, ext_plugin_buffer *out) {
+                      uint32_t flags, const char *expected_id, const char *reviewed_digest,
+                      ext_plugin_buffer *out) {
   if (!store || !source || !*source || !out ||
       (flags & ~EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE))
     return EXT_PLUGIN_INVALID;
@@ -495,7 +522,16 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
   char *name = NULL, *staging = NULL;
   int missing = 0, replacing = 0;
   ext_fs_kind kind = EXT_FS_NONE;
-  ext_plugin_status s = check_directory(source, NULL, 1, 1, &manifest, &doc);
+  ext_plugin_status s = check_directory(source, expected_id, 1, 1, &manifest, &doc);
+  if (!s && reviewed_digest) {
+    uint8_t raw[32];
+    char digest[65];
+    s = ext_plugin_directory_digest(source, raw);
+    if (!s) {
+      ext_hash_hex(raw, digest);
+      if (strcmp(digest, reviewed_digest)) s = EXT_PLUGIN_DENIED;
+    }
+  }
   yyjson_val *m = doc ? yyjson_doc_get_root(doc) : NULL;
   if (!s) {
     name = dir_name(manifest_string(m, "descriptor", "identity", "id"));
@@ -530,6 +566,17 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
   }
   if (!s)
     s = stage(store, fs, source, m, &manifest, flags, &staging);
+  if (!s && reviewed_digest) {
+    char *directory = under(store->root, staging);
+    uint8_t raw[32];
+    char digest[65];
+    s = directory ? ext_plugin_directory_digest(directory, raw) : EXT_PLUGIN_NOMEM;
+    if (!s) {
+      ext_hash_hex(raw, digest);
+      if (strcmp(digest, reviewed_digest)) s = EXT_PLUGIN_MISMATCH;
+    }
+    free(directory);
+  }
   if (!s)
     s = replacing ? swap_in(fs, staging, name) : ext_fs_rename(fs, staging, name);
   if (s && staging)
@@ -548,16 +595,30 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
 }
 ext_plugin_status ext_plugin_store_install(ext_plugin_store *store, const char *source,
                              uint32_t flags, ext_plugin_buffer *manifest) {
-  return put(store, PUT_INSTALL, source, flags, manifest);
+  return put(store, PUT_INSTALL, source, flags, NULL, NULL, manifest);
 }
 ext_plugin_status ext_plugin_store_upgrade(ext_plugin_store *store, const char *source,
                              uint32_t flags, ext_plugin_buffer *manifest) {
-  return put(store, PUT_UPGRADE, source, flags, manifest);
+  return put(store, PUT_UPGRADE, source, flags, NULL, NULL, manifest);
 }
 ext_plugin_status ext_plugin_store_replace(ext_plugin_store *store, const char *source,
                              uint32_t flags, ext_plugin_buffer *manifest) {
-  return put(store, PUT_REPLACE, source, flags, manifest);
+  return put(store, PUT_REPLACE, source, flags, NULL, NULL, manifest);
 }
+ext_plugin_status ext_plugin_store_snapshot(ext_plugin_store *store, const char *source,
+    const char *id, const char *reviewed_digest, ext_plugin_buffer *manifest) {
+  if (!manifest) return EXT_PLUGIN_INVALID;
+  *manifest = (ext_plugin_buffer){0};
+  if (!valid_id(id) || !reviewed_digest || strlen(reviewed_digest) != 64)
+    return EXT_PLUGIN_INVALID;
+  for (size_t i = 0; i < 64; i++)
+    if (!((reviewed_digest[i] >= '0' && reviewed_digest[i] <= '9') ||
+          (reviewed_digest[i] >= 'a' && reviewed_digest[i] <= 'f')))
+      return EXT_PLUGIN_INVALID;
+  return put(store, PUT_INSTALL, source, EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE,
+             id, reviewed_digest, manifest);
+}
+
 /* The receipt of a package, below the root: ".receipts/<directory name>.json". */
 static char *receipt_path(const char *id) {
   char *name = dir_name(id);
@@ -1519,7 +1580,8 @@ static ext_plugin_status select_entrypoint(yyjson_val *m, const char *protocol,
   yyjson_val *entry;
   yyjson_arr_foreach(yyjson_obj_get(m, "entrypoints"), i, n, entry) {
     const char *name = text_of(yyjson_obj_get(entry, "name"));
-    if (strcmp(text_of(yyjson_obj_get(entry, "runtime")), "argv") ||
+    const char *runtime = text_of(yyjson_obj_get(entry, "runtime"));
+    if ((strcmp(runtime, "argv") && strcmp(runtime, "process")) ||
         !lists_protocol(yyjson_obj_get(entry, "protocols"), protocol) ||
         !entry_matches_os(name, os))
       continue;

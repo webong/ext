@@ -39,6 +39,8 @@ ptrdiff_t ext_channel_write(ext_channel *c, const uint8_t *buffer,
 void ext_channel_kill(ext_channel *c);
 /* Kills if needed, reaps the child, stops helper threads and frees c. */
 void ext_channel_destroy(ext_channel *c);
+/* Locator only; the channel retains the child until destruction. */
+uint64_t ext_channel_process_id(ext_channel *c);
 /* Copies up to capacity bytes of the retained stderr; returns the retained
  * size. */
 size_t ext_channel_stderr(ext_channel *c, uint8_t *buffer, size_t capacity);

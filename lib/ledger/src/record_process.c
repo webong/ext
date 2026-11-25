@@ -206,12 +206,37 @@ static char *instance_id(const char *host, const lj_value *p) {
   lj_buf_puts(&b, pid);
   lj_buf_putc(&b, 0);
   lj_buf_puts(&b, str(p, "start_id"));
+  if (b.oom) { lj_buf_free(&b); return NULL; }
   char d[25];
   digest_of(d, &b);
   lj_buf_free(&b);
   char *id = malloc(48);
   if (id) snprintf(id, 48, "host-process/%s", d);
   return id;
+}
+
+/* Expose the recorder's exact identity rule, without collecting or granting
+ * authority. A missing birth token cannot identify a process instance. */
+int ext_ledger_process_identity(const char *host, int64_t pid, const char *start,
+                                char **out, size_t *out_len) {
+  if (out) *out = NULL;
+  if (!host || !*host || strlen(host) > 4096 || !start || !*start || strlen(start) > 4096 ||
+      pid < 1 || pid > 2147483647 || !out || !out_len) return EXT_LEDGER_INVALID;
+  lj_value *p = rec_obj();
+  int bad = rec_set(p,"pid",rec_num((double)pid)) | rec_set(p,"start_id",rec_str(start));
+  char *id = bad ? NULL : instance_id(host,p);
+  lj_free(p);
+  if (!id) return EXT_LEDGER_UNAVAILABLE;
+  lj_value *v = rec_obj();
+  bad = rec_set(v,"namespace",rec_str(REC_NS)) | rec_set(v,"id",rec_str(id)) |
+    rec_set(v,"host_id",rec_str(host)) | rec_set(v,"pid",rec_num((double)pid)) | rec_set(v,"start_id",rec_str(start));
+  free(id);
+  lj_buf b = {0};
+  if (!bad) lj_write(&b,v);
+  lj_free(v);
+  if (bad || b.oom) { lj_buf_free(&b); return EXT_LEDGER_UNAVAILABLE; }
+  *out = lj_buf_take(&b,out_len);
+  return *out ? EXT_LEDGER_OK : EXT_LEDGER_UNAVAILABLE;
 }
 
 static ll_time provenance_at(const lj_value *v) {

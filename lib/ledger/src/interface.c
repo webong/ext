@@ -361,6 +361,16 @@ static int call_library(const char *op, const lj_value *in, char **out, size_t *
         (strcmp(what, "process") ? has_pid || has_resources : !has_pid)) return EXT_LEDGER_INVALID;
     return ll_collect_with_options(ctx, what, limit, pid, resource_limit, out, out_len);
   }
+  if (!strcmp(op, "process_identity")) {
+    int64_t pid = 0;
+    const lj_value *locator=lj_get(in,"pid");
+    if (!locator || locator->type!=LJ_NUMBER || locator->u.number<1 || locator->u.number>2147483647 ||
+        num(in,"pid",&pid) != 1) return EXT_LEDGER_INVALID;
+    const lj_value *host=lj_get(in,"host_id"), *birth=lj_get(in,"start_id");
+    if (!host || host->type!=LJ_STRING || strlen(host->u.string.ptr)!=host->u.string.len ||
+        !birth || birth->type!=LJ_STRING || strlen(birth->u.string.ptr)!=birth->u.string.len) return EXT_LEDGER_INVALID;
+    return ext_ledger_process_identity(str(in,"host_id"),pid,str(in,"start_id"),out,out_len);
+  }
   if (!strcmp(op, "collect_environment")) return ext_ledger_collect_environment(out, out_len);
   if (!strcmp(op, "vocabulary")) {
     const char *v = ext_ledger_recorder_vocabulary();
@@ -406,9 +416,9 @@ static int call_store(ext_ledger_store *s, const char *op, const lj_value *in, c
     free(text);
     return rc ? rc : null_out(out, out_len);
   }
-  if (!strcmp(op, "apply")) {
+  if (!strcmp(op, "apply") || !strcmp(op, "reconcile")) {
     if ((rc = encoded(in, "transaction", &text, &n))) return rc;
-    rc = ext_ledger_store_apply(s, ctx, text, n, out, out_len);
+    rc = !strcmp(op, "reconcile") ? ext_ledger_store_reconcile(s, ctx, text, n, out, out_len) : ext_ledger_store_apply(s, ctx, text, n, out, out_len);
     free(text);
     return rc;
   }

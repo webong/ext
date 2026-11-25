@@ -25,7 +25,22 @@ in service-owned structures are rejected. Unknown operations return
 | `endpoint.check` | Endpoint | The endpoint |
 | `endpoint.validate` | `{endpoint,policy}` | The endpoint |
 
-Requirements use `{contract:{name,version},operation,identity?}`. Route profiles
+Requirements use `{contract:{name,version},operation,identity?,provider?}`.
+`provider` selects a package ID across revisions; a nonempty selector and an
+exact `identity` pin are mutually exclusive. Missing, null or empty `provider`
+means no named selection. Matching multiple revisions remains ambiguous; the
+resolver never chooses a latest revision. Package `requires` uses the same rule.
+Package requirements additionally allow optional `os` and `arch` conditions,
+using the same exact tokens as artifacts; empty or omitted conditions match any
+target. These conditions are package-planning fields, not descriptor selectors.
+`package.resolve_for` accepts `{packages:[Manifest],os,arch}` with both target
+tokens required, and resolves only matching requirements. It validates every
+manifest and requirement before selection, including inactive requirements.
+The original array-based `package.resolve` rejects conditional requirements:
+callers must provide a target rather than accidentally resolve all platforms.
+`bundle.plan` uses its declared target for the same selection. Resolution never
+changes stored manifests, verifies execution compatibility or grants approval.
+Route profiles
 use the public BackendProfile JSON fields. Route requirements use lowercase
 `concurrent`, `nativeStreaming`, and `nativeCallbacks`. Direct routes are preferred;
 a bridge is considered only when declared, with exact common protocol and the
@@ -194,3 +209,290 @@ not an isolation boundary.
   filesystem helpers are still missing.
 
 See `docs/plugin-engine-parity.md` for the remaining migration requirements.
+
+## Native routing through the described host
+
+A described `host` may include `routes`, a nonempty array of at most 256
+`{contract:{name,version},operation,target:<host handle>}` entries. Each entry
+forwards that declared reverse operation unchanged to an already-started target
+host through the native registry. The source must declare the reverse operation;
+the target must offer that exact contract and operation. Duplicate operations
+fail with `exists`. Different operations of one contract may use different
+targets. No name-based fallback occurs.
+
+`reverse_authorize` remains an application event and defaults to denial when
+unhandled. Forward authorization still runs on the target. Routed calls do not
+raise a `reverse` handling event: the C registry carries the remaining deadline,
+cancellation and public response across the call. Optional `services` settings
+still bound time, payload size and concurrency. Routes neither load packages nor
+grant trust; applications supply already-reviewed host handles.
+
+The source pins target storage until the source is destroyed. Closing a target
+handle still shuts it down immediately and subsequent forwarding reports
+`reverse_unavailable`; it does not leave a dangling reference. Closing the source
+destroys its session and registry before releasing its target references. Targets
+must already exist, so these ownership references cannot form cycles.
+
+`package.routes` compiles route candidates from
+`{packages:[Manifest],os,arch,consumer:Identity}`. It resolves the complete graph
+for the explicit target, finds the exact consumer identity, then returns
+`[{contract,operation,provider:Identity}]` for its resolved requirements that
+also appear in its reverse declarations. Admission-only requirements and
+host-provided reverse operations without package requirements are not routes.
+Overlapping requirements selecting the same provider are deduplicated; different
+providers for the same operation are ambiguous. Distinct operations may select
+different providers of one contract. Invalid inactive declarations still fail.
+Shared cases are in `testdata/v1/routing-cases.json`.
+
+This service creates no hosts and grants no authority. The application selects
+the candidates it permits, verifies their packages and trust, opens providers,
+and maps each full provider identity to a reviewed host handle before supplying
+`routes` to the source. It must still authorize each reverse call.
+
+## Catalog indexes
+
+`catalog.validate` accepts the existing artifact index object:
+`{"format_version":1,"name":"example/tools","packages":{"linux/amd64":{"url":"tools.zip","sha256":"<64 hexadecimal characters>"}}}`.
+It returns the validated index. It permits 1–256 target entries, each an exact
+`os/arch` token pair, URLs of 1–4096 bytes without whitespace/control bytes, and
+SHA-256 pins. Unknown fields are invalid. Package names follow the identity ID
+vocabulary. The caller bounds the encoded document and enforces URL transport,
+origin, authentication and relative-path policy before downloading.
+
+`catalog.select` takes `{"index":<index>,"target":"linux/amd64"}` and returns
+that target's `{url,sha256}`; an absent target returns `not_found`, malformed
+input `invalid`. Neither operation downloads, installs, resolves runtime
+providers or grants trust. Shared cases are `testdata/v1/catalog-cases.json`.
+
+## Bundle planning
+
+`bundle.plan` takes `{apiVersion:"ext.bundle/v1",target:"os/arch",packages:[{manifest:<sealed package manifest>,archive:{source:<location>,sha256:<pin>}}]}`.
+It validates 1–256 selections, one revision per package ID, archive source text
+and pins, then returns the existing `package.resolve` `{order,bindings}` result.
+The complete dependency graph must be present. It does not download, install,
+interpret native library interfaces or grant trust. Unknown fields are rejected.
+Target and location policy at installation time belong to the caller. Shared
+cases are in `testdata/v1/bundle-cases.json`; see [bundle workflow](../../docs/bundles.md).
+
+### Resource discovery request validation
+
+`resource.request.validate` accepts `{"operation":"list|inspect","request":{...}}`
+and returns the request unchanged. It validates `ext.resource/v1` request shape
+only; it does not discover, invoke or authorize a provider. Unknown operations
+return `unsupported`; malformed envelopes and requests return `invalid`.
+
+A list request permits only:
+
+- `type`: optional nonempty contract-style token (maximum 256 bytes).
+- `limit`: optional integer from 1 through 100. Omission leaves the provider's
+  bounded default in effect; the validator does not insert a default.
+- `cursor`: optional nonempty opaque string, at most 4096 UTF-8 bytes, without
+  ASCII controls or DEL. Explicit null and empty values are invalid; omit it
+  for the first page.
+
+An inspect request requires exactly `resource`, containing `provider` (the
+ordinary identity, requiring ID and revision), `type` (the same token rule) and
+`id` (opaque, nonempty, at most 1024 UTF-8 bytes without ASCII controls or DEL).
+The ID is neither interpreted as a filesystem path nor treated as authority.
+Provider version follows the existing identity's optional-version rule.
+
+The shared `testdata/v1/resource-cases.json` fixtures cover these boundaries.
+Response validation is described below. Live authorization, continuation-token
+lifecycle and domain-error mappings remain separate work.
+
+### Resource discovery response validation
+
+`resource.response.validate` accepts
+`{"operation":"list|inspect","provider":identity,"request":{...},"response":{...}}`.
+The host supplies the selected provider identity independently of the response.
+The service validates the original request first and returns the response
+unchanged. Shape/bounds/duplicate errors are `invalid`; a different provider,
+revision, resource or requested type is `mismatch`. Unknown operations are
+`unsupported`. These are validation results, not permission grants.
+
+A list response is `{"items":[resource-reference,...],"next":"optional-token"}`.
+It has at most the requested limit (100 when omitted), no duplicate references,
+and every reference has the selected provider identity and requested type, if
+filtered. Omit `next` at the end: explicit null or empty is invalid. A continuing
+page must contain an item and must not repeat the request cursor. This checks
+one page only: the provider remains responsible for snapshot consistency,
+authorization, token expiry and avoiding duplicates across pages.
+
+An inspect response contains exactly `resource` and `operations`. Its resource
+must equal the requested reference and match the selected provider. Operations
+is an array of 0–64 entries, each containing exactly `contract` (name/version),
+`operation`, `input` and `output`. Contract/operation pairs are unique. Input
+and output use the engine's existing inline schema vocabulary, with depth 16
+and a shared 1024-node budget for the entire response. No external schema lookup
+or provider-specific dispatch is needed. Before calling one of these operations,
+a host must still check the live provider descriptor and its own authorization
+policy; this validator does neither.
+
+Successful responses have no arbitrary metadata extension in v1. Domain failures
+use the existing plugin response error envelope rather than embedding an error
+in these success payloads. The detailed domain mapping remains consumer-owned.
+
+### Native job envelopes in bundles
+
+`bundle.plan` accepts an optional `native` array of up to 64 jobs. Each job has
+`citation` (an object identifying `ext.library.citation/v1`), `drivers` (1–3
+distinct names among cgo, c2go and purego), `dir` (a portable relative path),
+and optional `package`. A bundle may have an empty `packages` array when it
+has native jobs. The service still returns the package dependency plan.
+
+The C service validates this envelope only. Full citation validation, native
+target/driver resolution, generated language package naming and destination
+overlap checks belong to the existing native-library layer and CLI composition.
+The CLI completes those checks before reporting a plan. No native archive is
+loaded, fetched or executed by this service.
+
+### Resource discovery errors
+
+`resource.error.validate` accepts `{"operation":"list|inspect","request":{...},"error":{...}}`.
+It validates the request and the existing plugin remote-error envelope, returning
+the error unchanged. The envelope's message and retry-hint bounds still apply;
+messages are untrusted diagnostics. No error grants authority or triggers a retry.
+
+| Code | Discovery meaning |
+| --- | --- |
+| `invalid` | Request parameters are invalid for this provider. |
+| `not_found` | The requested resource no longer exists or is not exposed. |
+| `denied` | The caller lacks permission for this discovery operation. |
+| `unsupported` | The discovery operation or requested resource type is unsupported. |
+| `mismatch` | A reference or continuation context does not match this request. |
+| `expired` | A supplied list cursor has expired; only valid on list requests with a cursor. |
+| `closed` | The provider's discovery session is closed. |
+| `canceled` | The operation was canceled. |
+| `timeout` | The operation exceeded its deadline. |
+| `capacity` | The provider cannot admit more work. |
+| `io` | Discovery failed due to an I/O error. |
+| `operation_failed` | An otherwise unclassified discovery failure. |
+
+Unknown categories and malformed envelopes return `invalid`. Providers may use
+`not_found` instead of revealing whether an inaccessible resource exists. These
+categories describe discovery only: a database key missing, unavailable codec,
+or backend mismatch belongs to the database operation's domain contract. The
+engine does not infer those mappings from a provider name or error text.
+
+### Resource operation selection and call validation
+
+`resource.operation.select` accepts `{descriptor, inspection, requirement}`.
+`requirement` contains `{resource, contract, operation}`. It validates the
+inspection's complete operation list and schemas, matches the exact resource
+reference and provider identity, and requires the requested contract operation
+in both the inspection and provider descriptor. It returns the inspected
+operation (including its schemas). Missing declarations return `not_found`,
+identity/reference disagreement returns `mismatch`, and malformed declarations
+return `invalid`. Selection never authorizes or invokes an operation.
+
+`resource.call.validate` accepts `{selection, payload}`, where `selection` is
+the input above. It repeats selection and validates the payload against the resource operation's input schema. Provider
+descriptors establish operation availability; they do not contain schemas. It
+returns the payload unchanged. An explicit JSON null payload
+is permitted only when the applicable schemas accept null; omitting payload is
+invalid.
+
+These are pure validation services. The consuming application's domain contract
+must bind the resource reference to the actual operation, authorize that resource
+and action, and validate its result. Ext does not inject a resource ID into an
+arbitrary payload or infer an operation from a resource type. A validated
+inspection is a live observation, not a durable grant: the provider must enforce
+resource existence and authority again during invocation. The CLI resource call uses an explicit `{resource, input}` payload envelope;
+see the resource discovery design for its invocation and authority rules.
+
+`resource.call.request.validate` checks the CLI call request
+`{resource, contract, operation, input}` before provider launch and returns it
+unchanged. Every field is required, input may be any JSON value, and extra fields
+are invalid. This structural validation does not authorize a call.
+
+`resource.result.validate` accepts `{selection, payload}` like call validation,
+but checks the selected resource operation's output schema. It returns the
+validated success payload unchanged. Domain errors use the plugin error envelope
+and are validated by the host protocol, not as success payloads or discovery errors.
+
+## Cooperating package writers
+
+The described `package_writer` object opens with `{root: "<ext-home>"}` and holds
+`root/.package-write.lock` exclusively until close. It creates the home if
+needed. A competing C or CLI writer receives `exists`; no waiting, timeout,
+owner inference or stale-lock stealing occurs. The object has no call operations.
+Close checks directory identity, removes only that empty directory, and reports
+`mismatch` if another directory replaced it. A failed close still consumes the
+handle and leaves the replacement intact. Process loss leaves a stale lock;
+recover it only after establishing that the prior writer stopped.
+
+The portable store also exposes `ext_plugin_store_writer_acquire`,
+`ext_plugin_store_writer_release` and `ext_plugin_store_writer_free`. These use
+exactly the same lock and ship wherever the store does, including mobile SDKs
+without the process host. Release is idempotent; free releases if needed and
+consumes the pointer. Calls on one pointer must be serialized. The described
+object delegates to this API. Language bindings must reject embedded NULs before
+passing paths to the C-string API.
+
+Hold this handle across dependency planning, package publication and approval
+changes, then close it. Store/trust APIs deliberately do not acquire it implicitly:
+a caller can perform several operations under one writer without recursive
+locking. The directory convention interoperates with the CLI and CTX locks.
+It coordinates cooperating processes, not hostile writers; the application must
+protect the home and its ancestors from unrelated mutation. Callers which ignore
+the protocol still bypass it. This object is implemented by the native C host
+library, so described-interface hosts in any language can use it without a new
+language-specific lock implementation.
+
+### Reviewed package snapshots
+
+The described `store` object exposes `snapshot {source, id, reviewed_digest}`;
+`ext_plugin_store_snapshot` is the portable C equivalent. The receiver is the
+private destination store. The source must be a verified package directory with
+the requested ID and the exact lowercase SHA-256 directory digest reviewed by
+the caller. Existing destination IDs are never replaced.
+
+The store copies the declared artifacts under its usual bounds, preserves
+executable bits, verifies the staged package and compares its directory digest
+to the reviewed digest before publication. A review mismatch is `denied`; an ID
+or copied-content mismatch is `mismatch`; an existing destination is `exists`.
+Invalid IDs or malformed digest strings are `invalid`. No trust record or
+installation receipt is created. The result is the copied manifest.
+
+The caller must own a private destination, coordinate source review and copying
+with the package writer, and remove the destination after its consumers finish.
+The copy is independent of later source changes; it is not filesystem-enforced
+immutable storage. Snapshotting does not grant authority, choose dependencies,
+copy approvals or manage child processes. Consumers must separately approve and
+snapshot every package they intend to execute. Nested command and adapter
+adoption remains application work.
+# Ext graph projection
+
+`package.graph {packages, os, arch}` resolves the manifests for the explicit
+target and returns `{schema, transaction}` in the Ext graph data model. Pass
+these unchanged to ledger's `store.register` and `store.apply` if persistence is
+wanted. The libraries remain independent. Projection grants no authority and
+does not launch or install anything. Missing/ambiguous dependencies and invalid
+manifests retain the resolver's errors.
+
+The `ext.plugin` namespace contains `ext.plugin/package` vertices and
+`ext.plugin/requires` edges. See [the contract and reconciliation limits](../../docs/adr-ext-graph.md).
+
+`package.execution {packages, os, arch, root, max_hosts?}` compiles a routed
+execution plan. `root` contains the exact `identity` and selected `contract`.
+The optional host limit defaults to 128 and must be 1–1024. The result contains
+`nodes` (identity, contract and routes), `order` (provider-first indices into
+nodes), and `root` (the root node index). Nodes are unique by full identity and
+contract; repeated routes to that pair share a node. Only providers reachable
+through declared reverse routes are scheduled. All supplied package requirements
+must resolve. No package is reviewed, copied, started or authorized by planning.
+
+## Execution graph object
+
+The described `execution_graph` object owns process hosts and private snapshots;
+its `plan` is the `package.execution` result. Unlike the pure services above,
+`start` verifies and copies reviewed packages and launches hosts. `call` invokes
+its root; `close` shuts down the entire graph and removes owned copies after
+active native calls finish. See [configuration, policy and lifetime](../../docs/adr-ext-graph.md#c-execution-lifecycle).
+
+`execution_graph.observe` returns the complete ready session set and child PID
+locators. `snapshot` correlates that set with caller-supplied ledger process
+references and emits a schema/transaction for a dedicated namespace, with
+session/package/process links and routed session edges. See
+[Ext graph](../../docs/adr-ext-graph.md#live-sessions-and-reconciliation) for
+ownership, correlation and reconciliation requirements.

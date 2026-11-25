@@ -1,10 +1,15 @@
 # Shared C plugin engine (development)
 
-This is the shared CTX host, guest and resource engine under development. It runs
+This is Ext's shared plugin host, guest and resource engine under development. It runs
 alongside the existing Go library. It is **not a replacement, stable public ABI,
 or a complete port of the Go SDK**. Full SDK parity is required before the
 common Go implementation is retired; see the [parity checklist](../../docs/plugin-engine-parity.md).
 No registry publication is configured.
+
+Plugin and ledger use the [Ext graph model](../../docs/adr-ext-graph.md).
+`package.graph` exports resolved package facts as a schema and transaction that
+ledger can ingest unchanged. Plugin neither links ledger nor grants authority
+through those facts.
 
 The same native engine can be embedded in Go, Rust, Zig and Node.js. Static
 linking is the default; a shared library is optional. The

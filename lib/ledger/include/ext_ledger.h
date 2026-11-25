@@ -100,6 +100,12 @@ EXT_LEDGER_API int ext_ledger_store_register(ext_ledger_store *store, const ext_
 EXT_LEDGER_API int ext_ledger_store_apply(ext_ledger_store *store, const ext_ledger_context *ctx, const char *transaction, size_t len, char **commit, size_t *commit_len);
 EXT_LEDGER_API int ext_ledger_store_get_vertex(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len);
 EXT_LEDGER_API int ext_ledger_store_get_edge(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len);
+/* Replace the records of one caller-owned namespace at expected_revision.
+ * Input requires namespace, expected_revision, vertices and edges. Omitted
+ * records are deleted atomically; an empty pair of arrays explicitly clears
+ * the namespace. Other namespaces are untouched. A stale revision is changed.
+ * Partial observations must use apply instead. No implicit retry or authority. */
+EXT_LEDGER_API int ext_ledger_store_reconcile(ext_ledger_store *store, const ext_ledger_context *ctx, const char *desired, size_t len, char **commit, size_t *commit_len);
 /* query: the vertex or edge query entity; *out receives a JSON array in ID order. */
 EXT_LEDGER_API int ext_ledger_store_query_vertices(ext_ledger_store *store, const ext_ledger_context *ctx, const char *query, size_t len, char **out, size_t *out_len);
 EXT_LEDGER_API int ext_ledger_store_query_edges(ext_ledger_store *store, const ext_ledger_context *ctx, const char *query, size_t len, char **out, size_t *out_len);
@@ -162,6 +168,9 @@ EXT_LEDGER_API int ext_ledger_recorder_record(ext_ledger_recorder *recorder, con
  * operation accepts an optional process limit (1 to 65536, default 4096).
  * A targeted "process" collection takes a PID and resource limit; it checks
  * start identity and executable again after resource inspection. */
+/* Canonical ext.system reference for a collected process. A nonempty birth
+ * token is required; no process is collected or authorized by this function. */
+EXT_LEDGER_API int ext_ledger_process_identity(const char *host_id, int64_t pid, const char *start_id, char **out, size_t *out_len);
 EXT_LEDGER_API int ext_ledger_collect(const ext_ledger_context *ctx, const char *what, char **out, size_t *out_len);
 /* A targeted process snapshot, scope "process", with bounded resources. */
 EXT_LEDGER_API int ext_ledger_collect_process(const ext_ledger_context *ctx, int64_t pid, int64_t resource_limit, char **out, size_t *out_len);

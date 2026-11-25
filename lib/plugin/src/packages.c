@@ -274,16 +274,31 @@ static int tree_artifact(yyjson_val *a) {
   yyjson_val *k = get(a, "kind");
   return yyjson_is_str(k) && yyjson_equals_str(k, "tree");
 }
+/* Optional empty provider IDs have the same meaning as an omitted selector. */
+static yyjson_val *provider_id(yyjson_val *r) {
+  yyjson_val *v = get(r, "provider");
+  return yyjson_equals_str(v, "") ? NULL : v;
+}
 static int dependency(yyjson_val *r) {
-  return EXT_FIELDS(r, "contract", "operation", "identity") &&
+  return EXT_FIELDS(r, "contract", "operation", "identity", "provider", "os", "arch") &&
          EXT_FIELDS(get(r, "contract"), "name", "version") &&
          ext_ref(get(r, "contract")) && ext_text(get(r, "operation"), 0, 0) &&
-         (absent(get(r, "identity")) || ext_identity(get(r, "identity")));
+         ext_text(get(r, "os"), 0, 1) && ext_text(get(r, "arch"), 0, 1) &&
+         (absent(get(r, "identity")) || ext_identity(get(r, "identity"))) &&
+         (absent(get(r, "provider")) || ext_text(get(r, "provider"), 0, 1)) &&
+         (absent(provider_id(r)) || absent(get(r, "identity")));
+}
+static int same_optional_text(yyjson_val *a, yyjson_val *b) {
+  return (!yyjson_get_len(a) && !yyjson_get_len(b)) || ext_same(a, b);
 }
 static int same_dependency(yyjson_val *a, yyjson_val *b) {
   yyjson_val *ai = get(a, "identity"), *bi = get(b, "identity");
-  return ext_same_ref(get(a, "contract"), get(b, "contract")) &&
+  return same_optional_text(get(a, "os"), get(b, "os")) &&
+         same_optional_text(get(a, "arch"), get(b, "arch")) &&
+         ext_same_ref(get(a, "contract"), get(b, "contract")) &&
          ext_same(get(a, "operation"), get(b, "operation")) &&
+         ((absent(provider_id(a)) && absent(provider_id(b))) ||
+          ext_same(provider_id(a), provider_id(b))) &&
          ((absent(ai) && absent(bi)) ||
           (!absent(ai) && !absent(bi) && ext_same_identity(ai, bi)));
 }
@@ -701,7 +716,7 @@ static ext_plugin_status offers_build(offers *o, yyjson_val *ms) {
   }
   return EXT_PLUGIN_OK;
 }
-static ext_plugin_status resolve(yyjson_val *ms, ext_plugin_buffer *out) {
+static ext_plugin_status resolve(yyjson_val *ms, const char *os, const char *arch, ext_plugin_buffer *out) {
   if (!yyjson_is_arr(ms) || yyjson_arr_size(ms) > 1024)
     return EXT_PLUGIN_INVALID;
   size_t count = yyjson_arr_size(ms), i, n, j, k;
@@ -745,7 +760,16 @@ static ext_plugin_status resolve(yyjson_val *ms, ext_plugin_buffer *out) {
         goto done;
       }
     }
+    size_t active = 0;
     yyjson_arr_foreach(get(m, "requires"), j, k, r) {
+      yyjson_val *required_os = get(r, "os"), *required_arch = get(r, "arch");
+      if ((yyjson_get_len(required_os) || yyjson_get_len(required_arch)) && (!os || !arch)) {
+        s = EXT_PLUGIN_INVALID;
+        goto done;
+      }
+      if ((yyjson_get_len(required_os) && !yyjson_equals_str(required_os, os)) ||
+          (yyjson_get_len(required_arch) && !yyjson_equals_str(required_arch, arch)))
+        continue;
       size_t found = 0, provider = 0;
       yyjson_val *want = get(r, "identity");
       uint64_t hash = offer_hash(get(r, "contract"), get(r, "operation"));
@@ -755,6 +779,7 @@ static ext_plugin_status resolve(yyjson_val *ms, ext_plugin_buffer *out) {
         if (e->hash == hash &&
             ext_same_ref(e->contract, get(r, "contract")) &&
             ext_same(e->operation, get(r, "operation")) &&
+            (absent(provider_id(r)) || ext_same(provider_id(r), get(nodes[e->manifest].id, "id"))) &&
             (absent(want) ||
              ext_same_identity(want, nodes[e->manifest].id))) {
           found++;
@@ -765,7 +790,7 @@ static ext_plugin_status resolve(yyjson_val *ms, ext_plugin_buffer *out) {
         s = found ? EXT_PLUGIN_AMBIGUOUS : EXT_PLUGIN_NOT_FOUND;
         goto done;
       }
-      nodes[i].deps[j] = provider;
+      nodes[i].deps[active++] = provider;
       yyjson_mut_val *binding = yyjson_mut_obj(d);
       if (!binding || !copy(d, binding, "consumer", nodes[i].id) ||
           !copy(d, binding, "requirement", r) ||
@@ -775,6 +800,7 @@ static ext_plugin_status resolve(yyjson_val *ms, ext_plugin_buffer *out) {
         goto done;
       }
     }
+    nodes[i].count = active;
   }
   qsort(sorted_nodes, count, sizeof(*sorted_nodes), compare);
   for (i = 0; i < count; i++)
@@ -803,7 +829,324 @@ done:
   yyjson_mut_doc_free(d);
   return s;
 }
+/* Ext graph is shared data, not a dependency on the ledger runtime. */
+void ext_package_graph_identity(yyjson_val *identity, char key[65]) {
+  uint8_t hash[32];
+  identity_hash(identity, hash);
+  ext_hash_hex(hash, key);
+}
+static ext_plugin_status package_graph(yyjson_val *input, ext_plugin_buffer *out) {
+  if (!EXT_FIELDS(input, "packages", "os", "arch") ||
+      !ext_text(get(input, "os"), 0, 0) || !ext_text(get(input, "arch"), 0, 0))
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_buffer plan = {0};
+  ext_plugin_status s = resolve(get(input, "packages"), yyjson_get_str(get(input, "os")),
+                                yyjson_get_str(get(input, "arch")), &plan);
+  if (s) return s;
+  yyjson_doc *parsed = ext_parse(plan.data, plan.len);
+  ext_plugin_buffer_free(&plan);
+  if (!parsed) return EXT_PLUGIN_NOMEM;
+  const char *schema_json = "{\"namespace\":\"ext.plugin\",\"version\":\"1\","
+    "\"kinds\":[\"ext.plugin/package\"],\"relationships\":[{\"type\":\"ext.plugin/requires\","
+    "\"from\":\"ext.plugin/package\",\"to\":\"ext.plugin/package\"}]}";
+  yyjson_doc *schema_doc = yyjson_read(schema_json, strlen(schema_json), 0);
+  yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
+  yyjson_mut_val *root = d ? yyjson_mut_obj(d) : NULL;
+  yyjson_mut_val *tx = d ? yyjson_mut_obj(d) : NULL;
+  yyjson_mut_val *vertices = d ? yyjson_mut_arr(d) : NULL;
+  yyjson_mut_val *edges = d ? yyjson_mut_arr(d) : NULL;
+  int ok = schema_doc && root && tx && vertices && edges;
+  if (ok) {
+    yyjson_mut_doc_set_root(d, root);
+    ok = copy(d, root, "schema", yyjson_doc_get_root(schema_doc)) &&
+      yyjson_mut_obj_add_val(d, root, "transaction", tx) &&
+      yyjson_mut_obj_add_str(d, tx, "namespace", "ext.plugin") &&
+      yyjson_mut_obj_add_val(d, tx, "vertices", vertices) &&
+      yyjson_mut_obj_add_val(d, tx, "edges", edges);
+  }
+  size_t i, n;
+  yyjson_val *value;
+  yyjson_arr_foreach(get(yyjson_doc_get_root(parsed), "order"), i, n, value) {
+    if (!ok) break;
+    char key[65];
+    ext_package_graph_identity(value, key);
+    yyjson_mut_val *v = yyjson_mut_obj(d), *attrs = yyjson_mut_obj(d);
+    ok = v && attrs && yyjson_mut_obj_add_strcpy(d, v, "id", key) &&
+      yyjson_mut_obj_add_str(d, v, "kind", "ext.plugin/package") &&
+      copy(d, attrs, "identity", value) && yyjson_mut_obj_add_val(d, v, "attributes", attrs) &&
+      yyjson_mut_arr_append(vertices, v);
+  }
+  yyjson_arr_foreach(get(yyjson_doc_get_root(parsed), "bindings"), i, n, value) {
+    if (!ok) break;
+    char from[65], to[65], key[96];
+    ext_package_graph_identity(get(value, "consumer"), from);
+    ext_package_graph_identity(get(value, "provider"), to);
+    snprintf(key, sizeof key, "requires-%s-%zu", from, i);
+    yyjson_mut_val *e = yyjson_mut_obj(d), *attrs = yyjson_mut_obj(d);
+    ok = e && attrs && yyjson_mut_obj_add_strcpy(d, e, "id", key) &&
+      yyjson_mut_obj_add_strcpy(d, e, "from", from) && yyjson_mut_obj_add_strcpy(d, e, "to", to) &&
+      yyjson_mut_obj_add_str(d, e, "type", "ext.plugin/requires") &&
+      copy(d, attrs, "requirement", get(value, "requirement")) &&
+      yyjson_mut_obj_add_val(d, e, "attributes", attrs) && yyjson_mut_arr_append(edges, e);
+  }
+  yyjson_doc_free(schema_doc);
+  yyjson_doc_free(parsed);
+  return result(d, out, ok);
+}
+
+/* Compile only declared reverse operations backed by resolved package edges.
+ * The returned identities are candidates for application authorization, not grants. */
+static ext_plugin_status resolved_routes(yyjson_val *ms, yyjson_val *bindings, yyjson_val *consumer, ext_plugin_buffer *out) {
+  ext_plugin_status s = EXT_PLUGIN_OK;
+  yyjson_val *source = NULL, *m, *binding;
+  size_t i, n, j, k;
+  yyjson_arr_foreach(ms, i, n, m)
+    if (ext_same_identity(get(get(m, "descriptor"), "identity"), consumer)) source = get(m, "descriptor");
+  if (!source) return EXT_PLUGIN_NOT_FOUND;
+  yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+  yyjson_mut_val *routes = doc ? yyjson_mut_arr(doc) : NULL;
+  if (!routes) { yyjson_mut_doc_free(doc); return EXT_PLUGIN_NOMEM; }
+  yyjson_mut_doc_set_root(doc, routes);
+  yyjson_arr_foreach(bindings, i, n, binding) {
+    yyjson_val *req = get(binding, "requirement"), *ref = get(req, "contract"), *op = get(req, "operation");
+    if (!ext_same_identity(get(binding, "consumer"), consumer) ||
+        !ext_lookup_in(get(source, "reverse"), ref, op)) continue;
+    int duplicate = 0;
+    yyjson_val *prior;
+    EXT_ARR_BEFORE(bindings, i, j, k, prior) {
+      yyjson_val *other = get(prior, "requirement");
+      if (!ext_same_identity(get(prior, "consumer"), consumer) ||
+          !ext_same_ref(get(other, "contract"), ref) || !ext_same(get(other, "operation"), op)) continue;
+      if (!ext_same_identity(get(prior, "provider"), get(binding, "provider"))) { s = EXT_PLUGIN_AMBIGUOUS; break; }
+      duplicate = 1;
+    }
+    if (s) break;
+    if (duplicate) continue;
+    yyjson_mut_val *route = yyjson_mut_obj(doc);
+    if (!route || !copy(doc, route, "contract", ref) || !copy(doc, route, "operation", op) ||
+        !copy(doc, route, "provider", get(binding, "provider")) || !yyjson_mut_arr_append(routes, route)) {
+      s = EXT_PLUGIN_NOMEM; break;
+    }
+  }
+  if (!s) {
+    out->data = (uint8_t *)yyjson_mut_write(doc, 0, &out->len);
+    if (!out->data) s = EXT_PLUGIN_NOMEM;
+  }
+  yyjson_mut_doc_free(doc);
+  return s;
+}
+
+static ext_plugin_status package_routes(yyjson_val *input, ext_plugin_buffer *out) {
+  yyjson_val *ms = get(input, "packages"), *consumer = get(input, "consumer");
+  if (!EXT_FIELDS(input, "packages", "os", "arch", "consumer") || !ext_identity(consumer) ||
+      !ext_text(get(input, "os"), 0, 0) || !ext_text(get(input, "arch"), 0, 0))
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_buffer plan = {0};
+  ext_plugin_status s = resolve(ms, yyjson_get_str(get(input, "os")), yyjson_get_str(get(input, "arch")), &plan);
+  if (s) return s;
+  yyjson_doc *parsed = ext_parse(plan.data, plan.len);
+  ext_plugin_buffer_free(&plan);
+  if (!parsed) return EXT_PLUGIN_NOMEM;
+  s = resolved_routes(ms, get(yyjson_doc_get_root(parsed), "bindings"), consumer, out);
+  yyjson_doc_free(parsed);
+  return s;
+}
+
+/* A bounded execution plan is distinct from the declarative graph export.
+ * Nodes are keyed by full identity and selected contract, not only package ID. */
+typedef struct {
+  yyjson_val *identity, *contract;
+  yyjson_doc *routes;
+  int visiting;
+} execution_node;
+typedef struct {
+  yyjson_val *packages, *bindings;
+  execution_node *nodes;
+  size_t count, limit;
+  yyjson_mut_doc *doc;
+  yyjson_mut_val *order;
+} execution_plan;
+static ext_plugin_status execution_visit(execution_plan *p, yyjson_val *identity,
+                                         yyjson_val *contract, size_t *index) {
+  for (size_t i = 0; i < p->count; i++) {
+    if (ext_same_identity(p->nodes[i].identity, identity) && ext_same_ref(p->nodes[i].contract, contract)) {
+      *index = i;
+      return p->nodes[i].visiting ? EXT_PLUGIN_INVALID : EXT_PLUGIN_OK;
+    }
+  }
+  if (p->count >= p->limit) return EXT_PLUGIN_CAPACITY;
+  yyjson_val *manifest = NULL, *m, *c;
+  size_t i, n;
+  yyjson_arr_foreach(p->packages, i, n, m)
+    if (ext_same_identity(get(get(m, "descriptor"), "identity"), identity)) manifest = m;
+  if (!manifest) return EXT_PLUGIN_NOT_FOUND;
+  int offered = 0;
+  yyjson_arr_foreach(get(get(manifest, "descriptor"), "contracts"), i, n, c)
+    if (ext_same_ref(c, contract)) offered = 1;
+  if (!offered) return EXT_PLUGIN_NOT_FOUND;
+  *index = p->count++;
+  execution_node *node = &p->nodes[*index];
+  node->identity = identity; node->contract = contract; node->visiting = 1;
+  ext_plugin_buffer routes = {0};
+  ext_plugin_status s = resolved_routes(p->packages, p->bindings, identity, &routes);
+  if (s) return s;
+  node->routes = ext_parse(routes.data, routes.len);
+  ext_plugin_buffer_free(&routes);
+  if (!node->routes) return EXT_PLUGIN_NOMEM;
+  yyjson_val *route;
+  yyjson_arr_foreach(yyjson_doc_get_root(node->routes), i, n, route) {
+    size_t target;
+    s = execution_visit(p, get(route, "provider"), get(route, "contract"), &target);
+    if (s) return s;
+  }
+  node->visiting = 0;
+  return yyjson_mut_arr_append(p->order, yyjson_mut_uint(p->doc, *index)) ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
+}
+static ext_plugin_status package_execution(yyjson_val *input, ext_plugin_buffer *out) {
+  yyjson_val *root = get(input, "root"), *limit = get(input, "max_hosts");
+  int64_t maximum = 128;
+  if (!EXT_FIELDS(input, "packages", "os", "arch", "root", "max_hosts") ||
+      !EXT_FIELDS(root, "identity", "contract") || !ext_identity(get(root, "identity")) ||
+      !EXT_FIELDS(get(root, "contract"), "name", "version") ||
+      !ext_ref(get(root, "contract")) || !ext_text(get(input, "os"), 0, 0) ||
+      !ext_text(get(input, "arch"), 0, 0) ||
+      (limit && (!ext_int64(limit, &maximum) || maximum < 1 || maximum > 1024)))
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_buffer resolved = {0};
+  ext_plugin_status s = resolve(get(input, "packages"), yyjson_get_str(get(input, "os")),
+                                yyjson_get_str(get(input, "arch")), &resolved);
+  if (s) return s;
+  yyjson_doc *parsed = ext_parse(resolved.data, resolved.len);
+  ext_plugin_buffer_free(&resolved);
+  if (!parsed) return EXT_PLUGIN_NOMEM;
+  execution_plan p = {0};
+  p.limit = (size_t)maximum;
+  p.nodes = calloc(p.limit, sizeof *p.nodes);
+  p.packages = get(input, "packages"); p.bindings = get(yyjson_doc_get_root(parsed), "bindings");
+  p.doc = yyjson_mut_doc_new(NULL);
+  p.order = p.doc ? yyjson_mut_arr(p.doc) : NULL;
+  yyjson_mut_val *output = p.doc ? yyjson_mut_obj(p.doc) : NULL;
+  yyjson_mut_val *nodes = p.doc ? yyjson_mut_arr(p.doc) : NULL;
+  if (!p.nodes || !p.order || !output || !nodes) s = EXT_PLUGIN_NOMEM;
+  size_t root_index = 0;
+  if (!s) s = execution_visit(&p, get(root, "identity"), get(root, "contract"), &root_index);
+  for (size_t i = 0; !s && i < p.count; i++) {
+    execution_node *node = &p.nodes[i];
+    yyjson_mut_val *v = yyjson_mut_obj(p.doc);
+    if (!v || !copy(p.doc, v, "identity", node->identity) || !copy(p.doc, v, "contract", node->contract) ||
+        !copy(p.doc, v, "routes", yyjson_doc_get_root(node->routes)) || !yyjson_mut_arr_append(nodes, v))
+      s = EXT_PLUGIN_NOMEM;
+  }
+  if (!s) {
+    yyjson_mut_doc_set_root(p.doc, output);
+    if (!yyjson_mut_obj_add_uint(p.doc, output, "root", root_index) ||
+        !yyjson_mut_obj_add_val(p.doc, output, "nodes", nodes) ||
+        !yyjson_mut_obj_add_val(p.doc, output, "order", p.order)) s = EXT_PLUGIN_NOMEM;
+    else {
+      out->data = (uint8_t *)yyjson_mut_write(p.doc, 0, &out->len);
+      if (!out->data) s = EXT_PLUGIN_NOMEM;
+    }
+  }
+  for (size_t i = 0; i < p.count; i++) yyjson_doc_free(p.nodes[i].routes);
+  free(p.nodes);
+  yyjson_mut_doc_free(p.doc);
+  yyjson_doc_free(parsed);
+  return s;
+}
+
+/* A bundle is a reproducible selection of existing package archives, not a
+ * second package format. Its complete dependency graph must resolve on its own. */
+/* Native jobs are portable bundle envelopes. Citation semantics and driver
+ * artifacts are validated by the existing native-library fetch layer. */
+static int bundle_native(yyjson_val *jobs) {
+  if (!jobs) return 1;
+  if (!yyjson_is_arr(jobs) || yyjson_arr_size(jobs) > 64) return 0;
+  size_t i, n, j, m;
+  yyjson_val *job, *driver;
+  yyjson_arr_foreach(jobs, i, n, job) {
+    yyjson_val *dir = get(job, "dir"), *drivers = get(job, "drivers"),
+               *citation = get(job, "citation");
+    if (!EXT_FIELDS(job, "citation", "drivers", "dir", "package") ||
+        !yyjson_is_obj(citation) ||
+        !yyjson_equals_str(get(citation, "schema"), "ext.library.citation/v1") ||
+        !string(dir, 1, 1024) ||
+        !ext_portable_path(yyjson_get_str(dir), yyjson_get_len(dir)) ||
+        !yyjson_is_arr(drivers) || !yyjson_arr_size(drivers) ||
+        yyjson_arr_size(drivers) > 3 ||
+        (get(job, "package") && !ext_text(get(job, "package"), 0, 0)))
+      return 0;
+    yyjson_arr_foreach(drivers, j, m, driver) {
+      if (!yyjson_equals_str(driver, "cgo") && !yyjson_equals_str(driver, "c2go") &&
+          !yyjson_equals_str(driver, "purego")) return 0;
+      for (size_t k = 0; k < j; k++)
+        if (ext_same(driver, yyjson_arr_get(drivers, k))) return 0;
+    }
+  }
+  return 1;
+}
+static ext_plugin_status bundle_plan(yyjson_val *v, ext_plugin_buffer *out) {
+  yyjson_val *items = get(v, "packages"), *native = get(v, "native");
+  if (!EXT_FIELDS(v, "apiVersion", "target", "packages", "native") ||
+      !yyjson_equals_str(get(v, "apiVersion"), "ext.bundle/v1") ||
+      !ext_text(get(v, "target"), 0, 0) || !yyjson_is_arr(items) ||
+      (!yyjson_arr_size(items) && !yyjson_arr_size(native)) ||
+      yyjson_arr_size(items) > 256 || !bundle_native(native))
+    return EXT_PLUGIN_INVALID;
+  const char *target = yyjson_get_str(get(v, "target"));
+  const char *slash = strchr(target, '/');
+  if (!slash || slash == target || !slash[1] || strchr(slash + 1, '/'))
+    return EXT_PLUGIN_INVALID;
+  yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+  if (!doc) return EXT_PLUGIN_NOMEM;
+  yyjson_mut_val *manifests = yyjson_mut_arr(doc);
+  yyjson_mut_doc_set_root(doc, manifests);
+  ext_plugin_status status = manifests ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
+  size_t i, n, j, k;
+  yyjson_val *item, *other;
+  yyjson_arr_foreach(items, i, n, item) {
+    yyjson_val *archive = get(item, "archive"), *source = get(archive, "source");
+    if (!EXT_FIELDS(item, "manifest", "archive") ||
+        !EXT_FIELDS(archive, "source", "sha256") ||
+        !yyjson_is_str(source) || !yyjson_get_len(source) || yyjson_get_len(source) > 4096 ||
+        !digest(get(archive, "sha256"))) { status = EXT_PLUGIN_INVALID; break; }
+    const char *text = yyjson_get_str(source);
+    for (size_t c = 0; c < yyjson_get_len(source); c++)
+      if ((unsigned char)text[c] < 32 || (unsigned char)text[c] == 127)
+        status = EXT_PLUGIN_INVALID;
+    if (status || (status = ext_manifest_valid(get(item, "manifest")))) break;
+    yyjson_val *id = get(get(get(item, "manifest"), "descriptor"), "identity");
+    EXT_ARR_BEFORE(items, i, j, k, other) {
+      yyjson_val *prior = get(get(get(other, "manifest"), "descriptor"), "identity");
+      if (ext_same(get(id, "id"), get(prior, "id"))) status = EXT_PLUGIN_AMBIGUOUS;
+    }
+    if (status) break;
+    yyjson_mut_val *copy = yyjson_val_mut_copy(doc, get(item, "manifest"));
+    if (!copy || !yyjson_mut_arr_append(manifests, copy)) { status = EXT_PLUGIN_NOMEM; break; }
+  }
+  if (!status) {
+    size_t len = 0;
+    char *encoded = yyjson_mut_write(doc, 0, &len);
+    yyjson_doc *parsed = encoded ? ext_parse((const uint8_t *)encoded, len) : NULL;
+    char *os = malloc((size_t)(slash - target) + 1);
+    if (os) { memcpy(os, target, (size_t)(slash - target)); os[slash - target] = 0; }
+    status = parsed && os ? resolve(yyjson_doc_get_root(parsed), os, slash + 1, out) : EXT_PLUGIN_NOMEM;
+    free(os);
+    yyjson_doc_free(parsed);
+    free(encoded);
+  }
+  yyjson_mut_doc_free(doc);
+  return status;
+}
+
 ext_plugin_status ext_package_service(const char *op, yyjson_val *v, ext_plugin_buffer *out) {
+  if (!strcmp(op, "package.execution"))
+    return package_execution(v, out);
+  if (!strcmp(op, "package.graph"))
+    return package_graph(v, out);
+  if (!strcmp(op, "package.routes"))
+    return package_routes(v, out);
+  if (!strcmp(op, "bundle.plan"))
+    return bundle_plan(v, out);
   if (!strcmp(op, "package.validate")) {
     ext_plugin_status s = ext_manifest_valid(v);
     if (s)
@@ -814,6 +1157,11 @@ ext_plugin_status ext_package_service(const char *op, yyjson_val *v, ext_plugin_
   if (!strcmp(op, "package.select"))
     return select_entry(v, out);
   if (!strcmp(op, "package.resolve"))
-    return resolve(v, out);
+    return resolve(v, NULL, NULL, out);
+  if (!strcmp(op, "package.resolve_for")) {
+    if (!EXT_FIELDS(v, "packages", "os", "arch") || !ext_text(get(v, "os"), 0, 0) ||
+        !ext_text(get(v, "arch"), 0, 0)) return EXT_PLUGIN_INVALID;
+    return resolve(get(v, "packages"), yyjson_get_str(get(v, "os")), yyjson_get_str(get(v, "arch")), out);
+  }
   return EXT_PLUGIN_UNSUPPORTED;
 }

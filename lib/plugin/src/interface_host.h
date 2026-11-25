@@ -13,4 +13,14 @@ ext_plugin_status ext_interface_host_call(ext_interface_host *h, const char *op,
  * runs once no call holds the host. */
 void ext_interface_host_shutdown(ext_interface_host *h);
 void ext_interface_host_free(ext_interface_host *h);
+/* Pin an existing described host while another host's registry borrows it.
+ * Closing its public handle still shuts it down; storage survives until release. */
+ext_plugin_status ext_interface_host_borrow(yyjson_val *handle, ext_interface_host **out, void **token);
+void ext_interface_host_release(void *token);
+/* A graph owns one event queue and borrows it for each contained host. */
+ext_interface_host *ext_interface_events_new(void);
+void ext_interface_host_event_sink(ext_interface_host *host, ext_interface_host *sink,
+                                  yyjson_val *consumer, yyjson_val *routes);
+ext_plugin_status ext_interface_host_route_events(uint64_t handle, ext_interface_host *sink,
+                                                  yyjson_val *consumer, yyjson_val *routes);
 #endif

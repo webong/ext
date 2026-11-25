@@ -1,0 +1,1701 @@
+{
+  "about": "Named provider selection across revisions. Exact identity pins remain distinct; ambiguity is never resolved by order.",
+  "cases": [
+    {
+      "name": "named-among-equivalent-offers",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/b",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": "example/a"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "apiVersion": "ext.plugin/v1",
+        "identity": {
+          "id": "example/a",
+          "revision": "r1"
+        },
+        "contracts": [
+          {
+            "name": "example.value",
+            "version": "v1",
+            "operations": [
+              {
+                "name": "read"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "named-upgrade",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/b",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r2"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": "example/a"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "apiVersion": "ext.plugin/v1",
+        "identity": {
+          "id": "example/a",
+          "revision": "r2"
+        },
+        "contracts": [
+          {
+            "name": "example.value",
+            "version": "v1",
+            "operations": [
+              {
+                "name": "read"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "named-missing",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/b",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": "example/a"
+        }
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "named-two-revisions",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r2"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": "example/a"
+        }
+      },
+      "status": "ambiguous"
+    },
+    {
+      "name": "invalid-provider",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": "Bad ID"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "provider-and-pin",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": "example/a",
+          "identity": {
+            "id": "example/a",
+            "revision": "r1"
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "wrong-operation",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "write",
+          "provider": "example/a"
+        }
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "empty-provider-is-unselected",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "provider": ""
+        }
+      },
+      "status": "ok",
+      "result": {
+        "apiVersion": "ext.plugin/v1",
+        "identity": {
+          "id": "example/a",
+          "revision": "r1"
+        },
+        "contracts": [
+          {
+            "name": "example.value",
+            "version": "v1",
+            "operations": [
+              {
+                "name": "read"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "exact-pin-still-pins",
+      "operation": "descriptor.select",
+      "input": {
+        "candidates": [
+          {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r2"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "requirement": {
+          "contract": {
+            "name": "example.value",
+            "version": "v1"
+          },
+          "operation": "read",
+          "identity": {
+            "id": "example/a",
+            "revision": "r1"
+          }
+        }
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "named-plan",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/a",
+            "revision": "r1"
+          },
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": [
+          {
+            "consumer": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "requirement": {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            },
+            "provider": {
+              "id": "example/a",
+              "revision": "r1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "named-upgraded-plan",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r2"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/a",
+            "revision": "r2"
+          },
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": [
+          {
+            "consumer": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "requirement": {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            },
+            "provider": {
+              "id": "example/a",
+              "revision": "r2"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "named-plan-missing",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/b",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "not_found"
+    },
+    {
+      "name": "named-plan-ambiguous",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r2"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "ambiguous"
+    },
+    {
+      "name": "duplicate-named-requirement",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            },
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "invalid"
+    },
+    {
+      "name": "named-plan-rejects-pin-too",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a",
+              "identity": {
+                "id": "example/a",
+                "revision": "r1"
+              }
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "invalid"
+    },
+    {
+      "name": "target-active",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          },
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/a",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        ],
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/a",
+            "revision": "r1"
+          },
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": [
+          {
+            "consumer": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "requirement": {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a",
+              "os": "linux",
+              "arch": "arm64"
+            },
+            "provider": {
+              "id": "example/a",
+              "revision": "r1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "target-missing-provider",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          }
+        ],
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "target-inactive-os",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          }
+        ],
+        "os": "darwin",
+        "arch": "arm64"
+      },
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": null
+      }
+    },
+    {
+      "name": "target-inactive-arch",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          }
+        ],
+        "os": "linux",
+        "arch": "amd64"
+      },
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": null
+      }
+    },
+    {
+      "name": "target-empty",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          }
+        ],
+        "os": "",
+        "arch": "arm64"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "target-invalid-inactive",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "Bad OS",
+                "arch": "arm64"
+              }
+            ]
+          }
+        ],
+        "os": "darwin",
+        "arch": "arm64"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "target-inactive-still-validates",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "bad operation",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          }
+        ],
+        "os": "darwin",
+        "arch": "arm64"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "target-required-by-legacy-resolve",
+      "operation": "package.resolve",
+      "input": [
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.consumer",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "requires": [
+            {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a",
+              "os": "linux",
+              "arch": "arm64"
+            }
+          ]
+        },
+        {
+          "apiVersion": "ext.package/v1",
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/a",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.value",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "name": "main",
+              "path": "main.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "status": "invalid"
+    },
+    {
+      "name": "target-alternatives",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              },
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/macos",
+                "os": "darwin",
+                "arch": "arm64"
+              }
+            ]
+          },
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/a",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        ],
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "status": "ok",
+      "result": {
+        "order": [
+          {
+            "id": "example/a",
+            "revision": "r1"
+          },
+          {
+            "id": "example/consumer",
+            "revision": "r1"
+          }
+        ],
+        "bindings": [
+          {
+            "consumer": {
+              "id": "example/consumer",
+              "revision": "r1"
+            },
+            "requirement": {
+              "contract": {
+                "name": "example.value",
+                "version": "v1"
+              },
+              "operation": "read",
+              "provider": "example/a",
+              "os": "linux",
+              "arch": "arm64"
+            },
+            "provider": {
+              "id": "example/a",
+              "revision": "r1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "target-duplicate",
+      "operation": "package.resolve_for",
+      "input": {
+        "packages": [
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "requires": [
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              },
+              {
+                "contract": {
+                  "name": "example.value",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "provider": "example/a",
+                "os": "linux",
+                "arch": "arm64"
+              }
+            ]
+          },
+          {
+            "apiVersion": "ext.package/v1",
+            "descriptor": {
+              "apiVersion": "ext.plugin/v1",
+              "identity": {
+                "id": "example/a",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
+            },
+            "artifacts": [
+              {
+                "name": "main",
+                "path": "main.py",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        ],
+        "os": "linux",
+        "arch": "arm64"
+      },
+      "status": "invalid"
+    }
+  ]
+}

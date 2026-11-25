@@ -5,6 +5,7 @@
 #define _XOPEN_SOURCE 700 /* realpath, under -std=c11 on glibc */
 #include "sync.h"
 #include "wire.h"
+#include "registry.h"
 #include <assert.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -467,6 +468,41 @@ static void test_configuration(void) {
   ext_plugin_registry_destroy(NULL);
 }
 
+static void test_operation_targets(void) {
+  ext_plugin_registry *r = NULL;
+  assert(ext_plugin_registry_create(&r) == EXT_PLUGIN_OK);
+  guest_host a = {"a", "registry.a", 0, 0, NULL};
+  guest_host b = {"b", "registry.b", 0, 0, NULL};
+  guest_host denied = {"b", "registry.b", 1, 0, NULL};
+  open_guest(r, &a);
+  open_guest(r, &b);
+  open_guest(r, &denied);
+  assert(ext_registry_register_operation(r, "registry.b", "v1", "missing", b.host) == EXT_PLUGIN_UNSUPPORTED);
+  assert(ext_registry_register_operation(r, "registry.b", "v1", "echo", b.host) == EXT_PLUGIN_OK);
+  assert(ext_registry_register_operation(r, "registry.b", "v1", "echo", denied.host) == EXT_PLUGIN_EXISTS);
+  assert(ext_plugin_registry_register(r, "registry.b", "v1", b.host) == EXT_PLUGIN_EXISTS);
+  assert(ext_registry_register_operation(r, "registry.b", "v1", "fail", denied.host) == EXT_PLUGIN_OK);
+  ext_plugin_registry_edge e = {sizeof e, "registry.ask", "v1", "echo-b", "registry.b", "v1", "echo"};
+  assert(ext_plugin_registry_route(r, &e) == EXT_PLUGIN_OK);
+  e.from_operation = "fail-b"; e.to_operation = "fail";
+  assert(ext_plugin_registry_route(r, &e) == EXT_PLUGIN_OK);
+  const char *payloads[] = {"{\"operation\":\"echo-b\",\"payload\":123}", "{\"operation\":\"fail-b\"}"};
+  for (int i = 0; i < 3; i++) {
+    if (i == 2) ext_plugin_host_close(b.host);
+    yyjson_doc *input = yyjson_read(payloads[i == 1], strlen(payloads[i == 1]), 0);
+    yyjson_doc *output = call(&a, "relay", yyjson_doc_get_root(input), 5000);
+    assert(output);
+    yyjson_val *payload = get(yyjson_doc_get_root(output), "payload");
+    if (i == 0) assert(yyjson_get_int(get(payload, "payload")) == 123);
+    else assert(yyjson_equals_str(get(get(payload, "error"), "code"), i == 1 ? "denied" : "reverse_unavailable"));
+    yyjson_doc_free(input); yyjson_doc_free(output);
+  }
+  ext_plugin_host_destroy(a.host);
+  ext_plugin_host_destroy(b.host);
+  ext_plugin_host_destroy(denied.host);
+  ext_plugin_registry_destroy(r);
+}
+
 /* ---- concurrency ---- */
 
 #define SOURCES 4
@@ -567,6 +603,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   test_configuration();
+  test_operation_targets();
   test_threads();
   puts("guest registry checks passed");
   return 0;

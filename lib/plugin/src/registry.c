@@ -11,7 +11,7 @@
 
 typedef struct target {
   struct target *next;
-  char *name, *version;
+  char *name, *version, *operation;
   ext_plugin_host *host;
   size_t busy; /* forward calls routed to host and not yet returned */
 } target;
@@ -89,9 +89,10 @@ static int same(const char *a, yyjson_val *b) {
   return b && yyjson_is_str(b) && yyjson_equals_str(b, a);
 }
 static target *find_target(ext_plugin_registry *r, const char *name,
-                           const char *version) {
+                           const char *version, const char *operation) {
   for (target *t = r->targets; t; t = t->next)
-    if (!strcmp(t->name, name) && !strcmp(t->version, version))
+    if (!strcmp(t->name, name) && !strcmp(t->version, version) &&
+        (!t->operation || (operation && !strcmp(t->operation, operation))))
       return t;
   return NULL;
 }
@@ -111,9 +112,9 @@ ext_plugin_status ext_plugin_registry_create(ext_plugin_registry **out) {
   return EXT_PLUGIN_OK;
 }
 
-ext_plugin_status ext_plugin_registry_register(ext_plugin_registry *r, const char *name,
-                                 const char *version, ext_plugin_host *host) {
-  if (!r || !host || !valid(name, version, NULL))
+static ext_plugin_status register_target(ext_plugin_registry *r, const char *name,
+                                 const char *version, const char *operation, ext_plugin_host *host) {
+  if (!r || !host || !valid(name, version, operation))
     return EXT_PLUGIN_INVALID;
   /* The host must serve the contract: an edge to it could never be answered. */
   yyjson_mut_doc *m = yyjson_mut_doc_new(NULL);
@@ -127,21 +128,31 @@ ext_plugin_status ext_plugin_registry_register(ext_plugin_registry *r, const cha
   yyjson_mut_doc_free(m);
   if (!d)
     return EXT_PLUGIN_NOMEM;
-  int serves = ext_host_serves(host, yyjson_doc_get_root(d));
+  int serves = operation ? ext_host_serves_operation(host, yyjson_doc_get_root(d), operation)
+                         : ext_host_serves(host, yyjson_doc_get_root(d));
   yyjson_doc_free(d);
   if (!serves)
     return EXT_PLUGIN_UNSUPPORTED;
   target *t = calloc(1, sizeof(*t));
-  if (!t || !(t->name = text_copy(name)) || !(t->version = text_copy(version))) {
+  if (!t || !(t->name = text_copy(name)) || !(t->version = text_copy(version)) ||
+      (operation && !(t->operation = text_copy(operation)))) {
     if (t) {
       free(t->name);
+      free(t->version);
+      free(t->operation);
       free(t);
     }
     return EXT_PLUGIN_NOMEM;
   }
   t->host = host;
   pthread_mutex_lock(&r->mu);
-  ext_plugin_status s = find_target(r, name, version) ? EXT_PLUGIN_EXISTS : EXT_PLUGIN_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
+  for (target *prior = r->targets; prior; prior = prior->next)
+    if (!strcmp(prior->name, name) && !strcmp(prior->version, version) &&
+        (!operation || !prior->operation || !strcmp(prior->operation, operation))) {
+      s = EXT_PLUGIN_EXISTS;
+      break;
+    }
   if (!s) {
     t->next = r->targets;
     r->targets = t;
@@ -150,9 +161,24 @@ ext_plugin_status ext_plugin_registry_register(ext_plugin_registry *r, const cha
   if (s) {
     free(t->name);
     free(t->version);
+    free(t->operation);
     free(t);
   }
   return s;
+}
+
+ext_plugin_status ext_plugin_registry_register(ext_plugin_registry *r, const char *name,
+                                               const char *version, ext_plugin_host *host) {
+  return register_target(r, name, version, NULL, host);
+}
+
+/* Described hosts own immutable operation-level tables. Keep the typed API's
+ * contract-wide registration unchanged, with no implicit precedence rule. */
+ext_plugin_status ext_registry_register_operation(ext_plugin_registry *r, const char *name,
+                                                  const char *version, const char *operation,
+                                                  ext_plugin_host *host) {
+  if (!operation) return EXT_PLUGIN_INVALID;
+  return register_target(r, name, version, operation, host);
 }
 
 ext_plugin_status ext_plugin_registry_unregister(ext_plugin_registry *r, const char *name,
@@ -161,7 +187,7 @@ ext_plugin_status ext_plugin_registry_unregister(ext_plugin_registry *r, const c
     return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&r->mu);
   target **at = &r->targets;
-  while (*at && (strcmp((*at)->name, name) || strcmp((*at)->version, version)))
+  while (*at && (strcmp((*at)->name, name) || strcmp((*at)->version, version) || (*at)->operation))
     at = &(*at)->next;
   target *t = *at;
   if (t) {
@@ -337,7 +363,7 @@ static ext_plugin_status serve(void *user, const ext_plugin_call_options *o,
       e = x;
   if (!e)
     code = EXT_REVERSE_UNDECLARED;
-  else if (!(t = find_target(r, e->to[0], e->to[1])))
+  else if (!(t = find_target(r, e->to[0], e->to[1], e->to[2])))
     code = EXT_REVERSE_UNAVAILABLE;
   else {
     /* A call-scoped request inside a forward call this registry made carries
@@ -451,6 +477,7 @@ void ext_plugin_registry_destroy(ext_plugin_registry *r) {
     r->targets = t->next;
     free(t->name);
     free(t->version);
+    free(t->operation);
     free(t);
   }
   while (r->edges) {

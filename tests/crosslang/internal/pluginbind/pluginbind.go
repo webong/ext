@@ -50,6 +50,30 @@ func (x *Library) ArtifactDigest(in LibraryArtifactDigestInput) (string, error) 
 	return out, err
 }
 
+// BundlePlan runs bundle.plan on the library. Validate a pinned ext.bundle/v1 package selection
+// and resolve its complete dependency graph; no download or trust grant.
+func (x *Library) BundlePlan(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("bundle.plan", raw(in), &out, nil)
+	return out, err
+}
+
+// CatalogSelect runs catalog.select on the library. Select the pinned archive for one exact
+// os/arch target; not_found when absent.
+func (x *Library) CatalogSelect(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("catalog.select", raw(in), &out, nil)
+	return out, err
+}
+
+// CatalogValidate runs catalog.validate on the library. Validate the existing format_version 1
+// artifact index; this grants no trust and performs no download.
+func (x *Library) CatalogValidate(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("catalog.validate", raw(in), &out, nil)
+	return out, err
+}
+
 // CodeName runs code_name on the library.
 func (x *Library) CodeName(in LibraryCodeNameInput) (string, error) {
 	var out string
@@ -116,10 +140,40 @@ func (x *Library) FrameValidate(in json.RawMessage) (json.RawMessage, error) {
 	return out, err
 }
 
+// PackageExecution runs package.execution on the library. Compile the reachable routed execution
+// graph with provider-first startup order; no execution or authority.
+func (x *Library) PackageExecution(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("package.execution", raw(in), &out, nil)
+	return out, err
+}
+
+// PackageGraph runs package.graph on the library. Resolve packages for a target and project
+// declarative facts into an Ext graph schema and transaction; no execution, trust or storage.
+func (x *Library) PackageGraph(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("package.graph", raw(in), &out, nil)
+	return out, err
+}
+
 // PackageResolve runs package.resolve on the library. services.md
 func (x *Library) PackageResolve(in []json.RawMessage) (json.RawMessage, error) {
 	var out json.RawMessage
 	err := x.o.CallWith("package.resolve", in, &out, nil)
+	return out, err
+}
+
+// PackageResolveFor runs package.resolve_for on the library. services.md
+func (x *Library) PackageResolveFor(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("package.resolve_for", raw(in), &out, nil)
+	return out, err
+}
+
+// PackageRoutes runs package.routes on the library. services.md
+func (x *Library) PackageRoutes(in json.RawMessage) ([]json.RawMessage, error) {
+	var out []json.RawMessage
+	err := x.o.CallWith("package.routes", raw(in), &out, nil)
 	return out, err
 }
 
@@ -154,6 +208,60 @@ func (x *Library) RequestValidate(in json.RawMessage) (json.RawMessage, error) {
 	var out json.RawMessage
 	err := x.o.CallWith("request.validate", raw(in), &out, nil)
 	return out, err
+}
+
+// ResourceCallRequestValidate runs resource.call.request.validate on the library. Validate an
+// explicit resource call request before launch.
+func (x *Library) ResourceCallRequestValidate(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("resource.call.request.validate", raw(in), &out, nil)
+	return out, err
+}
+
+// ResourceCallValidate runs resource.call.validate on the library. Validate a payload against a
+// selected resource operation schema. No invocation or authorization.
+func (x *Library) ResourceCallValidate(in json.RawMessage) error {
+	return x.o.CallWith("resource.call.validate", raw(in), nil, nil)
+}
+
+// ResourceErrorValidate runs resource.error.validate on the library. Validate an ext.resource/v1
+// discovery error against its request; preserves the plugin error envelope.
+func (x *Library) ResourceErrorValidate(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("resource.error.validate", raw(in), &out, nil)
+	return out, err
+}
+
+// ResourceOperationSelect runs resource.operation.select on the library. Select a
+// resource-advertised operation also declared by its provider. No invocation or authorization.
+func (x *Library) ResourceOperationSelect(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("resource.operation.select", raw(in), &out, nil)
+	return out, err
+}
+
+// ResourceRequestValidate runs resource.request.validate on the library. Validate ext.resource/v1
+// list or inspect input; returns the request unchanged, without invoking or authorizing a
+// provider.
+func (x *Library) ResourceRequestValidate(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("resource.request.validate", raw(in), &out, nil)
+	return out, err
+}
+
+// ResourceResponseValidate runs resource.response.validate on the library. Validate
+// ext.resource/v1 page or inspection against the selected provider and request; no invocation or
+// authorization.
+func (x *Library) ResourceResponseValidate(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("resource.response.validate", raw(in), &out, nil)
+	return out, err
+}
+
+// ResourceResultValidate runs resource.result.validate on the library. Validate a result against
+// the selected resource output schema.
+func (x *Library) ResourceResultValidate(in json.RawMessage) error {
+	return x.o.CallWith("resource.result.validate", raw(in), nil, nil)
 }
 
 // ResponseValidate runs response.validate on the library. services.md
@@ -204,6 +312,99 @@ func (x *Library) TrustState(in LibraryTrustStateInput) (string, error) {
 	var out string
 	err := x.o.CallWith("trust_state", in, &out, nil)
 	return out, err
+}
+
+// ExecutionGraph is a execution_graph object of ext_plugin. Owns a reviewed process-provider graph
+// and its private copies. Application owns source writer coordination and policy. Close stops
+// consumers before providers; copies survive active calls and are removed last.
+type ExecutionGraph struct{ o *library.Object }
+
+// ExecutionGraphHandlers serve the events of a execution_graph. A nil one is no handler.
+type ExecutionGraphHandlers struct {
+	// ReverseAuthorize answers reverse_authorize: nil allows. An active reverse request with its exact
+	// consumer and provider identities. Denied unless the application answers allow.
+	ReverseAuthorize func(data json.RawMessage) error
+}
+
+func (h ExecutionGraphHandlers) handlers() library.Handlers {
+	m := library.Handlers{}
+	if f := h.ReverseAuthorize; f != nil {
+		m["reverse_authorize"] = func(d json.RawMessage) (any, error) { return nil, f(d) }
+	}
+	return m
+}
+
+// OpenExecutionGraph opens a execution_graph, with handlers for its events; an event without one is denied (or, when
+// it asks nothing, dropped).
+func (x *Library) OpenExecutionGraph(config json.RawMessage, handlers ExecutionGraphHandlers) (*ExecutionGraph, error) {
+	o, err := x.d.Open("execution_graph", config, handlers.handlers())
+	if err != nil {
+		return nil, err
+	}
+	return &ExecutionGraph{o}, nil
+}
+
+// Close closes the execution_graph.
+func (x *ExecutionGraph) Close() error { return x.o.Close() }
+
+// Handle is the execution_graph's handle, as another object's config names it.
+func (x *ExecutionGraph) Handle() uint64 { return x.o.Handle() }
+
+// Answer runs answer on the execution_graph.
+func (x *ExecutionGraph) Answer(in json.RawMessage) error {
+	return x.o.CallWith("answer", raw(in), nil, nil)
+}
+
+// Call runs call on the execution_graph.
+func (x *ExecutionGraph) Call(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("call", raw(in), &out, nil)
+	return out, err
+}
+
+// Events runs events on the execution_graph.
+func (x *ExecutionGraph) Events(in ExecutionGraphEventsInput) ([]json.RawMessage, error) {
+	var out []json.RawMessage
+	err := x.o.CallWith("events", in, &out, nil)
+	return out, err
+}
+
+// Observe runs observe on the execution_graph. Complete live session observations, with random
+// instance-qualified session IDs, selected identity/contract/routes and child PID locators. Closed
+// unless every host is ready.
+func (x *ExecutionGraph) Observe(in json.RawMessage) ([]json.RawMessage, error) {
+	var out []json.RawMessage
+	err := x.o.CallWith("observe", raw(in), &out, nil)
+	return out, err
+}
+
+// Plan runs plan on the execution_graph.
+func (x *ExecutionGraph) Plan(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("plan", raw(in), &out, nil)
+	return out, err
+}
+
+// Sequence runs sequence on the execution_graph.
+func (x *ExecutionGraph) Sequence(in json.RawMessage) (int64, error) {
+	var out int64
+	err := x.o.CallWith("sequence", raw(in), &out, nil)
+	return out, err
+}
+
+// Snapshot runs snapshot on the execution_graph. Project sessions, process references and routes
+// into a complete dedicated namespace. processes must match observe order and session/PID and
+// contain ledger process_identity references. Caller owns correlation and namespace; facts grant
+// no authority.
+func (x *ExecutionGraph) Snapshot(in ExecutionGraphSnapshotInput) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("snapshot", in, &out, nil)
+	return out, err
+}
+
+// Start runs start on the execution_graph.
+func (x *ExecutionGraph) Start(in ExecutionGraphStartInput) error {
+	return x.o.CallWith("start", in, nil, nil)
 }
 
 // Host is a host object of ext_plugin. A session with one plugin over a child process or a C ABI
@@ -329,6 +530,14 @@ func (x *Host) Invoke(in HostInvokeInput) (json.RawMessage, error) {
 	return out, err
 }
 
+// ProcessID runs process_id on the host. Live child PID locator; closed unless ready, unsupported
+// for non-process backends. Not a durable process identity.
+func (x *Host) ProcessID(in json.RawMessage) (int64, error) {
+	var out int64
+	err := x.o.CallWith("process_id", raw(in), &out, nil)
+	return out, err
+}
+
 // Sequence runs sequence on the host.
 func (x *Host) Sequence(in json.RawMessage) (int64, error) {
 	var out int64
@@ -399,6 +608,28 @@ func (x *Layered) Load(in LayeredLoadInput) (LayeredLoadOutput, error) {
 func (x *Layered) Verify(in json.RawMessage) error {
 	return x.o.CallWith("verify", raw(in), nil, nil)
 }
+
+// PackageWriter is a package_writer object of ext_plugin. An exclusive cooperating-writer
+// directory at root/.package-write.lock. Open fails with exists on contention; close releases
+// after checking ownership. Protect the home from hostile mutation. No automatic stale-lock
+// recovery. Hold across planning, publication and trust changes; store operations do not acquire
+// it implicitly.
+type PackageWriter struct{ o *library.Object }
+
+// OpenPackageWriter opens a package_writer.
+func (x *Library) OpenPackageWriter(config PackageWriterConfig) (*PackageWriter, error) {
+	o, err := x.d.Open("package_writer", config, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &PackageWriter{o}, nil
+}
+
+// Close closes the package_writer.
+func (x *PackageWriter) Close() error { return x.o.Close() }
+
+// Handle is the package_writer's handle, as another object's config names it.
+func (x *PackageWriter) Handle() uint64 { return x.o.Handle() }
 
 // Store is a store object of ext_plugin. An installed package store at one root.
 type Store struct{ o *library.Object }
@@ -486,6 +717,14 @@ func (x *Store) ResolveEntrypoint(in StoreResolveEntrypointInput) (json.RawMessa
 	return out, err
 }
 
+// Snapshot runs snapshot on the store. Copy a digest-reviewed package into this private store
+// without replacement or trust; caller owns writer coordination and cleanup.
+func (x *Store) Snapshot(in StoreSnapshotInput) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("snapshot", in, &out, nil)
+	return out, err
+}
+
 // Upgrade runs upgrade on the store.
 func (x *Store) Upgrade(in StoreUpgradeInput) (json.RawMessage, error) {
 	var out json.RawMessage
@@ -505,17 +744,17 @@ type LibraryArtifactDigestInput struct {
 	Tree bool   `json:"tree,omitempty"`
 }
 
-// LibraryCodeNameInput is the JSON object the description gives for it.
-type LibraryCodeNameInput struct {
-	Code int64 `json:"code"`
-}
-
 // raw is an input given as JSON: nil sends {}.
 func raw(in json.RawMessage) any {
 	if len(in) == 0 {
 		return nil
 	}
 	return in
+}
+
+// LibraryCodeNameInput is the JSON object the description gives for it.
+type LibraryCodeNameInput struct {
+	Code int64 `json:"code"`
 }
 
 // LibraryDirectoryDigestInput is the JSON object the description gives for it.
@@ -558,6 +797,24 @@ type LibraryTrustStateInput struct {
 	Scope  string `json:"scope"`
 }
 
+// ExecutionGraphEventsInput is the JSON object the description gives for it.
+type ExecutionGraphEventsInput struct {
+	Max       int64 `json:"max,omitempty"`
+	TimeoutMS int64 `json:"timeout_ms,omitempty"`
+}
+
+// ExecutionGraphSnapshotInput is the JSON object the description gives for it.
+type ExecutionGraphSnapshotInput struct {
+	Namespace string            `json:"namespace"`
+	Processes []json.RawMessage `json:"processes"`
+}
+
+// ExecutionGraphStartInput is the JSON object the description gives for it.
+type ExecutionGraphStartInput struct {
+	Reviews   []json.RawMessage `json:"reviews"`
+	TimeoutMS int64             `json:"timeout_ms,omitempty"`
+}
+
 // HostConfigBackend is the JSON object the description gives for it.
 type HostConfigBackend struct {
 	Arguments        []string `json:"arguments,omitempty"`
@@ -584,6 +841,7 @@ type HostConfig struct {
 	EventTimeoutMS int64               `json:"event_timeout_ms,omitempty"`
 	Observe        bool                `json:"observe,omitempty"`
 	Requirements   []json.RawMessage   `json:"requirements,omitempty"`
+	Routes         []json.RawMessage   `json:"routes,omitempty"`
 	Services       *HostConfigServices `json:"services,omitempty"`
 	Verify         string              `json:"verify"`
 }
@@ -639,6 +897,11 @@ type LayeredLoadInput struct {
 type LayeredLoadOutput struct {
 	Layer    int64           `json:"layer,omitempty"`
 	Manifest json.RawMessage `json:"manifest,omitempty"`
+}
+
+// PackageWriterConfig is the JSON object the description gives for it.
+type PackageWriterConfig struct {
+	Root string `json:"root"`
 }
 
 // StoreConfigLimits is the JSON object the description gives for it.
@@ -699,6 +962,13 @@ type StoreResolveEntrypointInput struct {
 	Protocol       string `json:"protocol"`
 	ReviewedDigest string `json:"reviewed_digest,omitempty"`
 	Version        string `json:"version"`
+}
+
+// StoreSnapshotInput is the JSON object the description gives for it.
+type StoreSnapshotInput struct {
+	ID             string `json:"id"`
+	ReviewedDigest string `json:"reviewed_digest"`
+	Source         string `json:"source"`
 }
 
 // StoreUpgradeInput is the JSON object the description gives for it.

@@ -504,6 +504,9 @@ EXT_PLUGIN_HOST_API void ext_plugin_host_destroy(ext_plugin_host *);
  * EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH, and sets *length to the retained size.
  * The output is bounded, possibly truncated, and untrusted text. Hosts of other
  * kinds retain none (length 0). */
+/* Live child locator, not a durable process identity. Closed unless ready;
+ * unsupported for non-process backends. */
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_host_process_id(ext_plugin_host *, uint64_t *pid);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_host_process_stderr(ext_plugin_host *, uint8_t *buffer,
                                                 size_t capacity,
                                                 size_t *length);
@@ -566,6 +569,19 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_digest(const char *root, 
  * upgrade that changes the id or the contracts; EXT_PLUGIN_EXISTS for an install over
  * an installed id; EXT_PLUGIN_NOT_FOUND for an id that is not installed. The manifest
  * returned is the installed plugin.json, verbatim. */
+/* A cross-process writer shared by all stores and approvals under one EXT_HOME.
+ * Acquire creates home when absent and exclusively owns .package-write.lock;
+ * EXISTS means contention. No waiting or stale-lock recovery. Protect home from
+ * hostile mutation. Hold across the entire read/check/write transaction.
+ * Release is idempotent and checks directory ownership; free releases if needed.
+ * Serialize calls on a writer; free consumes its pointer. A crash leaves the lock.
+ * This API ships with the portable store, without process-host dependencies. */
+typedef struct ext_plugin_store_writer ext_plugin_store_writer;
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_writer_acquire(const char *home,
+    ext_plugin_store_writer **out);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_writer_release(ext_plugin_store_writer *writer);
+EXT_PLUGIN_HOST_API void ext_plugin_store_writer_free(ext_plugin_store_writer *writer);
+
 typedef struct ext_plugin_store ext_plugin_store;
 typedef struct {
   /* Bounds on one artifact file (a file inside a tree counts too), on the files
@@ -590,6 +606,15 @@ EXT_PLUGIN_HOST_API void ext_plugin_store_close(ext_plugin_store *store);
  * *manifest is the installed plugin.json, to be freed with ext_plugin_buffer_free. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_install(ext_plugin_store *store, const char *source,
                                           uint32_t flags, ext_plugin_buffer *manifest);
+/* Copy one reviewed package into this private destination store without replacing
+ * an existing package. id and the lowercase SHA-256 directory digest must match
+ * the source; the staged copy must have the same digest before publication.
+ * No trust records or install receipts are copied and no authority is granted.
+ * The caller owns the private destination and its cleanup, and coordinates source
+ * review/copy with the package writer. The copy uses ordinary store bounds. */
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_snapshot(ext_plugin_store *store,
+    const char *source, const char *id, const char *reviewed_digest,
+    ext_plugin_buffer *manifest);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_upgrade(ext_plugin_store *store, const char *source,
                                           uint32_t flags, ext_plugin_buffer *manifest);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_replace(ext_plugin_store *store, const char *source,
@@ -679,7 +704,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_list_unverified(ext_plugi
  * No package is trusted merely because it is installed: an empty or changed
  * digest is EXT_PLUGIN_DENIED, and nothing is selected without it.
  *
- * Only entrypoints with runtime "argv" that list protocol are considered. One
+ * Only entrypoints with runtime "argv" or "process" that list protocol are considered. One
  * whose name ends in ".windows", ".linux", ".darwin", ".freebsd" or ".android"
  * is for that platform alone. Its artifact must have no os or arch, or the
  * given ones. The best match scores 2 for an artifact that names an os, 1 for
@@ -771,6 +796,12 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  * An operation that returns nothing returns null; an unknown one is EXT_PLUGIN_UNSUPPORTED and an
  * unknown or closed handle EXT_PLUGIN_NOT_FOUND. ext_plugin_close frees an object once no call
  * holds it. Handles are never reused. */
+/* execution_graph owns a process-provider graph through this interface. Open
+ * selects manifests and routes without launching. start requires application-
+ * reviewed identity/digest pairs; call invokes its root. Reverse authorization
+ * is an event carrying consumer, provider and request. Close cancels all hosts
+ * and removes private copies after active calls release them. See interface.json
+ * and docs/adr-ext-graph.md for the configuration and application responsibilities. */
 #define EXT_PLUGIN_ABI_VERSION 1u
 EXT_PLUGIN_HOST_API uint32_t ext_plugin_abi_version(void);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *handle);

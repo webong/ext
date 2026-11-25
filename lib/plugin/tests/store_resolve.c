@@ -267,7 +267,7 @@ static void runtime_and_protocol(const char *scratch, fixture *f) {
   const ent ents[] = {
       {"x", "wasm", "first", "[\"p/v1\"]"},          /* not argv */
       {"y", "argv", "first", "[\"q/v1\",\"r/v1\"]"}, /* other protocols */
-      {"z", "argv", "second", "[\"p/v1\"]"}};
+      {"z", "process", "second", "[\"p/v1\"]"}};
   package(source, "filter", "r1", arts, 2, ents, 3);
   install(f, source, "filter");
   expect(f, "filter", "p/v1", "linux", "amd64", "z", "second");
@@ -323,6 +323,48 @@ static void arguments(const fixture *f) {
                                       NULL) == EXT_PLUGIN_INVALID);
 }
 
+static void snapshots(const char *scratch) {
+  char *source = join(scratch, "snapshot-source");
+  char *root = join(scratch, "snapshots");
+  const art artifacts[] = {{"guest", NULL, NULL}};
+  const ent entries[] = {{"main", "argv", "guest", "[\"p/v1\"]"}};
+  package(source, "snapshot/guest", "r1", artifacts, 1, entries, 1);
+  uint8_t raw[32];
+  char digest[65];
+  assert(ext_plugin_directory_digest(source, raw) == EXT_PLUGIN_OK);
+  hex(raw, digest);
+  ext_plugin_store *store = NULL;
+  assert(ext_plugin_store_open(root, NULL, &store) == EXT_PLUGIN_OK);
+  ext_plugin_buffer out = {0};
+  assert(ext_plugin_store_snapshot(store, source, "snapshot/guest", "", &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_snapshot(store, source, "../bad", digest, &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_snapshot(store, source, "other", digest, &out) == EXT_PLUGIN_MISMATCH);
+  char wrong[65];
+  memset(wrong, '0', 64); wrong[64] = 0;
+  assert(ext_plugin_store_snapshot(store, source, "snapshot/guest", wrong, &out) == EXT_PLUGIN_DENIED);
+  assert(ext_plugin_store_load(store, "snapshot/guest", &out) == EXT_PLUGIN_NOT_FOUND);
+  assert(ext_plugin_store_snapshot(store, source, "snapshot/guest", digest, &out) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
+  assert(ext_plugin_store_snapshot(store, source, "snapshot/guest", digest, &out) == EXT_PLUGIN_EXISTS);
+  assert(ext_plugin_store_digest(root, "snapshot/guest", raw) == EXT_PLUGIN_OK);
+  char copied[65]; hex(raw, copied);
+  assert(!strcmp(copied, digest));
+  /* An upgraded original cannot change the copied manifest or executable. */
+  package(source, "snapshot/guest", "r2", artifacts, 1, entries, 1);
+  assert(ext_plugin_store_snapshot(store, source, "snapshot/guest", digest, &out) == EXT_PLUGIN_DENIED);
+  assert(ext_plugin_store_load(store, "snapshot/guest", &out) == EXT_PLUGIN_OK);
+  assert(ext_plugin_store_digest(root, "snapshot/guest", raw) == EXT_PLUGIN_OK);
+  hex(raw, copied);
+  assert(!strcmp(copied, digest));
+  ext_plugin_buffer_free(&out);
+  assert(ext_plugin_store_resolve_entrypoint(store, "snapshot/guest", "example", "v1", "p/v1",
+    digest, "linux", "amd64", &out) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
+  assert(ext_plugin_store_receipt(store, "snapshot/guest", &out) == EXT_PLUGIN_NOT_FOUND);
+  ext_plugin_store_close(store);
+  free(source); free(root);
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     fprintf(stderr, "usage: %s scratch-directory\n", argv[0]);
@@ -331,6 +373,7 @@ int main(int argc, char **argv) {
   char *root = join(argv[1], "store");
   fixture f = {NULL, root, ""};
   assert(ext_plugin_store_open(root, NULL, &f.store) == EXT_PLUGIN_OK);
+  snapshots(argv[1]);
   platform_names(argv[1], &f);
   artifact_platform(argv[1], &f);
   runtime_and_protocol(argv[1], &f);

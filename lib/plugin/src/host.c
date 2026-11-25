@@ -1728,6 +1728,16 @@ ext_plugin_status ext_plugin_host_serve_reverse(ext_plugin_host *h, const ext_pl
   pthread_mutex_unlock(&h->mu);
   return s;
 }
+ext_plugin_status ext_plugin_host_process_id(ext_plugin_host *h, uint64_t *pid) {
+  if (!h || !pid) return EXT_PLUGIN_INVALID;
+  *pid = 0;
+  pthread_mutex_lock(&h->mu);
+  ext_plugin_status s = h->closed || h->state != EXT_PLUGIN_HOST_READY ? EXT_PLUGIN_CLOSED :
+    !h->channel ? EXT_PLUGIN_UNSUPPORTED : EXT_PLUGIN_OK;
+  if (!s) *pid = ext_channel_process_id(h->channel);
+  pthread_mutex_unlock(&h->mu);
+  return s;
+}
 ext_plugin_status ext_plugin_host_process_stderr(ext_plugin_host *h, uint8_t *buffer,
                                    size_t capacity, size_t *length) {
   if (!h || !length || (capacity && !buffer))
@@ -2179,6 +2189,17 @@ int ext_host_serves(ext_plugin_host *h, yyjson_val *ref) {
       c) if (ext_same_ref(c, ref)) return 1;
   return 0;
 }
+int ext_host_serves_operation(ext_plugin_host *h, yyjson_val *ref, const char *operation) {
+  size_t i, n, j, m;
+  yyjson_val *c, *op;
+  yyjson_arr_foreach(yyjson_obj_get(yyjson_doc_get_root(h->selection), "contracts"), i, n, c) {
+    if (!ext_same_ref(c, ref)) continue;
+    yyjson_arr_foreach(yyjson_obj_get(c, "operations"), j, m, op)
+      if (yyjson_equals_str(yyjson_obj_get(op, "name"), operation)) return 1;
+  }
+  return 0;
+}
+
 ext_plugin_status ext_plugin_host_call_progress(ext_plugin_host *h, const uint8_t *input, size_t len,
                                   const ext_plugin_call_options *options,
                                   const ext_plugin_progress_options *progress,

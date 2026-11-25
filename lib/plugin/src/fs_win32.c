@@ -1303,3 +1303,59 @@ ext_plugin_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode)
   *mode = 0;
   return EXT_PLUGIN_OK;
 }
+
+struct ext_fs_writer {
+  wchar_t *path;
+  HANDLE owned;
+  int active;
+  ext_plugin_status released;
+};
+ext_plugin_status ext_fs_writer_acquire(ext_fs *home, ext_fs_writer **out) {
+  if (!home || !out) return EXT_PLUGIN_INVALID;
+  *out = NULL;
+  ext_fs_writer *w = calloc(1, sizeof *w);
+  if (!w) return EXT_PLUGIN_NOMEM;
+  w->path = join(home->root, ".package-write.lock");
+  if (!w->path) { free(w); return EXT_PLUGIN_NOMEM; }
+  if (!CreateDirectoryW(w->path, NULL)) {
+    DWORD error = GetLastError();
+    free(w->path); free(w);
+    return error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS ? EXT_PLUGIN_EXISTS : EXT_PLUGIN_IO;
+  }
+  w->owned = CreateFileW(w->path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                        NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+  BY_HANDLE_FILE_INFORMATION info;
+  if (w->owned == INVALID_HANDLE_VALUE || !GetFileInformationByHandle(w->owned, &info) ||
+      !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+    if (w->owned != INVALID_HANDLE_VALUE) CloseHandle(w->owned);
+    free(w->path); free(w); return EXT_PLUGIN_IO;
+  }
+  w->active = 1;
+  *out = w;
+  return EXT_PLUGIN_OK;
+}
+ext_plugin_status ext_fs_writer_release(ext_fs_writer *w) {
+  if (!w) return EXT_PLUGIN_INVALID;
+  if (!w->active) return w->released;
+  w->active = 0;
+  HANDLE current = CreateFileW(w->path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+  BY_HANDLE_FILE_INFORMATION a, b;
+  if (current == INVALID_HANDLE_VALUE || !GetFileInformationByHandle(w->owned, &a) || !GetFileInformationByHandle(current, &b))
+    w->released = EXT_PLUGIN_IO;
+  else if ((b.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) || !(b.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+           a.dwVolumeSerialNumber != b.dwVolumeSerialNumber || a.nFileIndexHigh != b.nFileIndexHigh || a.nFileIndexLow != b.nFileIndexLow)
+    w->released = EXT_PLUGIN_MISMATCH;
+  if (current != INVALID_HANDLE_VALUE) CloseHandle(current);
+  /* Release our handle before directory deletion; no handles are inherited. */
+  CloseHandle(w->owned);
+  w->owned = INVALID_HANDLE_VALUE;
+  if (!w->released && !RemoveDirectoryW(w->path)) w->released = EXT_PLUGIN_IO;
+  return w->released;
+}
+void ext_fs_writer_free(ext_fs_writer *w) {
+  if (!w) return;
+  (void)ext_fs_writer_release(w);
+  if (w->owned != INVALID_HANDLE_VALUE) CloseHandle(w->owned);
+  free(w->path); free(w);
+}

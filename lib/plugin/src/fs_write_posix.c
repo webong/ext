@@ -664,3 +664,56 @@ ext_plugin_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode)
   free(storage);
   return s;
 }
+
+/* The name matches the CLI's cooperating-writer boundary. Keep the parent and
+ * owned directory open so cwd changes and inode reuse cannot change ownership. */
+struct ext_fs_writer {
+  int parent, owned, active;
+  ext_plugin_status released;
+};
+static const char writer_name[] = ".package-write.lock";
+ext_plugin_status ext_fs_writer_acquire(ext_fs *home, ext_fs_writer **out) {
+  if (!home || !out)
+    return EXT_PLUGIN_INVALID;
+  *out = NULL;
+  ext_fs_writer *w = calloc(1, sizeof *w);
+  if (!w)
+    return EXT_PLUGIN_NOMEM;
+  w->parent = fcntl(ext_fs_fd(home), F_DUPFD_CLOEXEC, 0);
+  w->owned = -1;
+  if (w->parent < 0) { free(w); return EXT_PLUGIN_IO; }
+  if (mkdirat(w->parent, writer_name, 0700)) {
+    ext_plugin_status status = errno == EEXIST ? EXT_PLUGIN_EXISTS : EXT_PLUGIN_IO;
+    close(w->parent); free(w); return status;
+  }
+  w->owned = openat(w->parent, writer_name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (w->owned < 0) {
+    /* We cannot establish ownership; leave the directory for explicit recovery. */
+    close(w->parent); free(w); return EXT_PLUGIN_IO;
+  }
+  w->active = 1;
+  *out = w;
+  return EXT_PLUGIN_OK;
+}
+ext_plugin_status ext_fs_writer_release(ext_fs_writer *w) {
+  if (!w)
+    return EXT_PLUGIN_INVALID;
+  if (!w->active)
+    return w->released;
+  w->active = 0;
+  struct stat owned, current;
+  if (fstat(w->owned, &owned) || fstatat(w->parent, writer_name, &current, AT_SYMLINK_NOFOLLOW))
+    w->released = EXT_PLUGIN_IO;
+  else if (!S_ISDIR(current.st_mode) || owned.st_dev != current.st_dev || owned.st_ino != current.st_ino)
+    w->released = EXT_PLUGIN_MISMATCH;
+  else if (unlinkat(w->parent, writer_name, AT_REMOVEDIR))
+    w->released = EXT_PLUGIN_IO;
+  return w->released;
+}
+void ext_fs_writer_free(ext_fs_writer *w) {
+  if (!w) return;
+  (void)ext_fs_writer_release(w);
+  close(w->owned);
+  close(w->parent);
+  free(w);
+}

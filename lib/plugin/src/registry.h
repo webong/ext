@@ -16,4 +16,9 @@ ext_plugin_status ext_host_call_begun(ext_plugin_host *, const uint8_t *, size_t
                                void *context, ext_plugin_buffer *out);
 /* Whether the host's descriptor lists the contract ref, a {name, version}. */
 int ext_host_serves(ext_plugin_host *, yyjson_val *ref);
+int ext_host_serves_operation(ext_plugin_host *, yyjson_val *ref, const char *operation);
+/* Internal registration for the described host's immutable operation routes. */
+ext_plugin_status ext_registry_register_operation(ext_plugin_registry *, const char *name,
+                                                  const char *version, const char *operation,
+                                                  ext_plugin_host *);
 #endif

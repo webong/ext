@@ -50,15 +50,23 @@ yyjson_val *ext_negotiate(yyjson_val *preferred, yyjson_val *offered) {
   yyjson_arr_foreach(preferred, i, n, p) if (contains(offered, p)) return p;
   return NULL;
 }
+/* Optional empty provider IDs have the same meaning as an omitted selector. */
+static yyjson_val *provider_id(yyjson_val *r) {
+  yyjson_val *v = get(r, "provider");
+  return yyjson_equals_str(v, "") ? NULL : v;
+}
 static int requirement(yyjson_val *r) {
-  return EXT_FIELDS(r, "identity", "contract", "operation") &&
+  return EXT_FIELDS(r, "identity", "provider", "contract", "operation") &&
          (absent(get(r, "identity")) || ext_identity(get(r, "identity"))) &&
+         (absent(get(r, "provider")) || ext_text(get(r, "provider"), 0, 1)) &&
+         (absent(provider_id(r)) || absent(get(r, "identity"))) &&
          EXT_FIELDS(get(r, "contract"), "name", "version") &&
          ext_ref(get(r, "contract")) && ext_text(get(r, "operation"), 0, 0);
 }
 static int satisfies(yyjson_val *d, yyjson_val *r) {
   return (absent(get(r, "identity")) ||
           ext_same_identity(get(d, "identity"), get(r, "identity"))) &&
+         (absent(provider_id(r)) || ext_same(get(get(d, "identity"), "id"), provider_id(r))) &&
          ext_lookup(d, get(r, "contract"), get(r, "operation")) != NULL;
 }
 static ext_plugin_status select_descriptor(yyjson_val *ds, yyjson_val *r,
@@ -419,13 +427,269 @@ static ext_plugin_status routes(yyjson_val *v, ext_plugin_buffer *out) {
   return denied ? EXT_PLUGIN_DENIED : EXT_PLUGIN_UNSUPPORTED;
 }
 
+/* A catalog index is the existing artifact index, usable for any package.
+ * It locates pinned archives; validating it grants no execution authority. */
+static int catalog_target(yyjson_val *v) {
+  if (!yyjson_is_str(v) || yyjson_get_len(v) > 128)
+    return 0;
+  const char *s = yyjson_get_str(v);
+  size_t n = yyjson_get_len(v), slash = 0;
+  if (!n || s[0] == '/' || s[n - 1] == '/')
+    return 0;
+  for (size_t i = 0; i < n; i++) {
+    if (s[i] == '/') { slash++; continue; }
+    if (!((s[i] >= 'a' && s[i] <= 'z') ||
+          (s[i] >= '0' && s[i] <= '9') || s[i] == '_'))
+      return 0;
+  }
+  return slash == 1;
+}
+static int catalog_valid(yyjson_val *v) {
+  int64_t version;
+  yyjson_val *packages = get(v, "packages");
+  if (!EXT_FIELDS(v, "format_version", "name", "packages") ||
+      !ext_int64(get(v, "format_version"), &version) || version != 1 ||
+      !ext_text(get(v, "name"), 0, 0) || !yyjson_is_obj(packages) ||
+      !yyjson_obj_size(packages) || yyjson_obj_size(packages) > 256)
+    return 0;
+  size_t i, n;
+  yyjson_val *key, *entry;
+  yyjson_obj_foreach(packages, i, n, key, entry) {
+    if (!catalog_target(key) || !EXT_FIELDS(entry, "url", "sha256"))
+      return 0;
+    yyjson_val *url = get(entry, "url"), *sha = get(entry, "sha256");
+    if (!yyjson_is_str(url) || !yyjson_get_len(url) || yyjson_get_len(url) > 4096 ||
+        !yyjson_is_str(sha) || yyjson_get_len(sha) != 64)
+      return 0;
+    const char *u = yyjson_get_str(url), *h = yyjson_get_str(sha);
+    for (size_t j = 0; j < yyjson_get_len(url); j++)
+      if ((unsigned char)u[j] <= 32 || (unsigned char)u[j] == 127)
+        return 0;
+    for (size_t j = 0; j < 64; j++)
+      if (!((h[j] >= '0' && h[j] <= '9') || (h[j] >= 'a' && h[j] <= 'f') ||
+            (h[j] >= 'A' && h[j] <= 'F')))
+        return 0;
+  }
+  return 1;
+}
+
+/* Resource discovery requests describe provider-owned identifiers. Validation
+ * neither resolves a provider nor grants authority to invoke it. */
+static int resource_opaque(yyjson_val *v, size_t max) {
+  if (!yyjson_is_str(v) || !yyjson_get_len(v) || yyjson_get_len(v) > max)
+    return 0;
+  const unsigned char *s = (const unsigned char *)yyjson_get_str(v);
+  for (size_t i = 0; i < yyjson_get_len(v); i++)
+    if (s[i] < 32 || s[i] == 127)
+      return 0;
+  return 1;
+}
+static int resource_reference(yyjson_val *v) {
+  return EXT_FIELDS(v, "provider", "type", "id") &&
+         ext_identity(get(v, "provider")) &&
+         ext_text(get(v, "type"), 0, 0) &&
+         resource_opaque(get(v, "id"), 1024);
+}
+static ext_plugin_status resource_request_check(yyjson_val *op, yyjson_val *r) {
+  if (!yyjson_is_str(op) || !yyjson_is_obj(r))
+    return EXT_PLUGIN_INVALID;
+  if (eq(op, "list")) {
+    int64_t n;
+    if (!EXT_FIELDS(r, "type", "limit", "cursor") ||
+        (get(r, "type") && !ext_text(get(r, "type"), 0, 0)) ||
+        (get(r, "limit") && (!ext_int64(get(r, "limit"), &n) || n < 1 || n > 100)) ||
+        (get(r, "cursor") && !resource_opaque(get(r, "cursor"), 4096)))
+      return EXT_PLUGIN_INVALID;
+  } else if (eq(op, "inspect")) {
+    if (!EXT_FIELDS(r, "resource") || !resource_reference(get(r, "resource")))
+      return EXT_PLUGIN_INVALID;
+  } else {
+    return EXT_PLUGIN_UNSUPPORTED;
+  }
+  return EXT_PLUGIN_OK;
+}
+static ext_plugin_status resource_request(yyjson_val *v, ext_plugin_buffer *out) {
+  if (!EXT_FIELDS(v, "operation", "request"))
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status status = resource_request_check(get(v, "operation"), get(v, "request"));
+  return status ? status : output(get(v, "request"), out);
+}
+/* Discovery uses the existing remote error envelope with stable categories.
+ * Domain operations keep their own payload contracts; they are not discovery. */
+static ext_plugin_status resource_error(yyjson_val *v, ext_plugin_buffer *out) {
+  if (!EXT_FIELDS(v, "operation", "request", "error"))
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status status = resource_request_check(get(v, "operation"), get(v, "request"));
+  if (status)
+    return status;
+  yyjson_val *error = get(v, "error"), *code = get(error, "code");
+  if (!ext_error_valid(error))
+    return EXT_PLUGIN_INVALID;
+  if (eq(code, "expired")) {
+    if (!eq(get(v, "operation"), "list") || !get(get(v, "request"), "cursor"))
+      return EXT_PLUGIN_INVALID;
+  } else if (!(eq(code, "invalid") || eq(code, "not_found") || eq(code, "denied") ||
+               eq(code, "unsupported") || eq(code, "mismatch") || eq(code, "closed") ||
+               eq(code, "canceled") || eq(code, "timeout") || eq(code, "capacity") ||
+               eq(code, "io") || eq(code, "operation_failed"))) {
+    return EXT_PLUGIN_INVALID;
+  }
+  return output(error, out);
+}
+static int resource_same(yyjson_val *a, yyjson_val *b) {
+  return ext_same_identity(get(a, "provider"), get(b, "provider")) &&
+         ext_same(get(a, "type"), get(b, "type")) &&
+         ext_same(get(a, "id"), get(b, "id"));
+}
+static ext_plugin_status resource_operations_check(yyjson_val *ops) {
+  if (!list(ops, 0, 64))
+    return EXT_PLUGIN_INVALID;
+  size_t i, n, j;
+  unsigned budget = 1024;
+  yyjson_val *entry;
+  yyjson_arr_foreach(ops, i, n, entry) {
+    yyjson_val *contract = get(entry, "contract");
+    if (!EXT_FIELDS(entry, "contract", "operation", "input", "output") ||
+        !EXT_FIELDS(contract, "name", "version") || !ext_ref(contract) ||
+        !ext_text(get(entry, "operation"), 0, 0) ||
+        !ext_schema_valid(get(entry, "input"), 0, &budget) ||
+        !ext_schema_valid(get(entry, "output"), 0, &budget))
+      return EXT_PLUGIN_INVALID;
+    for (j = 0; j < i; j++) {
+      yyjson_val *previous = yyjson_arr_get(ops, j);
+      if (ext_same_ref(contract, get(previous, "contract")) &&
+          ext_same(get(entry, "operation"), get(previous, "operation")))
+        return EXT_PLUGIN_INVALID;
+    }
+  }
+  return EXT_PLUGIN_OK;
+}
+static ext_plugin_status resource_response(yyjson_val *v, ext_plugin_buffer *out) {
+  if (!EXT_FIELDS(v, "operation", "request", "provider", "response") ||
+      !ext_identity(get(v, "provider")) || !yyjson_is_obj(get(v, "response")))
+    return EXT_PLUGIN_INVALID;
+  yyjson_val *op = get(v, "operation"), *r = get(v, "request"),
+             *response = get(v, "response"), *provider = get(v, "provider");
+  ext_plugin_status status = resource_request_check(op, r);
+  if (status)
+    return status;
+  if (eq(op, "list")) {
+    int64_t maximum = 100;
+    if (get(r, "limit"))
+      ext_int64(get(r, "limit"), &maximum);
+    yyjson_val *items = get(response, "items"), *next = get(response, "next");
+    if (!EXT_FIELDS(response, "items", "next") || !list(items, 0, (size_t)maximum) ||
+        (next && (!resource_opaque(next, 4096) || !yyjson_arr_size(items))))
+      return EXT_PLUGIN_INVALID;
+    if (next && ext_same(next, get(r, "cursor")))
+      return EXT_PLUGIN_MISMATCH;
+    size_t i, n, j;
+    yyjson_val *item;
+    yyjson_arr_foreach(items, i, n, item) {
+      if (!resource_reference(item))
+        return EXT_PLUGIN_INVALID;
+      if (!ext_same_identity(get(item, "provider"), provider) ||
+          (get(r, "type") && !ext_same(get(item, "type"), get(r, "type"))))
+        return EXT_PLUGIN_MISMATCH;
+      for (j = 0; j < i; j++)
+        if (resource_same(item, yyjson_arr_get(items, j)))
+          return EXT_PLUGIN_INVALID;
+    }
+  } else {
+    yyjson_val *resource = get(response, "resource"), *ops = get(response, "operations");
+    if (!EXT_FIELDS(response, "resource", "operations") ||
+        !resource_reference(resource) || !list(ops, 0, 64))
+      return EXT_PLUGIN_INVALID;
+    if (!resource_same(resource, get(r, "resource")) ||
+        !ext_same_identity(get(resource, "provider"), provider))
+      return EXT_PLUGIN_MISMATCH;
+    status = resource_operations_check(ops);
+    if (status)
+      return status;
+  }
+  return output(response, out);
+}
+
+/* Selection is evidence of a declared operation, never an authority decision. */
+static ext_plugin_status resource_operation_pick(yyjson_val *v, yyjson_val **chosen) {
+  yyjson_val *descriptor = get(v, "descriptor"), *inspection = get(v, "inspection"),
+             *r = get(v, "requirement"), *ops = get(inspection, "operations");
+  if (!EXT_FIELDS(v, "descriptor", "inspection", "requirement") ||
+      !ext_descriptor(descriptor) || !EXT_FIELDS(inspection, "resource", "operations") ||
+      !resource_reference(get(inspection, "resource")) ||
+      !EXT_FIELDS(r, "resource", "contract", "operation") ||
+      !resource_reference(get(r, "resource")) ||
+      !EXT_FIELDS(get(r, "contract"), "name", "version") || !ext_ref(get(r, "contract")) ||
+      !ext_text(get(r, "operation"), 0, 0))
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status status = resource_operations_check(ops);
+  if (status)
+    return status;
+  if (!resource_same(get(inspection, "resource"), get(r, "resource")) ||
+      !ext_same_identity(get(get(r, "resource"), "provider"), get(descriptor, "identity")))
+    return EXT_PLUGIN_MISMATCH;
+  if (!ext_lookup(descriptor, get(r, "contract"), get(r, "operation")))
+    return EXT_PLUGIN_NOT_FOUND;
+  size_t i, n;
+  yyjson_val *entry;
+  yyjson_arr_foreach(ops, i, n, entry) {
+    if (ext_same_ref(get(entry, "contract"), get(r, "contract")) &&
+        ext_same(get(entry, "operation"), get(r, "operation"))) {
+      *chosen = entry;
+      return EXT_PLUGIN_OK;
+    }
+  }
+  return EXT_PLUGIN_NOT_FOUND;
+}
+
 static ext_plugin_status dispatch(const char *op, yyjson_val *v, ext_plugin_buffer *out) {
   yyjson_val *result = NULL;
-  if (!strncmp(op, "package.", 8))
+  if (!strncmp(op, "package.", 8) || !strncmp(op, "bundle.", 7))
     return ext_package_service(op, v, out);
+  if (!strcmp(op, "resource.operation.select")) {
+    ext_plugin_status status = resource_operation_pick(v, &result);
+    return status ? status : output(result, out);
+  }
+  if (!strcmp(op, "resource.call.request.validate")) {
+    if (!EXT_FIELDS(v, "resource", "contract", "operation", "input") ||
+        !resource_reference(get(v, "resource")) ||
+        !EXT_FIELDS(get(v, "contract"), "name", "version") || !ext_ref(get(v, "contract")) ||
+        !ext_text(get(v, "operation"), 0, 0) || !get(v, "input"))
+      return EXT_PLUGIN_INVALID;
+    return output(v, out);
+  }
+  if (!strcmp(op, "resource.call.validate") || !strcmp(op, "resource.result.validate")) {
+    if (!EXT_FIELDS(v, "selection", "payload") || !get(v, "payload"))
+      return EXT_PLUGIN_INVALID;
+    yyjson_val *selection = get(v, "selection"), *payload = get(v, "payload");
+    ext_plugin_status status = resource_operation_pick(selection, &result);
+    if (status)
+      return status;
+    const char *schema = !strcmp(op, "resource.result.validate") ? "output" : "input";
+    if (!ext_schema_check(get(result, schema), payload))
+      return EXT_PLUGIN_INVALID;
+    return output(payload, out);
+  }
+  if (!strcmp(op, "resource.error.validate"))
+    return resource_error(v, out);
+  if (!strcmp(op, "resource.response.validate"))
+    return resource_response(v, out);
+  if (!strcmp(op, "resource.request.validate"))
+    return resource_request(v, out);
   if (!strcmp(op, "route.resolve"))
     return routes(v, out);
-  if (!strcmp(op, "descriptor.validate")) {
+  if (!strcmp(op, "catalog.validate")) {
+    if (!catalog_valid(v))
+      return EXT_PLUGIN_INVALID;
+    result = v;
+  } else if (!strcmp(op, "catalog.select")) {
+    if (!EXT_FIELDS(v, "index", "target") || !catalog_valid(get(v, "index")) ||
+        !catalog_target(get(v, "target")))
+      return EXT_PLUGIN_INVALID;
+    result = get(get(get(v, "index"), "packages"), yyjson_get_str(get(v, "target")));
+    if (!result)
+      return EXT_PLUGIN_NOT_FOUND;
+  } else if (!strcmp(op, "descriptor.validate")) {
     if (!ext_descriptor(v))
       return EXT_PLUGIN_INVALID;
     result = v;

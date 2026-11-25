@@ -10,6 +10,15 @@
 #include <stdint.h>
 
 typedef struct ext_fs ext_fs;
+typedef struct ext_fs_writer ext_fs_writer;
+/* Cooperating package writers use .package-write.lock below an existing home.
+ * Acquisition is exclusive and fail-fast (EXISTS on contention). No stale-lock
+ * recovery is inferred. The caller protects the home from hostile mutation.
+ * Release checks directory identity and never recursively removes content.
+ * Free releases if necessary. A crash leaves the directory for manual recovery. */
+ext_plugin_status ext_fs_writer_acquire(ext_fs *home, ext_fs_writer **out);
+ext_plugin_status ext_fs_writer_release(ext_fs_writer *writer);
+void ext_fs_writer_free(ext_fs_writer *writer);
 typedef ext_plugin_status (*ext_fs_visit)(void *user, const char *path,
                                    const uint8_t sum[32]);
 

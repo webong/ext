@@ -5,13 +5,15 @@
  * Handles are never reused; an object is freed once it is closed and no call holds it. */
 #include "ext_plugin_host.h"
 #include "interface_host.h"
+#include "interface_graph.h"
+#include "fs.h"
 #include "sync.h"
 #include "wire.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-enum { K_STORE = 1, K_LAYERED, K_HOST };
+enum { K_STORE = 1, K_LAYERED, K_HOST, K_WRITER, K_GRAPH };
 
 typedef struct entry {
   uint64_t id;
@@ -30,6 +32,10 @@ static void destroy(entry *e) {
     ext_plugin_store_close(e->ptr);
   else if (e->kind == K_LAYERED)
     ext_plugin_layered_close(e->ptr);
+  else if (e->kind == K_WRITER)
+    ext_plugin_store_writer_free(e->ptr);
+  else if (e->kind == K_GRAPH)
+    ext_interface_graph_free(e->ptr);
   else
     ext_interface_host_free(e->ptr);
   free(e);
@@ -127,6 +133,28 @@ static ext_plugin_status uint_of(yyjson_val *o, const char *key, uint64_t *out) 
     return EXT_PLUGIN_OK;
   return raw_uint(v, out) ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
 }
+
+ext_plugin_status ext_interface_host_borrow(yyjson_val *value, ext_interface_host **out, void **token) {
+  uint64_t handle = 0;
+  if (!raw_uint(value, &handle) || !handle) return EXT_PLUGIN_INVALID;
+  entry *e = acquire(handle);
+  if (!e) return EXT_PLUGIN_NOT_FOUND;
+  if (e->kind != K_HOST) { release(e); return EXT_PLUGIN_INVALID; }
+  *out = e->ptr;
+  *token = e;
+  return EXT_PLUGIN_OK;
+}
+
+void ext_interface_host_release(void *token) { release(token); }
+ext_plugin_status ext_interface_host_route_events(uint64_t handle, ext_interface_host *sink,
+                                                  yyjson_val *consumer, yyjson_val *routes) {
+  entry *e = acquire(handle);
+  if (!e) return EXT_PLUGIN_NOT_FOUND;
+  ext_plugin_status s = e->kind == K_HOST ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
+  if (!s) ext_interface_host_event_sink(e->ptr, sink, consumer, routes);
+  release(e); return s;
+}
+
 
 static ext_plugin_status take(ext_plugin_buffer *b, char **out, size_t *out_len) {
   char *copy = malloc(b->len + 1);
@@ -239,12 +267,25 @@ ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *hand
   const char *object = str(c, "object");
   ext_plugin_status s = EXT_PLUGIN_INVALID;
   ext_plugin_store_limits limits;
-  if (object && !strcmp(object, "host")) {
+  if (object && !strcmp(object, "execution_graph")) {
+    ext_interface_graph *graph = NULL;
+    if (!(s = ext_interface_graph_open(c, &graph)) && (s = add(K_GRAPH, graph, handle)))
+      ext_interface_graph_free(graph);
+  } else if (object && !strcmp(object, "host")) {
     ext_interface_host *host = NULL;
     if (!(s = ext_interface_host_open(c, &host)) && (s = add(K_HOST, host, handle))) {
       ext_interface_host_shutdown(host);
       ext_interface_host_free(host);
     }
+  } else if (object && !strcmp(object, "package_writer")) {
+    const char *root = str(c, "root");
+    /* Filesystem APIs consume C strings: never lock a truncated JSON path. */
+    if (root && strlen(root) != yyjson_get_len(yyjson_obj_get(c, "root")))
+      root = NULL;
+    ext_plugin_store_writer *writer = NULL;
+    if (root && !(s = ext_plugin_store_writer_acquire(root, &writer)) &&
+        (s = add(K_WRITER, writer, handle)))
+      ext_plugin_store_writer_free(writer);
   } else if (object && !strcmp(object, "store")) {
     const char *root = str(c, "root");
     ext_plugin_store *store = NULL;
@@ -290,6 +331,10 @@ ext_plugin_status ext_plugin_close(uint64_t handle) {
     return s;
   if (e->kind == K_HOST)
     ext_interface_host_shutdown(e->ptr);
+  else if (e->kind == K_GRAPH)
+    ext_interface_graph_shutdown(e->ptr);
+  else if (e->kind == K_WRITER)
+    s = ext_plugin_store_writer_release(e->ptr);
   pthread_mutex_lock(&table_lock);
   if (--e->inflight == 0) {
     remove_locked(e);
@@ -417,6 +462,11 @@ static ext_plugin_status call_store(ext_plugin_store *s, const char *op, yyjson_
   if (!strcmp(op, "install") || !strcmp(op, "upgrade") || !strcmp(op, "replace") ||
       !strcmp(op, "install_archive"))
     return install(s, op, in, out, out_len);
+  if (!strcmp(op, "snapshot")) {
+    const char *source = str(in, "source"), *digest = str(in, "reviewed_digest");
+    if (!source || !id || !digest) return EXT_PLUGIN_INVALID;
+    BUFFERED(ext_plugin_store_snapshot(s, source, id, digest, &b_));
+  }
   if (!strcmp(op, "ids"))
     BUFFERED(ext_plugin_store_ids(s, &b_));
   if (!strcmp(op, "list"))
@@ -492,7 +542,10 @@ ext_plugin_status ext_plugin_call(uint64_t handle, const char *op, const char *i
     return EXT_PLUGIN_INVALID;
   yyjson_val *in = yyjson_doc_get_root(doc);
   ext_plugin_status s;
-  if (!yyjson_is_obj(in)) {
+  /* package.resolve is described as an array of manifests. All object-bound
+   * operations still require object input. */
+  if (!yyjson_is_obj(in) &&
+      !(handle == 0 && !strcmp(op, "package.resolve") && yyjson_is_arr(in))) {
     s = EXT_PLUGIN_INVALID;
   } else if (handle == 0) {
     s = call_library(op, in, input, len, out, out_len);
@@ -503,6 +556,8 @@ ext_plugin_status ext_plugin_call(uint64_t handle, const char *op, const char *i
     } else {
       s = e->kind == K_STORE     ? call_store(e->ptr, op, in, out, out_len)
           : e->kind == K_LAYERED ? call_layered(e->ptr, op, in, out, out_len)
+          : e->kind == K_GRAPH ? ext_interface_graph_call(e->ptr, op, in, out, out_len)
+          : e->kind == K_WRITER ? EXT_PLUGIN_UNSUPPORTED
                                  : ext_interface_host_call(e->ptr, op, in, out, out_len);
       release(e);
     }

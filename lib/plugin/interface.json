@@ -16,6 +16,16 @@
         "trust_state": {"input": {"type": "object", "required": ["path", "scope", "id", "digest"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}, "digest": {"type": "string"}}}, "output": {"type": "string"}},
         "trust_record": {"input": {"type": "object", "required": ["path", "scope", "id", "digest"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}, "digest": {"type": "string"}}}, "output": {}},
         "trust_revoke": {"input": {"type": "object", "required": ["path", "scope", "id"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}}}, "output": {}},
+        "resource.call.request.validate": {"about": "Validate an explicit resource call request before launch.", "input": {"type": "object", "required": ["resource", "contract", "operation", "input"]}, "output": {"type": "object"}},
+        "resource.result.validate": {"about": "Validate a result against the selected resource output schema.", "input": {"type": "object", "required": ["selection", "payload"]}, "output": {}},
+        "resource.call.validate": {"about": "Validate a payload against a selected resource operation schema. No invocation or authorization.", "input": {"type": "object", "required": ["selection", "payload"]}, "output": {}},
+        "resource.operation.select": {"about": "Select a resource-advertised operation also declared by its provider. No invocation or authorization.", "input": {"type": "object", "required": ["descriptor", "inspection", "requirement"]}, "output": {"type": "object"}},
+        "resource.error.validate": {"about": "Validate an ext.resource/v1 discovery error against its request; preserves the plugin error envelope.", "input": {"type": "object", "required": ["operation", "request", "error"]}, "output": {"type": "object"}},
+        "resource.response.validate": {"about": "Validate ext.resource/v1 page or inspection against the selected provider and request; no invocation or authorization.", "input": {"type": "object", "required": ["operation", "provider", "request", "response"]}, "output": {"type": "object"}},
+        "resource.request.validate": {"about": "Validate ext.resource/v1 list or inspect input; returns the request unchanged, without invoking or authorizing a provider.", "input": {"type": "object", "required": ["operation", "request"]}, "output": {"type": "object"}},
+        "bundle.plan": {"about": "Validate a pinned ext.bundle/v1 package selection and resolve its complete dependency graph; no download or trust grant.", "input": {"type": "object", "required": ["apiVersion", "target", "packages"]}, "output": {"type": "object"}},
+        "catalog.validate": {"about": "Validate the existing format_version 1 artifact index; this grants no trust and performs no download.", "input": {"type": "object", "required": ["format_version", "name", "packages"]}, "output": {"type": "object"}},
+        "catalog.select": {"about": "Select the pinned archive for one exact os/arch target; not_found when absent.", "input": {"type": "object", "required": ["index", "target"]}, "output": {"type": "object", "required": ["url", "sha256"]}},
         "descriptor.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
         "descriptor.match": {"about": "services.md", "input": {"type": "object", "required": ["selected", "actual"]}, "output": {}},
         "descriptor.select": {"about": "services.md", "input": {"type": "object", "required": ["candidates", "requirement"]}, "output": {"type": "object"}},
@@ -28,11 +38,120 @@
         "route.resolve": {"about": "services.md", "input": {"type": "object", "required": ["hosts", "guests"]}, "output": {"type": "object"}},
         "package.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
         "package.select": {"about": "services.md", "input": {"type": "object", "required": ["manifest", "name", "environment"]}, "output": {"type": "object"}},
+        "package.routes": {"about": "services.md", "input": {"type": "object", "required": ["packages", "os", "arch", "consumer"]}, "output": {"type": "array"}},
+        "package.execution": {"about": "Compile the reachable routed execution graph with provider-first startup order; no execution or authority.", "input": {"type": "object", "required": ["packages", "os", "arch", "root"]}, "output": {"type": "object", "required": ["root", "nodes", "order"]}},
+        "package.graph": {"about": "Resolve packages for a target and project declarative facts into an Ext graph schema and transaction; no execution, trust or storage.", "input": {"type": "object", "required": ["packages", "os", "arch"]}, "output": {"type": "object", "required": ["schema", "transaction"]}},
+        "package.resolve_for": {"about": "services.md", "input": {"type": "object", "required": ["packages", "os", "arch"]}, "output": {"type": "object"}},
         "package.resolve": {"about": "services.md", "input": {"type": "array"}, "output": {"type": "object"}},
         "frame.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
         "endpoint.check": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
         "endpoint.validate": {"about": "services.md", "input": {"type": "object", "required": ["endpoint", "policy"]}, "output": {"type": "object"}}
       }
+    },
+    "execution_graph": {
+      "about": "Owns a reviewed process-provider graph and its private copies. Application owns source writer coordination and policy. Close stops consumers before providers; copies survive active calls and are removed last.",
+      "config": {
+        "type": "object",
+        "required": [
+          "packages",
+          "root",
+          "os",
+          "arch",
+          "temp_root"
+        ]
+      },
+      "operations": {
+        "observe": {"about": "Complete live session observations, with random instance-qualified session IDs, selected identity/contract/routes and child PID locators. Closed unless every host is ready.","input": {"type": "object"},"output": {"type": "array"}},
+        "snapshot": {"about": "Project sessions, process references and routes into a complete dedicated namespace. processes must match observe order and session/PID and contain ledger process_identity references. Caller owns correlation and namespace; facts grant no authority.","input": {"type": "object","required": ["namespace","processes"],"properties": {"namespace": {"type": "string"},"processes": {"type": "array"}}},"output": {"type": "object"}},
+        "plan": {
+          "input": {
+            "type": "object"
+          },
+          "output": {
+            "type": "object"
+          }
+        },
+        "start": {
+          "input": {
+            "type": "object",
+            "required": [
+              "reviews"
+            ],
+            "properties": {
+              "reviews": {
+                "type": "array"
+              },
+              "timeout_ms": {
+                "type": "integer"
+              }
+            }
+          },
+          "output": {}
+        },
+        "call": {
+          "input": {
+            "type": "object",
+            "required": [
+              "call"
+            ]
+          },
+          "output": {
+            "type": "object"
+          }
+        },
+        "events": {
+          "input": {
+            "type": "object",
+            "properties": {
+              "timeout_ms": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "output": {
+            "type": "array"
+          }
+        },
+        "answer": {
+          "input": {
+            "type": "object",
+            "required": [
+              "ticket"
+            ]
+          },
+          "output": {}
+        },
+        "sequence": {
+          "input": {
+            "type": "object"
+          },
+          "output": {
+            "type": "integer"
+          }
+        }
+      },
+      "events": {
+        "reverse_authorize": {
+          "answer": "allow",
+          "data": {
+            "type": "object",
+            "required": [
+              "consumer",
+              "provider",
+              "request"
+            ]
+          },
+          "about": "An active reverse request with its exact consumer and provider identities. Denied unless the application answers allow."
+        }
+      }
+    },
+    "package_writer": {
+      "about": "An exclusive cooperating-writer directory at root/.package-write.lock. Open fails with exists on contention; close releases after checking ownership. Protect the home from hostile mutation. No automatic stale-lock recovery. Hold across planning, publication and trust changes; store operations do not acquire it implicitly.",
+      "config": {"type": "object", "required": ["object", "root"], "properties": {"object": {"const": "package_writer"}, "root": {"type": "string"}}},
+      "operations": {}
     },
     "store": {
       "about": "An installed package store at one root.",
@@ -49,6 +168,7 @@
         "list": {"input": {"type": "object"}, "output": {"type": "array"}},
         "verify": {"input": {"type": "object"}, "output": {}},
         "list_unverified": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "snapshot": {"about": "Copy a digest-reviewed package into this private store without replacement or trust; caller owns writer coordination and cleanup.", "input": {"type": "object", "required": ["source", "id", "reviewed_digest"], "properties": {"source": {"type": "string"}, "id": {"type": "string"}, "reviewed_digest": {"type": "string"}}}, "output": {"type": "object"}},
         "resolve_entrypoint": {"input": {"type": "object", "required": ["id", "contract", "version", "protocol"], "properties": {"id": {"type": "string"}, "contract": {"type": "string"}, "version": {"type": "string"}, "protocol": {"type": "string"}, "reviewed_digest": {"type": "string"}, "os": {"type": "string"}, "arch": {"type": "string"}}}, "output": {"type": "object"}}
       }
     },
@@ -69,12 +189,14 @@
         "descriptor": {"type": "object"},
         "backend": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["process", "shared_library"]}, "executable": {"type": "string"}, "arguments": {"type": "array", "items": {"type": "string"}}, "environment": {"type": "array", "items": {"type": "string"}}, "working_directory": {"type": "string"}, "stderr_bytes": {"type": "integer"}, "path": {"type": "string"}}},
         "requirements": {"type": "array"},
+        "routes": {"type": "array", "items": {"type": "object", "required": ["contract", "operation", "target"]}},
         "verify": {"enum": ["allow", "event"]},
         "authorize": {"enum": ["allow", "event"]},
         "observe": {"type": "boolean"},
         "services": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}, "max_payload_bytes": {"type": "integer"}, "max_in_flight": {"type": "integer"}}},
         "event_timeout_ms": {"type": "integer"}}},
       "operations": {
+        "process_id": {"about": "Live child PID locator; closed unless ready, unsupported for non-process backends. Not a durable process identity.","input": {"type": "object"},"output": {"type": "integer"}},
         "start": {"input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}}}, "output": {}},
         "call": {"about": "A call the engine fills in (identity, deadline, id). With progress, its progress events carry the call's tag.", "input": {"type": "object", "required": ["call"], "properties": {"call": {"type": "object", "required": ["contract", "operation"]}, "timeout_ms": {"type": "integer"}, "tag": {"type": "string"}, "progress": {"type": "object", "properties": {"events_per_second": {"type": "integer"}, "bytes_per_second": {"type": "integer"}}}}}, "output": {"type": "object"}, "raises": ["progress"]},
         "invoke": {"input": {"type": "object", "required": ["request"], "properties": {"request": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},

@@ -229,12 +229,46 @@ static void test_routes(const char *dir) {
   printf("%zu route cases\n", n);
 }
 
+static void test_services(const char *dir, const char *file) {
+  yyjson_doc *doc = load(dir, file);
+  yyjson_val *cases = yyjson_obj_get(yyjson_doc_get_root(doc), "cases"), *c;
+  size_t i, n;
+  assert(yyjson_is_arr(cases) && yyjson_arr_size(cases) >= 10);
+  yyjson_arr_foreach(cases, i, n, c) {
+    size_t len;
+    char *input = yyjson_val_write(yyjson_obj_get(c, "input"), 0, &len);
+    assert(input);
+    ext_plugin_buffer out = {0};
+    ext_plugin_status got = ext_plugin_services_call(str(c, "operation"), (const uint8_t *)input, len, &out);
+    if (strcmp(ext_plugin_code_name(got), str(c, "status")))
+      mismatch(file, c, ext_plugin_code_name(got));
+    else if (got == EXT_PLUGIN_OK) {
+      yyjson_doc *value = ext_parse(out.data, out.len);
+      if (!value || !yyjson_equals(yyjson_doc_get_root(value), yyjson_obj_get(c, "result")))
+        mismatch(file, c, "result differs");
+      yyjson_doc_free(value);
+    }
+    free(input);
+    ext_plugin_buffer_free(&out);
+  }
+  assert(!failures);
+  yyjson_doc_free(doc);
+  printf("%zu %s cases\n", n, file);
+}
+
 int main(int argc, char **argv) {
   assert(argc == 2);
   test_frames(argv[1]);
   test_limiter(argv[1]);
   test_model(argv[1]);
   test_routes(argv[1]);
+  test_services(argv[1], "catalog-cases.json");
+  test_services(argv[1], "bundle-cases.json");
+  test_services(argv[1], "resource-cases.json");
+  test_services(argv[1], "dependency-cases.json");
+  test_services(argv[1], "routing-cases.json");
+  test_services(argv[1], "graph-cases.json");
+  test_services(argv[1], "execution-cases.json");
   puts("fixture checks passed");
   return 0;
 }

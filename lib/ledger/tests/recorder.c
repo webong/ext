@@ -53,6 +53,24 @@ static void check_vocabulary(const char *dir) {
   lj_free(file);
 }
 
+static void check_process_identities(const char *dir) {
+  lj_value *file=load(dir,"process-identity-cases.json");
+  const lj_value *cases=lj_get(file,"cases");
+  if (!cases || cases->type!=LJ_ARRAY || !cases->u.array.len) { failures++; lj_free(file); return; }
+  for(size_t i=0;i<cases->u.array.len;i++) {
+    const lj_value *c=cases->u.array.items[i];
+    size_t n=0,len=0; char *input=text_of(lj_get(c,"input"),&n),*out=NULL;
+    int rc=ext_ledger_call(0,"process_identity",input,n,&out,&len);
+    lj_value *actual=out?lj_parse(out,len,NULL):NULL;
+    if(strcmp(ext_ledger_code_name(rc),field(c,"status")) ||
+       (!rc && !lj_equal(actual,lj_get(c,"result")))) {
+      fprintf(stderr,"FAIL process identity %s: %s\n",field(c,"name"),ext_ledger_code_name(rc)); failures++;
+    } else passed++;
+    free(input); ext_ledger_free(out); lj_free(actual);
+  }
+  lj_free(file);
+}
+
 static void run_case(const lj_value *c) {
   const char *name = field(c, "name");
   ext_ledger_store *store;
@@ -122,6 +140,7 @@ int main(int argc, char **argv) {
     return 2;
   }
   check_vocabulary(argv[1]);
+  check_process_identities(argv[1]);
   lj_value *file = load(argv[1], "cases.json");
   const lj_value *cases = lj_get(file, "cases");
   for (size_t i = 0; i < cases->u.array.len; i++) run_case(cases->u.array.items[i]);

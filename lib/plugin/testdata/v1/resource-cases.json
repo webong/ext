@@ -1,0 +1,5488 @@
+{
+  "about": "Pure ext.resource/v1 request, response and error validation. No invocation or authorization is inferred.",
+  "cases": [
+    {
+      "name": "default-list",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {}
+      },
+      "status": "ok",
+      "result": {}
+    },
+    {
+      "name": "bounded-list",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "type": "kvlite.database",
+          "limit": 100,
+          "cursor": "opaque+/= token"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "type": "kvlite.database",
+        "limit": 100,
+        "cursor": "opaque+/= token"
+      }
+    },
+    {
+      "name": "minimum-limit",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": 1
+        }
+      },
+      "status": "ok",
+      "result": {
+        "limit": 1
+      }
+    },
+    {
+      "name": "limit-zero",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": 0
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "limit-negative",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": -1
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "limit-too-large",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": 101
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "limit-fraction",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": 1.5
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "limit-string",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": "1"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "limit-null",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": null
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "limit-overflow",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": 9223372036854775808
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "cursor-empty",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": ""
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "cursor-null",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": null
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "cursor-number",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": 1
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "cursor-control",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": "x\n"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "cursor-nul",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": "x\u0000y"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "cursor-too-long",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "maximum-cursor",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "cursor": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "unknown-list-field",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "path": "/tmp/db"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "null-filter",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "type": null
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "invalid-filter",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "type": "bad type"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspect-reference",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "kvlite.database",
+            "id": "opaque db/Primary:1"
+          }
+        }
+      },
+      "status": "ok",
+      "result": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "sha256:abc"
+          },
+          "type": "kvlite.database",
+          "id": "opaque db/Primary:1"
+        }
+      }
+    },
+    {
+      "name": "maximum-id",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "kvlite.database",
+            "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        }
+      },
+      "status": "ok",
+      "result": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "sha256:abc"
+          },
+          "type": "kvlite.database",
+          "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      }
+    },
+    {
+      "name": "inspect-id-22",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "kvlite.database",
+            "id": ""
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspect-id-23",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "kvlite.database",
+            "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspect-id-24",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "kvlite.database",
+            "id": "line\n"
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspect-type-25",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "Bad type",
+            "id": "opaque db/Primary:1"
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspect-provider-26",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider"
+            },
+            "type": "kvlite.database",
+            "id": "opaque db/Primary:1"
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "missing-reference",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {}
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspect-extra",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc"
+            },
+            "type": "kvlite.database",
+            "id": "opaque db/Primary:1"
+          },
+          "invoke": true
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "provider-unknown-field",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "inspect",
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "sha256:abc",
+              "path": "/tmp"
+            },
+            "type": "kvlite.database",
+            "id": "opaque db/Primary:1"
+          }
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "unknown-operation",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "delete",
+        "request": {}
+      },
+      "status": "unsupported"
+    },
+    {
+      "name": "request-array",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": []
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "request-null",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": null
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "envelope-extra",
+      "operation": "resource.request.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "authorize": true
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "empty-page",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": []
+        }
+      },
+      "status": "ok",
+      "result": {
+        "items": []
+      }
+    },
+    {
+      "name": "page-and-continuation",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "limit": 1,
+          "type": "kvlite.database"
+        },
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "next": "opaque-next"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "items": [
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        ],
+        "next": "opaque-next"
+      }
+    },
+    {
+      "name": "page-limit",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "limit": 1
+        },
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "other"
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "page-duplicate",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "page-filter",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "type": "filesystem.file"
+        },
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ]
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "page-revision",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r2"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ]
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "page-provider",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/other",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ]
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "next-null",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "next": null
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "next-empty",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "next": ""
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "next-control",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "next": "x\n"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "next-large",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "next": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "empty-page-next",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [],
+          "next": "x"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "repeated-cursor",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "cursor": "x"
+        },
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "next": "x"
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "page-unknown",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "db/Primary"
+            }
+          ],
+          "trusted": true
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "page-missing-items",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {}
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "page-invalid-reference",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {}
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "maximum-page",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "0"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "1"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "2"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "3"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "4"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "5"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "6"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "7"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "8"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "9"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "10"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "11"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "12"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "13"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "14"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "15"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "16"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "17"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "18"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "19"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "20"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "21"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "22"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "23"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "24"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "25"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "26"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "27"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "28"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "29"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "30"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "31"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "32"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "33"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "34"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "35"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "36"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "37"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "38"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "39"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "40"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "41"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "42"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "43"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "44"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "45"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "46"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "47"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "48"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "49"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "50"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "51"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "52"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "53"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "54"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "55"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "56"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "57"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "58"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "59"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "60"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "61"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "62"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "63"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "64"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "65"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "66"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "67"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "68"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "69"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "70"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "71"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "72"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "73"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "74"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "75"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "76"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "77"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "78"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "79"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "80"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "81"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "82"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "83"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "84"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "85"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "86"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "87"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "88"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "89"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "90"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "91"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "92"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "93"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "94"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "95"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "96"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "97"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "98"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "99"
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "result": {
+        "items": [
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "0"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "1"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "2"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "3"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "4"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "5"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "6"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "7"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "8"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "9"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "10"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "11"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "12"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "13"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "14"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "15"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "16"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "17"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "18"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "19"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "20"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "21"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "22"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "23"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "24"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "25"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "26"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "27"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "28"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "29"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "30"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "31"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "32"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "33"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "34"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "35"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "36"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "37"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "38"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "39"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "40"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "41"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "42"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "43"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "44"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "45"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "46"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "47"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "48"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "49"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "50"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "51"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "52"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "53"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "54"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "55"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "56"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "57"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "58"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "59"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "60"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "61"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "62"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "63"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "64"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "65"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "66"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "67"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "68"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "69"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "70"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "71"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "72"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "73"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "74"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "75"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "76"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "77"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "78"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "79"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "80"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "81"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "82"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "83"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "84"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "85"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "86"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "87"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "88"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "89"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "90"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "91"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "92"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "93"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "94"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "95"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "96"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "97"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "98"
+          },
+          {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "99"
+          }
+        ]
+      }
+    },
+    {
+      "name": "oversize-page",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {
+          "items": [
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "0"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "1"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "2"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "3"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "4"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "5"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "6"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "7"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "8"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "9"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "10"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "11"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "12"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "13"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "14"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "15"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "16"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "17"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "18"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "19"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "20"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "21"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "22"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "23"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "24"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "25"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "26"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "27"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "28"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "29"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "30"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "31"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "32"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "33"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "34"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "35"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "36"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "37"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "38"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "39"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "40"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "41"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "42"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "43"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "44"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "45"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "46"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "47"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "48"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "49"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "50"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "51"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "52"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "53"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "54"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "55"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "56"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "57"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "58"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "59"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "60"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "61"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "62"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "63"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "64"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "65"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "66"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "67"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "68"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "69"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "70"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "71"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "72"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "73"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "74"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "75"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "76"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "77"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "78"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "79"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "80"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "81"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "82"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "83"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "84"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "85"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "86"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "87"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "88"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "89"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "90"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "91"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "92"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "93"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "94"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "95"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "96"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "97"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "98"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "99"
+            },
+            {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "kvlite.database",
+              "id": "100"
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspection",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "get",
+              "input": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "additionalProperties": false
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "result": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "type": "kvlite.database",
+          "id": "db/Primary"
+        },
+        "operations": [
+          {
+            "contract": {
+              "name": "kvlite.database",
+              "version": "v1"
+            },
+            "operation": "get",
+            "input": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "key"
+              ],
+              "additionalProperties": false
+            },
+            "output": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "inspection-no-operations",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": []
+        }
+      },
+      "status": "ok",
+      "result": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "type": "kvlite.database",
+          "id": "db/Primary"
+        },
+        "operations": []
+      }
+    },
+    {
+      "name": "inspection-other-id",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "other"
+          },
+          "operations": []
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "inspection-selected-revision",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r2"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": []
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "inspection-duplicate-operation",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "get",
+              "input": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "additionalProperties": false
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            },
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "get",
+              "input": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "additionalProperties": false
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "missing-input",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "get",
+              "input": null,
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "invalid-schema",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "get",
+              "input": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "additionalProperties": false
+              },
+              "output": {
+                "type": "unknown"
+              }
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "bad-op",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "Bad Op",
+              "input": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "additionalProperties": false
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "bad-contract",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database"
+              },
+              "operation": "get",
+              "input": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "additionalProperties": false
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "schema-extra",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "kvlite.database",
+                "version": "v1"
+              },
+              "operation": "get",
+              "input": {
+                "type": "string",
+                "authorize": true
+              },
+              "output": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          ]
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "inspection-unknown-field",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "inspect",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          }
+        },
+        "response": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "kvlite.database",
+            "id": "db/Primary"
+          },
+          "operations": [],
+          "path": "/tmp"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "response-invalid-request",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {
+          "limit": 0
+        },
+        "response": {
+          "items": []
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "response-unknown-operation",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "delete",
+        "provider": {
+          "id": "example/provider",
+          "revision": "r1"
+        },
+        "request": {},
+        "response": {}
+      },
+      "status": "unsupported"
+    },
+    {
+      "name": "response-invalid-provider",
+      "operation": "resource.response.validate",
+      "input": {
+        "operation": "list",
+        "provider": {
+          "id": "example/provider"
+        },
+        "request": {},
+        "response": {
+          "items": []
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "error-invalid",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "invalid",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "invalid",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-not_found",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "not_found",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "not_found",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-denied",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "denied",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "denied",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-unsupported",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "unsupported",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "unsupported",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-mismatch",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "mismatch",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "mismatch",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-closed",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "closed",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "closed",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-canceled",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "canceled",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "canceled",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-timeout",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "timeout",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "timeout",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-capacity",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "capacity",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "capacity",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-io",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "io",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "io",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-operation_failed",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "operation_failed",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "operation_failed",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "error-expired",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "cursor": "opaque"
+        },
+        "error": {
+          "code": "expired",
+          "message": "diagnostic",
+          "retryAfterMilliseconds": 23
+        }
+      },
+      "status": "ok",
+      "result": {
+        "code": "expired",
+        "message": "diagnostic",
+        "retryAfterMilliseconds": 23
+      }
+    },
+    {
+      "name": "expired-without-cursor",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "expired"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "unknown-domain-code",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "key_missing"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "negative-retry",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "io",
+          "retryAfterMilliseconds": -1
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "extra-error-field",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "denied",
+          "path": "private"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "invalid-error-request",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {
+          "limit": 0
+        },
+        "error": {
+          "code": "invalid"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "missing-error-code",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {}
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "long-error-message",
+      "operation": "resource.error.validate",
+      "input": {
+        "operation": "list",
+        "request": {},
+        "error": {
+          "code": "io",
+          "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "select-declared-resource-operation",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "contract": {
+          "name": "example.record",
+          "version": "v1"
+        },
+        "operation": "read",
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "name": "resource-does-not-advertise-operation",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": []
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "provider-does-not-declare-operation",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "write"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "resource-revision-mismatch",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r2"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "resource-id-mismatch",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "other"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "provider-identity-mismatch",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "other",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "mismatch"
+    },
+    {
+      "name": "resource-duplicate-operations",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            },
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "resource-invalid-schema",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "bogus"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "resource-requirement-extra-field",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read",
+          "path": "/tmp/private"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "resource-invalid-descriptor",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "bad",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v1"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "resource-contract-version-mismatch",
+      "operation": "resource.operation.select",
+      "input": {
+        "descriptor": {
+          "apiVersion": "ext.plugin/v1",
+          "identity": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "contracts": [
+            {
+              "name": "example.record",
+              "version": "v1",
+              "operations": [
+                {
+                  "name": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "inspection": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "operations": [
+            {
+              "contract": {
+                "name": "example.record",
+                "version": "v1"
+              },
+              "operation": "read",
+              "input": {
+                "type": "object"
+              },
+              "output": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "requirement": {
+          "resource": {
+            "provider": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "type": "example.record",
+            "id": "one"
+          },
+          "contract": {
+            "name": "example.record",
+            "version": "v2"
+          },
+          "operation": "read"
+        }
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "call-matching-schemas",
+      "operation": "resource.call.validate",
+      "input": {
+        "selection": {
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.record",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "inspection": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "operations": [
+              {
+                "contract": {
+                  "name": "example.record",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "input": {
+                  "type": "object"
+                },
+                "output": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "requirement": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "contract": {
+              "name": "example.record",
+              "version": "v1"
+            },
+            "operation": "read"
+          }
+        },
+        "payload": {}
+      },
+      "status": "ok",
+      "result": {}
+    },
+    {
+      "name": "call-resource-schema-rejection",
+      "operation": "resource.call.validate",
+      "input": {
+        "selection": {
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.record",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "inspection": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "operations": [
+              {
+                "contract": {
+                  "name": "example.record",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "input": {
+                  "type": "object"
+                },
+                "output": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "requirement": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "contract": {
+              "name": "example.record",
+              "version": "v1"
+            },
+            "operation": "read"
+          }
+        },
+        "payload": "wrong"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "call-invalid-descriptor-schema-field",
+      "operation": "resource.call.validate",
+      "input": {
+        "selection": {
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.record",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read",
+                    "input": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "inspection": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "operations": [
+              {
+                "contract": {
+                  "name": "example.record",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "input": {
+                  "type": "object"
+                },
+                "output": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "requirement": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "contract": {
+              "name": "example.record",
+              "version": "v1"
+            },
+            "operation": "read"
+          }
+        },
+        "payload": {}
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "call-missing-resource-operation",
+      "operation": "resource.call.validate",
+      "input": {
+        "selection": {
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.record",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "inspection": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "operations": []
+          },
+          "requirement": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "contract": {
+              "name": "example.record",
+              "version": "v1"
+            },
+            "operation": "read"
+          }
+        },
+        "payload": {}
+      },
+      "status": "not_found"
+    },
+    {
+      "name": "call-request",
+      "operation": "resource.call.request.validate",
+      "input": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "type": "example.record",
+          "id": "one"
+        },
+        "contract": {
+          "name": "example.record",
+          "version": "v1"
+        },
+        "operation": "read",
+        "input": {
+          "key": "name"
+        }
+      },
+      "status": "ok",
+      "result": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "type": "example.record",
+          "id": "one"
+        },
+        "contract": {
+          "name": "example.record",
+          "version": "v1"
+        },
+        "operation": "read",
+        "input": {
+          "key": "name"
+        }
+      }
+    },
+    {
+      "name": "call-request-missing-input",
+      "operation": "resource.call.request.validate",
+      "input": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "type": "example.record",
+          "id": "one"
+        },
+        "contract": {
+          "name": "example.record",
+          "version": "v1"
+        },
+        "operation": "read"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "call-request-extra",
+      "operation": "resource.call.request.validate",
+      "input": {
+        "resource": {
+          "provider": {
+            "id": "example/provider",
+            "revision": "r1"
+          },
+          "type": "example.record",
+          "id": "one"
+        },
+        "contract": {
+          "name": "example.record",
+          "version": "v1"
+        },
+        "operation": "read",
+        "input": {
+          "key": "name"
+        },
+        "path": "/tmp/private"
+      },
+      "status": "invalid"
+    },
+    {
+      "name": "result-matching-schema",
+      "operation": "resource.result.validate",
+      "input": {
+        "selection": {
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.record",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "inspection": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "operations": [
+              {
+                "contract": {
+                  "name": "example.record",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "input": {
+                  "type": "object"
+                },
+                "output": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "requirement": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "contract": {
+              "name": "example.record",
+              "version": "v1"
+            },
+            "operation": "read"
+          }
+        },
+        "payload": "value"
+      },
+      "status": "ok",
+      "result": "value"
+    },
+    {
+      "name": "result-invalid-schema",
+      "operation": "resource.result.validate",
+      "input": {
+        "selection": {
+          "descriptor": {
+            "apiVersion": "ext.plugin/v1",
+            "identity": {
+              "id": "example/provider",
+              "revision": "r1"
+            },
+            "contracts": [
+              {
+                "name": "example.record",
+                "version": "v1",
+                "operations": [
+                  {
+                    "name": "read"
+                  }
+                ]
+              }
+            ]
+          },
+          "inspection": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "operations": [
+              {
+                "contract": {
+                  "name": "example.record",
+                  "version": "v1"
+                },
+                "operation": "read",
+                "input": {
+                  "type": "object"
+                },
+                "output": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "requirement": {
+            "resource": {
+              "provider": {
+                "id": "example/provider",
+                "revision": "r1"
+              },
+              "type": "example.record",
+              "id": "one"
+            },
+            "contract": {
+              "name": "example.record",
+              "version": "v1"
+            },
+            "operation": "read"
+          }
+        },
+        "payload": 17
+      },
+      "status": "invalid"
+    }
+  ]
+}

@@ -290,6 +290,67 @@ int ext_ledger_store_apply(ext_ledger_store *s, const ext_ledger_context *ctx, c
   return rc;
 }
 
+/* Reconciliation is an explicit whole-namespace replacement at a known
+ * revision. Build deletions while holding the same write transaction as apply. */
+static int reconcile_deletions(const ll_map *existing, ll_record **wanted, size_t count,
+                              ll_ref **removed, size_t *nremoved) {
+  ll_map keep = {0};
+  int rc = 0;
+  for (size_t i = 0; !rc && i < count; i++)
+    if (ll_map_put(&keep, LL_S(wanted[i]->id), wanted[i]->id.n, wanted[i])) rc = EXT_LEDGER_UNAVAILABLE;
+  *removed = calloc(existing->len ? existing->len : 1, sizeof **removed);
+  if (!*removed) rc = EXT_LEDGER_UNAVAILABLE;
+  if (!rc) LL_MAP_EACH(existing, slot) {
+    ll_record *record = slot->value;
+    if (ll_map_get(&keep, LL_S(record->id), record->id.n)) continue;
+    ll_ref *ref = &(*removed)[(*nremoved)++];
+    if (ll_s_set(&ref->id, LL_S(record->id), record->id.n)) { rc = EXT_LEDGER_UNAVAILABLE; break; }
+  }
+  ll_map_free(&keep);
+  return rc;
+}
+int ext_ledger_store_reconcile(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len,
+                               char **out, size_t *out_len) {
+  if (out) *out = NULL;
+  if (!s) return EXT_LEDGER_INVALID;
+  int rc = ll_ctx_check(ctx);
+  if (rc) return rc;
+  lj_value *v;
+  if ((rc = parse(text, len, &v))) return rc;
+  if (v->type != LJ_OBJECT) { lj_free(v); return EXT_LEDGER_INVALID; }
+  for (size_t i = 0; i < v->u.object.len; i++) {
+    const char *key = v->u.object.members[i].key.ptr;
+    if (strlen(key) != v->u.object.members[i].key.len || (strcmp(key,"namespace") && strcmp(key,"expected_revision") && strcmp(key,"vertices") && strcmp(key,"edges"))) rc = EXT_LEDGER_INVALID;
+  }
+  lj_value *vertices = lj_get(v,"vertices"), *edges = lj_get(v,"edges");
+  if (!vertices || vertices->type != LJ_ARRAY || !edges || edges->type != LJ_ARRAY || !lj_get(v,"expected_revision")) rc = EXT_LEDGER_INVALID;
+  ll_tx t = {0};
+  if (!rc) rc = ll_tx_decode(v, &t);
+  lj_free(v);
+  if (!rc && !t.has_expected) rc = EXT_LEDGER_INVALID;
+  if (!rc) rc = ll_check_tx(&t, &s->options);
+  if (rc) { ll_tx_free(&t); return rc; }
+  ll_mutex_lock(s->mu);
+  if (s->closed) rc = EXT_LEDGER_UNAVAILABLE;
+  else if (s->backend) rc = s->backend->ops->begin_write(s->backend, ctx, &s->state);
+  if (!rc) {
+    ll_namespace *ns = ll_state_ns(&s->state, LL_S(t.ns), t.ns.n);
+    if (!ns) rc = EXT_LEDGER_NOT_FOUND;
+    else if (ns->revision != t.expected) rc = EXT_LEDGER_CHANGED;
+    else if (ns->vertices.len + ns->edges.len > (size_t)s->options.max_snapshot_records) rc = EXT_LEDGER_TOO_LARGE;
+    if (!rc) rc = reconcile_deletions(&ns->vertices,t.vertices,t.nvertices,&t.delete_vertices,&t.ndelete_vertices);
+    if (!rc) rc = reconcile_deletions(&ns->edges,t.edges,t.nedges,&t.delete_edges,&t.ndelete_edges);
+    char fp[65];
+    if (!rc) rc = ll_check_tx(&t,&s->options);
+    if (!rc) rc = fingerprint(&t,fp);
+    if (!rc) rc = apply_locked(s,ctx,&t,fp,out,out_len);
+    if (s->backend) s->backend->ops->end_write(s->backend);
+  }
+  ll_mutex_unlock(s->mu);
+  ll_tx_free(&t);
+  return rc;
+}
+
 int ext_ledger_store_canonical_transaction(const char *text, size_t len, char **canonical, size_t *canonical_len, char fp[65]) {
   lj_value *v;
   int rc = parse(text, len, &v);

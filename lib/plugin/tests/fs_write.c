@@ -281,6 +281,27 @@ int main(int argc, char **argv) {
     assert(n == 0);
   }
 
+  /* Cooperating C/CLI writer lock: exclusive directory, checked release. */
+  ext_fs_writer *writer = NULL, *other = NULL;
+  assert(ext_fs_writer_acquire(fs, &writer) == EXT_PLUGIN_OK);
+  assert(ext_fs_writer_acquire(fs, &other) == EXT_PLUGIN_EXISTS && !other);
+  assert(ext_fs_writer_release(writer) == EXT_PLUGIN_OK);
+  assert(ext_fs_writer_release(writer) == EXT_PLUGIN_OK);
+  ext_fs_writer_free(writer);
+  assert(ext_fs_writer_acquire(fs, &writer) == EXT_PLUGIN_OK);
+  assert(ext_fs_rename(fs, ".package-write.lock", "old-writer") == EXT_PLUGIN_OK);
+  assert(ext_fs_writer_acquire(fs, &other) == EXT_PLUGIN_OK);
+  assert(ext_fs_writer_release(writer) == EXT_PLUGIN_MISMATCH);
+  ext_fs_writer_free(writer);
+  assert(kind(fs, ".package-write.lock") == EXT_FS_DIR);
+  assert(ext_fs_writer_release(other) == EXT_PLUGIN_OK);
+  ext_fs_writer_free(other);
+  assert(ext_fs_remove_all(fs, "old-writer") == EXT_PLUGIN_OK);
+  /* A preexisting directory is a held/stale lock, never recovered by age. */
+  assert(ext_fs_mkdirs(fs, ".package-write.lock") == EXT_PLUGIN_OK);
+  assert(ext_fs_writer_acquire(fs, &writer) == EXT_PLUGIN_EXISTS && !writer);
+  assert(ext_fs_remove_all(fs, ".package-write.lock") == EXT_PLUGIN_OK);
+
   ext_fs_close(fs);
   assert(!REMOVE_DIR(root));
   REMOVE_DIR(base); /* made by ext_fs_make_root */

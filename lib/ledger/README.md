@@ -177,10 +177,8 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
   processes share a directory.
 - **sqlite** (`ext_ledger_store_open_sqlite`): optional, linked against the system's SQLite (no vendored
   copy); `EXT_LEDGER_UNSUPPORTED` in a build without it. One database laid out as
-  [`tables.json`](../../lib/ledger/testdata/store/v1/tables.json) says, which is what the Go store
-  `pkg/ext-go/engine/ledger/recorder/sqlite` writes: either opens the other's database, and
-  `scripts/ledger-sqlite-cross.sh` checks it both ways (Go writes, C reads and writes, Go reads and
-  replays C's idempotency key). The handle catches up with other connections when SQLite's
+  [`tables.json`](../../lib/ledger/testdata/store/v1/tables.json) says. `scripts/ledger-sqlite-cross.sh` loads a frozen database
+  written by the retired Go store, then checks native reads, writes and idempotent replay. The handle catches up with other connections when SQLite's
   `data_version` moves; a commit, with its compaction, is one `BEGIN IMMEDIATE` transaction.
 
 ## Layout

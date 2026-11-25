@@ -52,7 +52,7 @@ public func ext_plugin_guest_factory() -> UnsafeMutableRawPointer? {
 Build it as a `.library(type: .dynamic, ...)` product that depends on
 `ExtPluginGuest` and `ExtPluginExports`. The library then exports the four
 `ext_plugin_guest_*` symbols of [`ext_plugin_guest.h`](../../lib/plugin/include/ext_plugin_guest.h), so any
-`pkg/ext-go/cguest` host can load it. Forgetting `ext_plugin_guest_factory` is a
+`pkg/ext-go/cengine/cguest/backend` host can load it. Forgetting `ext_plugin_guest_factory` is a
 link error, not a run-time surprise.
 
 Use `ExtPluginGuest` alone, with `Guest.invoke`, to run a guest inside a process

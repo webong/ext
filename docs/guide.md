@@ -39,7 +39,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/webong/ext/pkg/ext-go"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 )
@@ -137,36 +137,37 @@ inspect: none imports: 0 err <nil>
 
 ## Discover the machine
 
-Collectors report shells, filesystems and webviews without starting anything. They are in
-`github.com/webong/ext/res/system` (here `service/host`), and `github.com/webong/ext/pkg/ext-go/engine/ledger/recorder` adds the
-whole-host inventory and records it. The examples import the recorder as `systemgraph`, which is what the
-CTX app does.
+Go reaches the canonical collectors through `lib/ledger`. Supply the native library
+path in `EXT_LEDGER_LIBRARY`; discovery does not require a store.
 
 ```go
-// Discover what the machine has, without starting anything.
 package main
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
+    "os"
 
-	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
-	"github.com/webong/ext/res/system/service/host"
+    "github.com/webong/ext/pkg/ext-go/cengine/library"
+    "github.com/webong/ext/pkg/ext-go/cengine/ledger"
+    "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
 )
 
 func main() {
-	inventory, err := systemgraph.DiscoverHost(context.Background())
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("shells: %d, filesystems: %d\n", len(inventory.Shells), len(inventory.Filesystems))
-	webviews, err := host.DiscoverWebviews(context.Background())
-	fmt.Printf("webviews found: %d (err: %v)\n", len(webviews), err)
+    native, err := library.Open(os.Getenv("EXT_LEDGER_LIBRARY"))
+    if err != nil { panic(err) }
+    lib, err := ledger.Bind(native)
+    if err != nil { panic(err) }
+    var inventory observation.HostInventory
+    if err := lib.Collect(context.Background(), "host", nil, &inventory); err != nil {
+        panic(err)
+    }
+    fmt.Printf("shells: %d, filesystems: %d\n", len(inventory.Shells), len(inventory.Filesystems))
 }
 ```
 
-Output on one machine: `shells: 7, filesystems: 14` and `webviews found: 1`. See
-[host discovery](host-discovery.md) for the graph store and process supervision.
+For persisted observations, open a native store with `Library.OpenStore`, construct
+`ledger.NewGraph`, and call `ScanHost`. See [host discovery](host-discovery.md).
 
 ## Run web content in a browser you choose
 

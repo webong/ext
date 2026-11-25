@@ -518,10 +518,9 @@ separate modules under its product tree:
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
-| `pkg/ext-go/core` | the switcher: `driver` picks go or a C driver for a library of `lib/`; no root package (see below) | none |
-| `pkg/ext-go/cguest` | the plugin backend for guests built as C shared libraries over `cengine/cguest`, and `guest`, the Go guest export | `engine`, `cengine`; third-party purego |
-| `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, and `cguest` (with `abi`) loads C ABI guests and exchanges bytes with them | third-party purego only |
-| `pkg/ext-go` | the umbrella: requires the Ext Go plugin modules above except `yaegi` and holds what needs several of them (`PlanGraph`, the `plugin` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
+| `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
+| `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `res/system`; third-party purego |
+| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds examples and benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
@@ -572,17 +571,17 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go/hashicorp` | `pkg/ext-go/hashicorp` (`pkg/ext-go/hashicorp`) |
 | `pkg/plugin-go` umbrella and its packages, such as `core` and `cmd/ext-plugin-bridge` (up to v0.8.0) | `pkg/ext-go` and the same packages (`pkg/ext-go`, from v0.9.0) |
 | `pkg/ext-go/core` (the engine selection package of the umbrella, up to v0.12.0) | removed: Go reaches lib/plugin through its description (`cengine/library.Describe`, `ext bundle bind`); the switcher's names (`Name`, `Choose`, `FromEnvironment`, `EXT_ENGINE`) are `pkg/ext-go/core/driver`'s |
-| `pkg/ext-go/runtime/library`, `pkg/ext-go/runtime/cshared` (module `pkg/ext-go/runtime`, never tagged) | `pkg/ext-go/cengine/library` (module `pkg/ext-go/cengine`) `pkg/ext-go/cengine/cguest` and `.../abi` (the raw loader, same module), and `pkg/ext-go/cguest` and `.../guest` (the plugin backend and the Go guest export, module `pkg/ext-go/cguest`). The module has no root package, so the import path `pkg/ext-go/core`, which the umbrella published up to v0.12.0, belongs to no other module: a program that still requires an old umbrella and the new `core` module builds without an ambiguous import |
+| `pkg/ext-go/cguest` and `pkg/ext-go/cguest/guest` (former standalone module) | `pkg/ext-go/cengine/cguest/backend` and `pkg/ext-go/cengine/cguest/guest`, both in `pkg/ext-go/cengine`. Update imports and remove the old module requirement. The existing raw loader at `pkg/ext-go/cengine/cguest` keeps its API. |
+| `pkg/ext-go/runtime/library`, `pkg/ext-go/runtime/cshared` (module `pkg/ext-go/runtime`, never tagged) | `pkg/ext-go/cengine/library` (module `pkg/ext-go/cengine`) `pkg/ext-go/cengine/cguest` and `.../abi` (the raw loader, same module), and `pkg/ext-go/cengine/cguest/backend` and `pkg/ext-go/cengine/cguest/guest` (the plugin backend and Go guest export, both in module `pkg/ext-go/cengine`). The module has no root package, so the import path `pkg/ext-go/core`, which the umbrella published up to v0.12.0, belongs to no other module: a program that still requires an old umbrella and the new `core` module builds without an ambiguous import |
 | `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), then `res/graph/store` in module `res/graph` (v0.2.0 to v0.3.0), now `pkg/ext-go/engine/ledger` (see below) |
 | `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `res/system/graph`, and `res/graph/supervisor` became `res/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
 | `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |
 | `res/graph/store` (package `store`), `res/graph/store/storetest`, `res/graph/supervisor` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger` (package `ledger`), `pkg/ext-go/engine/ledger/ledgertest` (package `ledgertest`), `pkg/ext-go/engine/ledger/supervisor`, in module `pkg/ext-go/engine`: the pure-Go fallback of `lib/ledger`, standard library only |
-| the root package `res/graph` (package `graph`) and `res/graph/store/sqlite` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger/recorder` (package `recorder`) and `.../recorder/sqlite`, the module `pkg/ext-go/engine/ledger/recorder` (from v0.1.0), which requires `pkg/ext-go/engine` and `res/system`. The SQLite store goes when the Go file backend replaces it |
+| the root package `res/graph` (package `graph`) and `res/graph/store/sqlite` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger/recorder` (package `recorder`) and `.../recorder/sqlite`, the module `pkg/ext-go/engine/ledger/recorder` (from v0.1.0), which requires `pkg/ext-go/engine` and `res/system`. Historical layout: the Go recorder and SQLite store have since been removed; use `cengine/ledger` |
 | the collectors in the root package of `res/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | `res/system/service/host`, `.../service/process`, `.../capture/surface` (`res/system`, from v0.3.0) |
 | `res/system/audio`, `res/system/clipboard`, `res/system/share`, `res/system/media` | `res/system/capture/audio`, `.../clipboard`, `.../share`, `.../media` (`res/system`, from v0.3.0) |
 | `res/system/network`, `res/system/program`, `res/system/credential/...`, `res/system/service` | `res/system/service/network`, `.../program`, `.../credential/...`, `.../user` (`res/system`, from v0.3.0) |
 | `res/system/volume` | `res/system/device/volume` (private directories) and `res/system/device/image` (snapshot archives) (`res/system`, from v0.3.0) |
-| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency; the transaction it returns is `res/graph/store`'s. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 `res/graph` is the one path of this repository that is reused by a different module. Its tags v0.1.0
 and v0.1.1 (v0.1.1 carries `// Deprecated: use github.com/webong/ext/res/system.`) belong to a module that was
@@ -838,3 +837,21 @@ consumer before any tag is pushed, because they migrate by rewriting imports.
 The former `pkg/ext-go/cmd/ext-plugin-bridge` executable is now
 `ext bridge --config <path>`, implemented privately in `cmd/ext/internal/bridgecmd`.
 Ext-go ships reusable libraries; `cmd/ext` owns the public executable.
+
+### Shared contracts and native ledger binding
+
+`core/plugin` owns the shared plugin model and backend interfaces; the public
+`engine/plugin` names alias those types. `core/ledger` owns store records and
+validation, with observation types in `core/ledger/observation` and supervisor
+records in `core/ledger/supervisor`. Existing Go ledger model names remain aliases.
+Native `Bind`, `Library`, `NativeStore`, `NativeWatch` and `Graph` now live in
+`cengine/ledger`; `OpenNative` and its supervisor binding live in
+`cengine/ledger/supervisor`. Native consumers must update those imports.
+The allowed layering is `core -> engine -> cengine`, with no dependency back
+from engine to cengine. Published paths are not reassigned to another module.
+
+The Go recorder implementation and `engine/ledger/recorder/sqlite` have been removed.
+The former recorder module retains only `New(ctx, *cengineledger.NativeStore)`;
+this changes its API and requires callers to migrate. Prefer `cengine/ledger`
+directly. CTX imports old databases read-only; frozen SQL fixtures preserve the
+migration contract without a second Go storage implementation.

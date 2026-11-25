@@ -130,24 +130,18 @@ and [Qt WebEngine](https://doc.qt.io/qt-6/qtwebengine-overview.html).
 
 ## Library API
 
-Use discovery without a store, or persist the result in an existing system
-graph. The examples below import the recorder as
-`systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"`; its declared name is `recorder`, and the
-alias keeps it from colliding with a variable of your own called `graph`. The collectors are
-imported from `res/system` (`host`, `process` and `surface` below):
+Go uses `pkg/ext-go/cengine/ledger` and ledger-owned wire records from
+`pkg/ext-go/core/ledger/observation`. Open the native library, call `ledger.Bind`,
+and use its collectors directly or open a native store and construct `ledger.NewGraph`.
 
 ```go
-inventory, err := systemgraph.DiscoverHost(ctx)
-// Shells, Filesystems, Webviews, Desktop, Surfaces, Accessibility,
-// Permissions, and Resources are typed observations.
-
-inventory, err = g.ScanHost(ctx) // g is a *systemgraph.Graph
-// ScanHost discovers and atomically projects all host inventories into the graph.
+var inventory observation.HostInventory
+err := lib.Collect(ctx, "host", nil, &inventory)
+inventory, err = g.ScanHost(ctx) // g is a *ledger.Graph
 ```
 
-`host.DiscoverShells`, `host.DiscoverFilesystems`, `host.DiscoverWebviews`, `surface.DiscoverDesktop`,
-`surface.DiscoverSurfaces`, `surface.DiscoverAccessibility`, `surface.DiscoverPermissions`, and
-`host.DiscoverResources` can be called independently.
+The independent `res/system` APIs remain available to applications; their records
+are not the Go ledger's input types. Convert explicitly when supplying observations.
 `Graph.ObserveHost` accepts a `HostInventory`; a nil slice or pointer preserves
 that part of the existing inventory, while a non-nil empty slice removes its old entries.
 The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`,
@@ -234,7 +228,9 @@ and [Windows volume path API](https://learn.microsoft.com/en-us/windows/win32/ap
 `ResolveHost` with `Writable` filters mount read-only status; it does not prove
 directory access or allocate a file.
 
-Before using resources, call `PrepareHost`. It discovers current candidates,
+CTX owns the following preparation policy in its private `graphapi` package.
+These snippets describe CTX implementation, not a reusable ledger API.
+Before using resources, CTX calls `PrepareHost`. It discovers current candidates,
 selects one per requirement, checks the executable and its resolved path,
 rechecks the selected filesystem and available bytes, and checks directory
 write access when required. It creates no filesystem probe files. Named shell
@@ -243,10 +239,10 @@ can be selected. Multiple remaining mounts, runtimes, or shells require an
 explicit selection or narrower requirements.
 
 ```go
-requirements := systemgraph.OperationRequirements{
+requirements := graphapi.OperationRequirements{
     Operation: "report.export",
-    Shell: &systemgraph.ShellRequirement{Name: "zsh"},
-    Filesystem: &systemgraph.FilesystemRequirement{
+    Shell: &graphapi.ShellRequirement{Name: "zsh"},
+    Filesystem: &graphapi.FilesystemRequirement{
         Path: outputPath,
         Writable: true,
         MinimumAvailableBytes: uint64(len(report)),
@@ -262,9 +258,9 @@ if err != nil {
 Webview preparation requires a `WebviewValidator` from the embedding backend:
 
 ```go
-prepared, err := system.PrepareHost(ctx, systemgraph.OperationRequirements{
+prepared, err := system.PrepareHost(ctx, graphapi.OperationRequirements{
     Operation: "ui.open",
-    Webview: &systemgraph.WebviewRequirement{
+    Webview: &graphapi.WebviewRequirement{
         Engine: supportedEngine,
         API: supportedAPI,
         ABIVersion: supportedABI,
@@ -370,24 +366,18 @@ Product-specific interpretation belongs to the corresponding adapter.
 ### Process library API and reconciliation
 
 ```go
-options := process.ProcessOptions{
+options := observation.ProcessOptions{
     MaxProcesses: 4096,
     MaxResources: 1024,
     Timeout: 10 * time.Second,
 }
 
-inventory, err := process.DiscoverProcesses(ctx, options)
-inspection, err := process.InspectProcess(ctx, pid, options)
-
-// Discovery does not require a store. Persist either result explicitly:
-err = system.ObserveProcesses(ctx, inventory)
-err = system.ObserveProcesses(ctx, inspection)
-
-// Convenience operation for enumeration plus persistence:
-inventory, err = system.ScanProcesses(ctx, options)
+// Both operations collect and persist through C.
+inventory, err := system.ScanProcesses(ctx, options)
+inspection, err := system.InspectProcess(ctx, pid, options)
 ```
 
-`DiscoverHost` / `ScanHost` retain their existing shell/filesystem/webview API;
+`Library.Collect` and `Graph.ScanHost` cover host inventory;
 `ScanProcesses` is separate for consumers that do not need process inventory.
 The CLI `graph scan` calls both, then scans adapters. Those inventories are
 separate graph transactions.

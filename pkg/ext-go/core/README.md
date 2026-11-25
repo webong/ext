@@ -1,9 +1,19 @@
 # core
 
-`github.com/webong/ext/pkg/ext-go/core` is the switcher: `core/driver` decides how a program runs each
-library of `lib/` (the plugin engine, the ledger, and whatever comes next). It knows no library by name,
-uses only the standard library and requires no module; each library's Go package lists its own drivers.
-See [the library opener decision record](../../../docs/adr-library-opener.md).
+`github.com/webong/ext/pkg/ext-go/core` owns shared contracts and driver selection.
+It never imports `engine` or `cengine`. Both implementations use the same types.
+
+| Package | Responsibility |
+| --- | --- |
+| `plugin` | Plugin identities, descriptors, requests, responses, validation and backend interfaces |
+| `ledger` | Graph records, store interfaces, error codes, validation and transaction preparation |
+| `ledger/observation` | Ledger-owned observation wire records |
+| `ledger/supervisor` | Shared supervisor state and result types |
+| `ledger/ledgertest` | Implementation-independent store conformance fixtures |
+| `driver` | Library-independent driver selection, using only the standard library |
+
+The allowed dependency direction is `core -> engine -> cengine`; native bindings
+may also use core directly. Core requires Go 1.25 and uses only the standard library. Consumers own host-selection policy.
 
 | Driver | Where the code is |
 | --- | --- |

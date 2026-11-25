@@ -110,8 +110,8 @@ frames finite PCM16 data.
 
 The graph store, the recorder that writes what these collectors find into it, and the
 process supervisor are the ledger: [`lib/ledger`](../../lib/ledger/README.md) in C and
-[`pkg/ext-go/engine/ledger`](../../pkg/ext-go/engine/ledger/README.md) in Go, whose recorder module
-requires this module. Nothing here depends on the ledger. The path `res/graph` was used briefly
+[`pkg/ext-go/cengine/ledger`](../../pkg/ext-go/cengine/ledger/README.md) for its Go binding.
+The Go ledger uses its own wire records in `core/ledger/observation` and does not require this module. Nothing here depends on the ledger. The path `res/graph` was used briefly
 for an earlier form of this module (v0.1.x, deprecated), and then for the Go graph module until it moved
 into `pkg/ext-go/engine/ledger`.
 See the migration table in [module versioning](../../docs/module-versioning.md).

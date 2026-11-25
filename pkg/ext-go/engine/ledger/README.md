@@ -1,28 +1,20 @@
 # ledger
 
-`github.com/webong/ext/pkg/ext-go/engine/ledger` is the Go API for
-[`lib/ledger`](../../../../lib/ledger/README.md). `Bind` binds an explicitly loaded
-C library through `cengine/library`; `Library.OpenStore` opens its memory, file
-or optional SQLite backend, and `NewGraph` opens its recorder. CTX uses this path.
-The binding never silently chooses the old Go implementation. Synchronous calls
-check cancellation before entry and forward context deadlines to C; canceling
-a context without a deadline does not interrupt a call already inside C.
+`github.com/webong/ext/pkg/ext-go/engine/ledger` holds the compatibility Go memory
+store. Shared types and validation are defined in `core/ledger` and retained here
+as aliases. Observation types and portable selection live in
+`core/ledger/observation`. The Go supervisor and recorder remain for existing users.
 
-`Library.Objects()` exposes all described C objects, including supervisors and
-watches. Typed helpers cover CTX's graph operations. Shared observation types and
-portable host-selection policy remain Go code; collection, recording, inventory
-resolution and persistent graph mechanics execute in C.
-
-The older `Store` interface, `NewMemory`, Go supervisor and recorder are still
-compatibility APIs for unmigrated users. They are not the implementation used by
-CTX. See [the migration decision](../../../../docs/adr-library-opener.md#ctx-ledger-adoption).
+Native users import `pkg/ext-go/cengine/ledger` for `Bind`, `Library.OpenStore`,
+`NewGraph` and typed watches, and `cengine/ledger/supervisor` for `OpenNative`.
+CTX uses that C-backed path. Engine never imports the native loader.
 
 | Package | What it is |
 | --- | --- |
-| `ledger` | C binding, shared model and selection policy; compatibility store API |
+| `ledger` | Go memory store and compatibility aliases of core contracts |
 | `ledgertest` | Runs the shared store fixtures in [`lib/ledger/testdata/store/v1`](../../../../lib/ledger/testdata/store/v1/README.md) against any `ledger.Store` |
 | `supervisor` | Generic local component processes with recovery for unexpected exits, projecting their state into a `ledger.Store` ([the supervisor](supervisor/README.md)) |
-| `recorder` | A nested module: the recorder of `res/system`'s observations and the SQLite store ([the recorder](recorder/README.md)) |
+| `recorder` | A nested module: a thin entry point to the C recorder ([the recorder](recorder/README.md)) |
 
 The store's contract is data: `lib/ledger/testdata/store/v1` holds its entities, rules, error
 codes, layouts and operation cases, and every implementation runs them

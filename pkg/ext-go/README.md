@@ -1,16 +1,18 @@
-# Go plugin library (umbrella)
+# Go Ext library (umbrella)
 
-`github.com/webong/ext/pkg/ext-go` requires every part of the Go plugin library at
-matching versions, so a program that wants all of it takes one module. Each part is a
+`github.com/webong/ext/pkg/ext-go` aggregates dependencies for the Go ext library.
+
+It has no root Go package; applications import the library packages they use. Each part is a
 module of its own and a program that wants less takes less:
 
 | Module | For |
 | --- | --- |
-| [`engine`](engine) | portable plugin contract, sessions, guests and packages; `engine/ledger` is the C-backed Go ledger API |
+| [`core`](core) | shared plugin and ledger contracts, observation types, validation and driver selection |
+| [`engine`](engine) | Go plugin sessions, guests and packages; compatibility Go ledger |
 | [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
-| [`runtime`](runtime) | how Go reaches C shared libraries: `library` (purego, with or without cgo) and the `cshared` backend for C shared guests |
+| [`cengine`](cengine) | native loading, C guest support and the C-backed ledger API |
 | [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/host/engine/wasm` runtime |
 
 CTN owns the `inference.provider/v1`, `intelligence.perception/v1`, and
@@ -19,8 +21,9 @@ CTN also owns the public `model.tensor/v1` bridge in `src/ctn/model`,
 which peer products can use to call installed provider packages directly.
 These bridges build on the generic Ext Go plugin engine.
 
-The umbrella package itself, `plugingo`, holds functionality that needs more than
-one library, including `PlanGraph`. Cross-language conformance lives in
+The umbrella module holds examples and benchmarks that use several libraries.
+Execution-graph snapshots come from `lib/plugin`; the CLI publishes their
+observations through `lib/ledger`. Cross-language conformance lives in
 `tests/crosslang`. Ext-go is a library and ships no public executable; the
 transport bridge runs as `ext bridge --config …`, owned by `cmd/ext`.
 

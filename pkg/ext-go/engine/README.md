@@ -1,22 +1,16 @@
 # Go library APIs
 
-`github.com/webong/ext/pkg/ext-go/engine` holds the Go APIs for Ext's libraries,
-with no root package. The portable plugin packages use the standard library;
-the ledger API additionally depends on `cengine` and the system wire contracts.
-The module requires Go 1.25.
+`github.com/webong/ext/pkg/ext-go/engine` holds Go plugin sessions and compatibility
+ledger implementations, with no root package. It builds on `core` and never
+imports `cengine`. The module requires Go 1.25.
 
-`github.com/webong/ext/pkg/ext-go/engine/ledger` binds the canonical C ledger.
-CTX uses `Bind`, `Library.OpenStore` and `NewGraph` for collection, recording and
-persistent graph operations. The older Go memory store, supervisor and nested
-`ledger/recorder` remain compatibility APIs until their remaining users migrate.
-There is no separate `pkg/ext-go/ledger` module.
+`engine/plugin` retains its public contract names as aliases of `core/plugin`.
+Sessions, guests, package management, transports and authoring stay here.
+`engine/ledger` retains the Go memory store and supervisor; its
+shared types alias `core/ledger` and `core/ledger/observation`.
 
-`github.com/webong/ext/pkg/ext-go/engine/plugin`: the pure-Go plugin engine, the oracle that
-`cgoengine/plugin` and `c2goengine/plugin` are held against. It is the ext plugin contract and the tooling built on it, using only the
-standard library. It holds the contract
-data model, host sessions and guests, `ext.package/v1` manifests and the installed
-package store's building blocks, JSON-line and bridge transports, process launching,
-schemas and typed authoring, instances and streams, and the conformance suite.
+The native ledger binding moved to `cengine/ledger`. CTX uses that binding's
+`Bind`, `Library.OpenStore` and `NewGraph`; no C loader remains in this module.
 
 `host.OpenRuntime` starts a source plugin under a separately installed runtime
 package. The caller supplies the reviewed runtime digest and explicit runtime
@@ -68,8 +62,7 @@ installed, err := s.InstallArchive(ctx, store.Archive{
 ```
 
 The format is read from the content, not the name, and an unrecognized one is `ErrUnsupported`.
-Formats that need a dependency (zstd, xz) are not supported, since the portable plugin packages are standard library
-only. The archive is checked against the digest before
+Formats that need a dependency (zstd, xz) are not supported, since the portable plugin packages use only core contracts and the standard library. The archive is checked against the digest before
 anything is extracted; extraction is bounded by the store's `Limits` (`MaxArchiveBytes`,
 `MaxTreeFiles`, `MaxTreeBytes`, `MaxArtifactBytes`) and refuses links, special files, absolute paths
 and paths that leave the destination. The manifest may sit at the top of the archive or in one

@@ -24,19 +24,20 @@ nothing, ext-go can fetch the release it pins. Both are supported: a program suc
 own downloader passes it in or passes the path it installed, and a program without one lets ext-go
 fetch. A program can forbid fetching altogether.
 
-**2. Two modules: the switcher and the C side.** `cengine` knows no library and imports nothing of ext, and
-`core` imports nothing of ext either (`src/ctx/internal/arch` enforces both).
+**2. Two modules: the switcher and the C side.** The generic `cengine` packages know no library and import nothing of the plugin
+engine. Its `cguest/backend` and `cguest/guest` packages import `core/plugin`;
+`core` imports nothing of ext (`src/ctx/internal/arch` enforces these boundaries).
 
 Running a plugin guest built as a C shared library is not loading a library of `lib/`: the guest is a
-plugin, so what crosses to it is the plugin protocol. That is a plugin backend, `pkg/ext-go/cguest`, beside
+plugin, so what crosses to it is the plugin protocol. That is a plugin backend, `pkg/ext-go/cengine/cguest/backend`, beside
 `yaegi`, `hashicorp` and `wasm`; it speaks `ext.plugin/v1` over the raw loader `cengine/cguest` and requires
-`engine` and `cengine`. The plugin contract plays no part in how the drivers reach `lib/plugin` or
+`core/plugin` and the local loader. The plugin contract plays no part in how the drivers reach `lib/plugin` or
 `lib/ledger`, which go through each library's own C API.
 
 | Module | Role | Requires |
 | --- | --- | --- |
 | `pkg/ext-go/core` | The switcher. `core/driver` picks how a program runs each library of `lib/`: `go` (its pure-Go implementation in `engine`) or one of the C drivers, `cgo`, `c2go` and `purego`. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits, in the order cgo, c2go, purego, go; a name that cannot be served is an error, never another driver. | nothing |
-| `pkg/ext-go/cengine` | The C side. It serves the C drivers (purego, cgo, ccgo): `cgoengine` and `c2goengine` register with it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens a built copy of the C library once per canonical path and binds its exports; the engine never touches files. `cengine/cguest` loads C ABI guests and exchanges frames as bytes, knowing nothing of the plugin protocol. | purego |
+| `pkg/ext-go/cengine` | The C side. It serves the C drivers (purego, cgo, ccgo): `cgoengine` and `c2goengine` register with it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens a built copy of the C library once per canonical path and binds its exports; the engine never touches files. `cengine/cguest` loads C ABI guests and exchanges frames as bytes, knowing nothing of the plugin protocol; `cguest/backend` and `cguest/guest` supply plugin integration. | purego, `core` for shared contracts |
 
 A library's Go binding takes its interface from whichever driver reaches it, and is driven by or
 generated from the library's description; ext-go holds none. `core` has no root package: the umbrella published its selection package at the
@@ -137,7 +138,7 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
 
 1. Done: `core/driver` is the switcher; `pkg/ext-go/runtime` becomes `pkg/ext-go/cengine`, the C
    side: the opener `cengine/library` and the raw C guest loader `cengine/cguest`, with the plugin backend
-   over it in the module `pkg/ext-go/cguest`; the plugin selection moves to `pkg/ext-go/plugin` and
+   over it in `pkg/ext-go/cengine/cguest/backend` in the same `cengine` module; the plugin selection moves to `pkg/ext-go/plugin` and
    chooses through `core/driver`.
 2. Done: `library.Citation`, `library.Provide` and `OpenProvided`, `cengine/fetch` and the
    fetch command (now `ext bundle fetch`), held to a scratch module that builds a C library, publishes it over HTTPS and
@@ -183,24 +184,20 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    package.
 6. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
    build-time drivers.
-7. The ledger: its drivers (purego first, then cgo), its release and citation, and a
-   `pkg/ext-go/engine/ledger` as the existing Go API; CTX uses its C-backed binding.
-   Do not introduce a sibling `pkg/ext-go/ledger` module. The portable plugin packages
-   remain standard-library-only; the engine module now also requires the C loader
-   and system wire contracts for its ledger API.
+7. The native ledger binding lives in `pkg/ext-go/cengine/ledger`; CTX uses
+   `Bind`, `Library.OpenStore` and `NewGraph` there. Shared records and validation
+   live in `core/ledger`. Engine holds the compatibility Go implementation and
+   never depends back on cengine. Cengine may consume core or engine.
 
 ### CTX ledger adoption
 
-CTX now reaches `lib/ledger` through `pkg/ext-go/engine/ledger.Bind`,
+CTX now reaches `lib/ledger` through `pkg/ext-go/cengine/ledger.Bind`,
 `Library.OpenStore` and `NewGraph`. The binding uses the existing generic
 `cengine/library` interface with purego; it opens no Go recorder or Go store.
 `Library.Objects` exposes the remaining described C operations. Additional driver
 implementations remain a separate migration step.
 
-The shared observation types and portable host-selection policy live beside
-that binding. The previous recorder preserves its published Go names as aliases
-and delegates selection to the same policy. `NewMemory`, the Go supervisor and
-legacy recorder remain compatibility APIs until their other users migrate.
+Ledger-owned wire records live in `core/ledger/observation`; CTX owns host-selection policy. The Go recorder and SQLite store implementations were removed. The former recorder module now requires an explicitly opened native store. `NewMemory` and the Go supervisor remain for existing users.
 CTX's `graphapi` owns location and upgrade policy, while collection, recording,
 resolution of stored inventory, storage and reconciliation execute in C.
 

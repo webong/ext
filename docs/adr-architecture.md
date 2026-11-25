@@ -140,10 +140,9 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 
 ### Go ledger API location
 
-The C ledger's Go API remains `pkg/ext-go/engine/ledger`. CTX binds the C
-library there rather than importing a new sibling module. Portable plugin
-packages remain standard-library-only; the engine module now requires the C
-loader and system observation types for its ledger API. Legacy Go ledger
-implementations remain compatibility code during consumer migration. See
-[CTX ledger adoption](adr-library-opener.md#ctx-ledger-adoption) for ownership,
-the storage cutover and remaining driver work.
+The C ledger's Go API is `pkg/ext-go/cengine/ledger`. CTX binds the C
+library there. `core/ledger` owns shared contracts and validation, while
+`engine/ledger` retains the compatibility Go implementation. The dependency
+order is `core -> engine -> cengine`; engine never imports the native binding.
+See [CTX ledger adoption](adr-library-opener.md#ctx-ledger-adoption) for storage
+cutover details.

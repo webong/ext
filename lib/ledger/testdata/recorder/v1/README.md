@@ -57,10 +57,10 @@ the fields it names, so the expectations leave out what the store sets (records'
 
 ## Changing the cases
 
-The expectations are what the Go recorder writes. `go test -run TestRecorder -update` in
-`pkg/ext-go/engine/ledger/recorder` rewrites them from Go, `go test -run TestRecorder` checks Go against them, and
-`lib/ledger/tests/recorder.c` (run by `scripts/ledger-test.sh`) checks the C recorder. The C library is the main
-implementation: a change lands in `lib/ledger` and these cases first, and the Go recorder follows it.
+The expectations describe the canonical C recorder. Update cases with the C implementation
+and run `lib/ledger/tests/recorder.c` through `scripts/ledger-test.sh`. Go's
+`core/ledger/observation.TestRecorderWireRecords` verifies that binding records preserve
+the fixture fields. No Go recorder regenerates these expectations.
 
 ## Not covered yet
 

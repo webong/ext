@@ -3,9 +3,6 @@ package ledger
 
 import shared "github.com/webong/ext/pkg/ext-go/core/ledger"
 
-type Traversal = shared.Traversal
-
-var Traverse = shared.Traverse
 var ErrInvalid = shared.ErrInvalid
 var ErrInvalidName = shared.ErrInvalidName
 var ErrLimitRequired = shared.ErrLimitRequired
@@ -49,16 +46,3 @@ const DefaultMaxRecordBytes = shared.DefaultMaxRecordBytes
 const DefaultMaxResults = shared.DefaultMaxResults
 const DefaultMaxSnapshotRecords = shared.DefaultMaxSnapshotRecords
 const MaxStringBytes = shared.MaxStringBytes
-
-var ValidateAttributes = shared.ValidateAttributes
-var ValidateSchema = shared.ValidateSchema
-var NormalizeSchema = shared.NormalizeSchema
-var SameSchema = shared.SameSchema
-var Canonical = shared.Canonical
-var Fingerprint = shared.Fingerprint
-
-type Reader = shared.Reader
-
-var CheckTransaction = shared.CheckTransaction
-var RecordBytes = shared.RecordBytes
-var Prepare = shared.Prepare

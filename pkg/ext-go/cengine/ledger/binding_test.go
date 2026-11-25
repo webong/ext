@@ -2,10 +2,12 @@ package ledger_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	ledger "github.com/webong/ext/pkg/ext-go/cengine/ledger"
@@ -185,5 +187,55 @@ func TestNativeShellSearchPath(t *testing.T) {
 	}
 	if os.Getenv("PATH") != before {
 		t.Fatal("collector mutated process PATH")
+	}
+}
+
+func TestNativeTransactionFingerprints(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledgertest.RunFingerprints(t, func(tx ledger.Transaction) (json.RawMessage, string, error) {
+		return lib.CanonicalTransaction(context.Background(), tx)
+	})
+}
+
+func TestNativeAttributeValidation(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name       string
+		attributes map[string]any
+		code       string
+	}{
+		{"empty", nil, ""},
+		{"ordinary", map[string]any{"label": "public"}, ""},
+		{"secret-key", map[string]any{"password": "hidden"}, "denied"},
+		{"nested-secret", map[string]any{"nested": []any{map[string]any{"label": "secret-value:hidden"}}}, "denied"},
+		{"bounded", map[string]any{"label": strings.Repeat("x", 4097)}, "too_large"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := lib.ValidateAttributes(context.Background(), test.attributes); ledger.Code(err) != test.code {
+				t.Fatalf("validation: %v; want %s", err, test.code)
+			}
+		})
 	}
 }

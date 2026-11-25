@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	storetest "github.com/webong/ext/pkg/ext-go/engine/ledger/ledgertest"
+	store "github.com/webong/ext/pkg/ext-go/core/ledger"
+	storetest "github.com/webong/ext/pkg/ext-go/core/ledger/ledgertest"
 )
 
 // Every code a case expects is in the shared vocabulary of res/system.

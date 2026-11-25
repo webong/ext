@@ -2,12 +2,12 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
-	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
 	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
@@ -67,7 +67,7 @@ func parseAdapterObservation(data []byte, declaredCapabilities, declaredSupports
 			return nil, nil, nil, fmt.Errorf("adapter observation has an invalid or duplicate context")
 		}
 		contexts[item.Selection] = true
-		if err := store.ValidateAttributes(item.Attributes); err != nil {
+		if err := validateObservationAttributes(item.Attributes); err != nil {
 			return nil, nil, nil, fmt.Errorf("adapter context metadata is invalid: %w", err)
 		}
 		for _, capability := range item.Capabilities {
@@ -95,7 +95,7 @@ func parseAdapterObservation(data []byte, declaredCapabilities, declaredSupports
 			return nil, nil, nil, fmt.Errorf("adapter observation has an invalid or duplicate resource")
 		}
 		resourceIDs[item.ID] = true
-		if err := store.ValidateAttributes(item.Attributes); err != nil {
+		if err := validateObservationAttributes(item.Attributes); err != nil {
 			return nil, nil, nil, fmt.Errorf("adapter resource metadata is invalid: %w", err)
 		}
 		resources = append(resources, systemgraph.ResourceObservation{ID: item.ID, Kind: item.Kind, Context: item.Context, Attributes: item.Attributes})
@@ -116,4 +116,12 @@ func validBrowserShareState(state string) bool {
 
 func validObservationName(value string) bool {
 	return value != "" && len(value) <= 512 && !strings.ContainsAny(value, "\x00\r\n")
+}
+
+func validateObservationAttributes(attributes map[string]any) error {
+	lib, err := systemgraph.Library()
+	if err != nil {
+		return err
+	}
+	return lib.ValidateAttributes(context.Background(), attributes)
 }

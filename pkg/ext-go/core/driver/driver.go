@@ -6,7 +6,7 @@
 //	cgo     the C library linked through cgo, fixed when the program is built
 //	c2go    the C library translated to Go by ccgo, fixed when the program is built
 //	purego  the C library as a shared library loaded when the program runs (cengine/library)
-//	go      the library's pure-Go implementation, which exists on every platform
+//	go      a legacy pure-Go implementation, where the library still provides one
 //
 // Choose prefers them in that order. A program names one, or asks for the best available one with
 // Auto; FromEnvironment reads the name from EXT_ENGINE. Asking for a driver by name never gets another

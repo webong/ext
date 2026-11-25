@@ -13,6 +13,7 @@
         "process_identity": {"about": "Canonical ext.system process reference from a collected host ID, PID and nonempty birth token. Uses the recorder identity rule; does not observe or authorize a process.", "input": {"type": "object", "required": ["host_id", "pid", "start_id"], "properties": {"host_id": {"type": "string"}, "pid": {"type": "integer"}, "start_id": {"type": "string"}}}, "output": {"type": "object"}},
         "collect_environment": {"about": "The environment a recorder records against.", "input": {"type": "object"}, "output": {"type": "object"}},
         "vocabulary": {"about": "The recorder's vocabulary: its schemas and operations.", "input": {"type": "object"}, "output": {"type": "object"}},
+        "validate_attributes": {"about": "Validate graph metadata using the same secret-marker and size rules as store writes.", "input": {"type": "object", "required": ["attributes"], "properties": {"attributes": {"type": "object"}}}, "output": {}},
         "canonical_transaction": {"input": {"type": "object", "required": ["transaction"], "properties": {"transaction": {"type": "object"}}}, "output": {"type": "object", "properties": {"canonical": {"type": "object"}, "fingerprint": {"type": "string"}}}}
       }
     },

@@ -389,6 +389,10 @@ static int call_library(const char *op, const lj_value *in, char **out, size_t *
     const char *v = ext_ledger_recorder_vocabulary();
     return dup_out(v, strlen(v), out, out_len);
   }
+  if (!strcmp(op, "validate_attributes")) {
+    rc = ll_check_attributes(lj_get(in, "attributes"));
+    return rc ? rc : null_out(out, out_len);
+  }
   if (!strcmp(op, "canonical_transaction")) {
     char *tx = NULL, *canonical = NULL, fp[65];
     size_t n = 0, cn = 0;

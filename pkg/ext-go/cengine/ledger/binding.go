@@ -4,6 +4,7 @@ package ledger
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -163,4 +164,22 @@ func (s *NativeStore) Reconcile(ctx context.Context, desired Snapshot) (out Comm
 	}
 	err = s.call(ctx, "reconcile", map[string]any{"transaction": map[string]any{"namespace": desired.Namespace, "expected_revision": desired.Revision, "vertices": vertices, "edges": edges}}, &out)
 	return
+}
+
+// CanonicalTransaction asks C for the canonical JSON and its idempotency fingerprint.
+func (l *Library) CanonicalTransaction(ctx context.Context, tx Transaction) (json.RawMessage, string, error) {
+	var result struct {
+		Canonical   json.RawMessage `json:"canonical"`
+		Fingerprint string          `json:"fingerprint"`
+	}
+	err := call(ctx, l.api.Library(), "canonical_transaction", map[string]any{"transaction": tx}, &result)
+	return result.Canonical, result.Fingerprint, err
+}
+
+// ValidateAttributes applies the C ledger's graph metadata rules without writing a record.
+func (l *Library) ValidateAttributes(ctx context.Context, attributes map[string]any) error {
+	if attributes == nil {
+		attributes = map[string]any{}
+	}
+	return call(ctx, l.api.Library(), "validate_attributes", map[string]any{"attributes": attributes}, nil)
 }

@@ -19,7 +19,7 @@ satisfy may join the current version.
 
 | Language | Entry point | How |
 | --- | --- | --- |
-| Go | `ledgertest.Run(t, ledgertest.Backend{...})` and `ledgertest.RunFingerprints(t)` in `pkg/ext-go/engine/ledger/ledgertest`; the memory store runs them in `pkg/ext-go/engine/ledger/store_test.go` | `go test ./ledger/...` from `pkg/ext-go/engine`; the fixtures are found by walking up |
+| Go | `core/ledger/ledgertest` runs store and canonicalization fixtures against `cengine/ledger` bindings | `EXT_LEDGER_LIBRARY=/path/to/library go test ./ledger/...` from `pkg/ext-go/cengine`; the fixtures are found by walking up |
 | C (`lib/ledger`) | `lib/ledger/tests/fixtures.c` runs `store/v1` on the memory, file and SQLite backends | `scripts/ledger-test.sh`, or `ctest` in a `lib/ledger` build |
 | Other languages | through the protocol (`docs/adr-architecture.md`, rule 5): a service that serves a Go store over `ext.plugin/v1` is held to these cases by the Go runner, and an SDK wrapper needs no runner of its own. A program that only reads a graph uses `lib/ledger`'s reader, or reads the documented files or tables (`ledger.json`, `tables.json`) itself | |
 
@@ -36,5 +36,5 @@ type and maps it to the code: `store.Code(err)` in Go. Error text is never part 
 
 | Area | Versions | Run by |
 | --- | --- | --- |
-| `store` | v1 | Go: the memory store (`store.NewMemory`) and the SQLite store (`store/sqlite`); C: `lib/ledger` on every backend |
+| `store` | v1 | Go: the native memory/file bindings; C: `lib/ledger` on every backend |
 | `recorder` | v1 | Go wire decoding: `TestRecorderWireRecords` in `core/ledger/observation`; canonical C behavior: `lib/ledger/tests/recorder.c` |

@@ -109,7 +109,8 @@ static int secret_marker(const char *s, size_t n) { return has_lower_prefix(s, n
 
 static int check_value(const lj_value *v);
 
-static int check_attributes(const lj_value *o) {
+int ll_check_attributes(const lj_value *o) {
+  if (!o || o->type != LJ_OBJECT) return EXT_LEDGER_INVALID;
   for (size_t i = 0; i < o->u.object.len; i++) {
     const lj_member *m = &o->u.object.members[i];
     if (secret_key(m->key.ptr, m->key.len)) return EXT_LEDGER_DENIED;
@@ -122,7 +123,7 @@ static int check_attributes(const lj_value *o) {
 static int check_value(const lj_value *v) {
   switch (v->type) {
   case LJ_OBJECT:
-    return check_attributes(v);
+    return ll_check_attributes(v);
   case LJ_ARRAY:
     for (size_t i = 0; i < v->u.array.len; i++) {
       int rc = check_value(v->u.array.items[i]);
@@ -140,7 +141,7 @@ static int check_value(const lj_value *v) {
 
 static int check_record(const ll_record *r, const ext_ledger_store_options *o) {
   int rc;
-  if (r->attrs && (rc = check_attributes(r->attrs))) return rc;
+  if (r->attrs && (rc = ll_check_attributes(r->attrs))) return rc;
   if (r->labels) {
     for (size_t i = 0; i < r->labels->u.object.len; i++) {
       const lj_member *m = &r->labels->u.object.members[i];

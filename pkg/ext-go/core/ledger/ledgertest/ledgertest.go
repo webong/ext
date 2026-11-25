@@ -289,9 +289,8 @@ type fingerprintFile struct {
 	} `json:"cases"`
 }
 
-// RunFingerprints checks store.Canonical and store.Fingerprint against
-// fingerprints.json.
-func RunFingerprints(t *testing.T) {
+// RunFingerprints checks a binding against the canonical transaction fixtures.
+func RunFingerprints(t *testing.T, canonicalize func(store.Transaction) (json.RawMessage, string, error)) {
 	var file fingerprintFile
 	Load(t, "fingerprints.json", &file)
 	if len(file.Cases) == 0 {
@@ -303,14 +302,13 @@ func RunFingerprints(t *testing.T) {
 			if err := json.Unmarshal(c.Transaction, &tx); err != nil {
 				t.Fatal(err)
 			}
-			canonical, err := store.Canonical(tx)
+			canonical, sum, err := canonicalize(tx)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if string(canonical) != c.Canonical {
 				t.Fatalf("canonical\n got %s\nwant %s", canonical, c.Canonical)
 			}
-			sum, err := store.Fingerprint(tx)
 			if err != nil || sum != c.SHA256 {
 				t.Fatalf("fingerprint %s, %v; want %s", sum, err, c.SHA256)
 			}

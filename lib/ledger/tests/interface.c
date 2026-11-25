@@ -43,6 +43,12 @@ static void expect(uint64_t h, const char *op, const char *in, const char *conta
 }
 
 int main(void) {
+  ext_ledger_free(call(0, "validate_attributes", "{\"attributes\":{\"label\":\"visible\"}}", EXT_LEDGER_OK));
+  ext_ledger_free(call(0, "validate_attributes", "{\"attributes\":{\"password\":\"hidden\"}}", EXT_LEDGER_DENIED));
+  ext_ledger_free(call(0, "validate_attributes", "{\"attributes\":{\"nested\":[{\"label\":\"secret-value:hidden\"}]}}", EXT_LEDGER_DENIED));
+  ext_ledger_free(call(0, "validate_attributes", "{\"attributes\":[]}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "validate_attributes", "{}", EXT_LEDGER_INVALID));
+
   CHECK(ext_ledger_abi_version() == EXT_LEDGER_ABI_VERSION, "abi version");
 
   uint64_t store = open_json("{\"object\":\"store\",\"backend\":\"memory\"}", EXT_LEDGER_OK);

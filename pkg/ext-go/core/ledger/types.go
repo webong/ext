@@ -6,7 +6,7 @@
 // The contract every implementation follows is written as data in
 // lib/ledger/testdata/store/v1: the entities, the naming, secret and size rules,
 // the error codes, the SQLite table layout and the operation cases. Implementations
-// live in engine/ledger and cengine/ledger; this package owns their shared contract.
+// execute in lib/ledger through cengine/ledger; this package owns the wire contract.
 package ledger
 
 import (

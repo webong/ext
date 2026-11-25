@@ -116,3 +116,14 @@ CGO_CFLAGS="-I$PWD/internal/extlib/plugin/include" CGO_LDFLAGS="-L$PWD/internal/
 ```
 
 Inside this repository, the scripts give it `lib/plugin/include` and a CMake build of `lib/plugin`.
+
+## Driver and backend boundaries
+
+This module preserves its plugin API, build tags, and current implementation
+selection: the tagged cgo build links the C engine, while the default build uses
+the shared native host through `cengine/plugin`. The backend contract refactor
+does not change that fallback behavior or introduce a Go host fallback.
+
+A driver describes this access to the C library. Yaegi, WASM, and HashiCorp are
+plugin backends: they describe guest execution and consume `core/plugin` types,
+which retain identity through the existing `engine/plugin` aliases.

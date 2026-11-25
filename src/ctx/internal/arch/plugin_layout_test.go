@@ -19,15 +19,13 @@ import (
 // pkg/ext-go is a tree of modules, not one module. Each heavy part is its own
 // module so an application imports only what it needs:
 //
-//	engine      portable plugin sessions and Go ledger, built on core contracts
-//	            (plugin code is standard-library-only); its legacy engine/ledger/recorder, which projects
-//	            res/system's observations onto the ledger, needs engine and res/system
-//	cgoengine   the C engine binding and pure-Go build of the same API; needs engine
+//	engine      legacy Go implementations and shared-contract compatibility exports
+//	cgoengine   the existing plugin API: linked C or the default shared native host
 //	c2goengine  the C engine's portable core translated to Go; needs engine
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
-//	hashicorp   the gRPC backend; needs engine only, never cgoengine
+//	hashicorp   the RPC backend uses core; its examples and tests retain engine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
-//	core        shared plugin/ledger contracts and driver selection; observation types use res/system
+//	core        shared plugin/ledger contracts and driver selection; standard library only
 //	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
 //	            with C ABI guests; its guest and ledger bindings consume shared core contracts
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all
@@ -101,7 +99,7 @@ func TestBackendsNeverImportTheCEngine(t *testing.T) {
 				for _, f := range forbidden {
 					if name == f || strings.HasPrefix(name, f+"/") && f != pluginPrefix {
 						rel, _ := filepath.Rel(root, path)
-						t.Errorf("%s imports %s; a backend depends on pkg/ext-go/engine only", filepath.ToSlash(rel), name)
+						t.Errorf("%s imports %s; a backend uses core contracts and portable engine helpers, never C driver bindings", filepath.ToSlash(rel), name)
 					}
 				}
 			}
@@ -163,7 +161,7 @@ func TestPluginEngineUsesOnlyTheStandardLibrary(t *testing.T) {
 		for _, imp := range file.Imports {
 			name, _ := strconv.Unquote(imp.Path.Value)
 			first, _, _ := strings.Cut(name, "/")
-			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") && name != pluginPrefix+"/core/plugin" {
+			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") && name != pluginPrefix+"/core/plugin" && !strings.HasPrefix(name, pluginPrefix+"/core/plugin/") {
 				rel, _ := filepath.Rel(root, path)
 				t.Errorf("%s imports %s; the portable plugin engine uses only the standard library and core/plugin", filepath.ToSlash(rel), name)
 			}

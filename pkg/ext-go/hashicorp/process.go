@@ -15,9 +15,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/interop"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
+	"github.com/webong/ext/pkg/ext-go/core/plugin/interop"
 )
 
 // Process is a reviewed launch selection. SHA256 pins bytes, not publisher
@@ -129,5 +128,5 @@ func JSONLineBridge(protocol string) (interop.Bridge, error) {
 	default:
 		return interop.Bridge{}, plugin.ErrUnsupported
 	}
-	return interop.Bridge{Name: "jsonline-to-" + backend.Name, Frontend: jsonline.Profile(), Backend: backend}, nil
+	return interop.Bridge{Name: "jsonline-to-" + backend.Name, Frontend: plugin.JSONLineProfile(), Backend: backend}, nil
 }

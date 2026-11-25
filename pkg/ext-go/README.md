@@ -8,11 +8,12 @@ module of its own and a program that wants less takes less:
 | Module | For |
 | --- | --- |
 | [`core`](core) | shared plugin and ledger contracts, observation types, plugin validation and driver selection |
-| [`engine`](engine) | Go plugin sessions, guests and packages; ledger record aliases |
-| [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
-| [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
+| [`engine`](engine) | retiring Go implementations, guest/package helpers, and compatibility exports for core definitions |
+| [`cgoengine`](cgoengine) | existing plugin API: linked cgo implementation or the current shared native host fallback |
+| [`c2goengine`](c2goengine) | translated-C implementations and bindings (no cgo, no C compiler in the consuming build) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
-| [`cengine`](cengine) | native loading, C guest support and the C-backed ledger API |
+| [`cengine`](cengine) | native loading, fetching, binding generation, C guest mechanics and native ledger bindings |
+| [`yaegi`](yaegi) | independent Go source plugin backend; added separately from the umbrella |
 | [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/host/engine/wasm` runtime |
 
 CTN owns the `inference.provider/v1`, `intelligence.perception/v1`, and
@@ -29,12 +30,19 @@ transport bridge runs as `ext bridge --config …`, owned by `cmd/ext`.
 
 The `wasm` module requires `res/web/host` for protocol-neutral WebAssembly inspection,
 WASI execution and reactor hosting, then binds those mechanisms to
-`engine.Backend`. `res/web/host` never imports the plugin engine.
+`core/plugin.Backend` (also available through the existing `engine/plugin` alias).
+`res/web/host` never imports the plugin engine.
+
+Drivers describe how Go accesses canonical C libraries: cgo linking, translated C,
+or purego shared-library loading. Plugin backends describe how guests execute:
+Yaegi, WASM, or HashiCorp RPC. Choosing a backend does not choose a C-library driver.
+Module roots, published import paths and tag conventions stay unchanged.
 
 ## The C engine from Go
 
 Go binds the C libraries like every other language (decision 8 of
-[the library opener](../../docs/adr-library-opener.md)), and ext-go holds no binding of any one of them.
+[the library opener](../../docs/adr-library-opener.md)). Existing native plugin and
+ledger bindings live under `cengine`; consumers may also use generated bindings.
 Each library describes its interface (lib/plugin's and lib/ledger's `interface.json`, served by
 `describe`), and a program reaches it in one of two ways:
 
@@ -56,8 +64,9 @@ The rules stay the C library's: a binding turns values into the interface's JSON
 callbacks are events, served by `cengine/library`'s event loop, which knows no library: handlers answer
 them as the description says, and a call returns only once the events it raised are delivered. A
 call's own events (its progress) carry its tag, so many calls with progress run at once. Sessions run
-over a child process the engine starts; a Go backend (`engine.Options.Connect`) would need C to call
-Go, which it never does. `tests/crosslang` holds lib/plugin's generated binding, with the session
+over a child process the engine starts or a Go backend supplied through
+`engine.Options.Connect`. The native host requests Go transport work through its
+described event interface; C retains admission and lifecycle ownership. `tests/crosslang` holds lib/plugin's generated binding, with the session
 adapter that holds it to the differential checks cgo and c2go pass.
 
 `cgoengine` and `c2goengine` keep their own APIs until they reach the same interface and register

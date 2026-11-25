@@ -120,3 +120,20 @@ This is the lean choice. Add [`cgoengine`](../cgoengine) for the C engine bindin
 [`wasm`](../wasm) for WebAssembly or [`hashicorp`](../hashicorp) for go-plugin, or
 require the umbrella module `github.com/webong/ext/pkg/ext-go` to take them all.
 A backend never depends on `cgoengine`.
+
+## Compatibility and backend dependencies
+
+Shared plugin contracts live in `core/plugin`; this module retains their
+published aliases. Transport-route types and resolution now live in
+`core/plugin/interop`, with aliases and forwarding at the existing
+`engine/plugin/host/interop` path. The JSON-line profile forwards to
+`core/plugin.JSONLineProfile`. No published package path or module root moved.
+
+The in-process and JSON-line implementations, Go guest SDK, package store, and
+reference Go session stay here. Yaegi still uses the guest SDK, in-process
+lifecycle and installed-package convenience API; WASM uses the JSON-line client.
+HashiCorp's root library needs none of these implementations, but its example
+command and tests still use them.
+
+A plugin backend executes a guest; a driver controls how Go accesses a canonical
+C library. The former is not an alternative implementation of the latter.

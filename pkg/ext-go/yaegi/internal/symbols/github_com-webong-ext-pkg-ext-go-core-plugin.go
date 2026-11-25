@@ -34,6 +34,7 @@ func init() {
 		"ErrMismatch":               reflect.ValueOf(&plugin.ErrMismatch).Elem(),
 		"ErrNotFound":               reflect.ValueOf(&plugin.ErrNotFound).Elem(),
 		"ErrUnsupported":            reflect.ValueOf(&plugin.ErrUnsupported).Elem(),
+		"JSONLineProfile":           reflect.ValueOf(plugin.JSONLineProfile),
 		"MatchHandshake":            reflect.ValueOf(plugin.MatchHandshake),
 		"MaxFrameBytes":             reflect.ValueOf(constant.MakeFromLiteral("25165824", token.INT, 0)),
 		"MaxRetryAfterMilliseconds": reflect.ValueOf(plugin.MaxRetryAfterMilliseconds),

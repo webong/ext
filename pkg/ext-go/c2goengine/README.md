@@ -157,3 +157,11 @@ driver error. The current supported targets are Linux/macOS on amd64/arm64.
 `bash scripts/ledger-c2go.sh` builds and tests the native portable profile,
 regenerates the translation, and requires all translated ledger checks to run.
 The c2go CI cells run it on their supported POSIX targets.
+
+## Driver and backend boundaries
+
+This module implements translated-C drivers and bindings, retaining its existing
+build tags, supported-target checks and unavailable behavior. It does not own
+Yaegi, WASM or HashiCorp guest execution; those are independent plugin backends
+at their existing module paths. Shared plugin definitions live in `core/plugin`
+and remain available through `engine/plugin` compatibility exports.

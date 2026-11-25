@@ -5,7 +5,8 @@ import (
 	"fmt"
 	goruntime "runtime"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
+	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
@@ -14,15 +15,15 @@ import (
 // entrypoint names it; empty selects the first entrypoint whose runtime is
 // Runtime. The entrypoint's artifact must be a tree.
 //
-// Like engine/plugin/host.Open, it re-verifies the installed package before anything
+// Like cengine/plugin/host.Open, it re-verifies the installed package before anything
 // is evaluated: session.Verify runs after that check, and the source is then
 // read once and held to the artifact's digest. session.Connect is replaced.
 // The caller still owns package trust and operation authorization
 // (session.Authorize).
-func PackageOptions(installed store.Installed, entrypoint string, options Options, session plugin.Options) (plugin.Options, error) {
+func PackageOptions(installed store.Installed, entrypoint string, options Options, session engine.Options) (engine.Options, error) {
 	artifact, err := selectSource(installed.Manifest, entrypoint)
 	if err != nil {
-		return plugin.Options{}, err
+		return engine.Options{}, err
 	}
 	verify := session.Verify
 	session.Verify = func(ctx context.Context, d plugin.Descriptor) error {

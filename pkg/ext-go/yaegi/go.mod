@@ -7,4 +7,4 @@ require (
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 )
 
-require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect
+require github.com/webong/ext/pkg/ext-go/core v0.1.0

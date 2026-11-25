@@ -1,7 +1,5 @@
 package jsonline
 
-import plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+import plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
 
-func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "jsonline", Protocols: []string{plugin.APIVersion}, Cancellation: "connection", ProcessOwner: "host", Boundary: plugin.BoundaryProcess}
-}
+func Profile() plugin.BackendProfile { return plugin.JSONLineProfile() }

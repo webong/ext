@@ -25,3 +25,15 @@ meant for `library` takes no function pointer it would call on a Go program's be
 
 The module path is new. The `ext_cengine` build tag and the old module `pkg/plugin-go/cengine` name the
 C plugin engine binding, which is now [`cgoengine`](../cgoengine).
+
+## Drivers versus plugin backends
+
+This module owns native loading, fetching, binding generation, C guest mechanics,
+and the existing native ledger bindings. These responsibilities and their import
+paths are unchanged by the backend contract extraction.
+
+A driver determines how Go accesses a canonical C library (`purego`, linked
+`cgo`, or translated `c2go`). A plugin backend determines how a guest executes.
+The independent `yaegi`, `wasm`, and `hashicorp` modules consume shared
+`core/plugin` contracts and retain their existing paths; none needs to import
+this module for its backend contract.

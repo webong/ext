@@ -5,7 +5,7 @@ package wasm
 import (
 	"context"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )

@@ -4,8 +4,8 @@
 of the shared plugin library. It owns the native go-plugin launch handshake and
 the net/rpc or gRPC client/server bridge.
 
-The shared `plugin.Endpoint`, `plugin.Guest`, `plugin.Backend`, and
-`plugin.Session` contracts are transport-independent. This backend supplies one
+The shared `core/plugin.Endpoint` and `core/plugin.Backend` contracts are
+transport-independent; Go guests and sessions are implementations of those contracts. This backend supplies one
 transport implementation. It is a separate Go module so consumers that do not
 need go-plugin never download it.
 
@@ -52,9 +52,23 @@ child process is reaped.
 
 ## Relationship to other modules
 
-This module depends on `pkg/ext-go` only. Route resolution across backends
-lives in `pkg/ext-go/engine/plugin/host/interop`, and the relay between this backend and
-CTX JSON-line transports lives in `pkg/ext-go/engine/plugin/transport/bridge`.
+Route resolution across backends lives in `core/plugin/interop`, with the old
+`engine/plugin/host/interop` API preserved by aliases and forwarding. The relay
+between this backend and JSON-line transports remains in
+`engine/plugin/transport/bridge`.
 
 See the [plugin contract decision record](../../../docs/adr-plugin-contract.md)
 and the [interoperability guide](../../../docs/plugin-interoperability.md).
+
+## Source boundaries
+
+The root library imports shared `core/plugin` contracts and
+`core/plugin/interop` route metadata; it has no transitive dependency on the
+`engine` implementation. `JSONLineBridge` uses the shared JSON-line capability
+profile without linking the JSON-line client. Its return type is identical to
+the existing `engine/plugin/host/interop.Bridge` alias.
+
+The module still requires `engine` for its example command, guest helpers and
+test oracles. The `ctx` dispense name, handshake cookie, deadlines and process
+cleanup behavior are unchanged. This module is a plugin backend for guest
+execution, not a driver for accessing Ext's canonical C libraries.

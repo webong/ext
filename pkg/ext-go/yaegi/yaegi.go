@@ -47,7 +47,7 @@ import (
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	"github.com/webong/ext/pkg/ext-go/yaegi/internal/symbols"
 )
@@ -150,7 +150,7 @@ type Backend struct {
 // as a tree artifact records it), and evaluates it. What is evaluated is what
 // was hashed: the files are read once, into memory. Use it inside
 // plugin.Options.Connect so verification precedes evaluation, or use
-// OpenPackage. ctx bounds reading, evaluation and the factory.
+// PackageOptions. ctx bounds reading, evaluation and the factory.
 func Open(ctx context.Context, dir, digest string, options Options) (*Backend, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

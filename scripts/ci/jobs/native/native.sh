@@ -16,6 +16,13 @@ go test -v ./res/system/... ./pkg/ext-go/engine/ledger/... ./pkg/ext-go/engine/l
 ci_import_env
 fi
 
+# Required package acceptance: builds the canonical engine; no optional module skips.
+(
+bash scripts/package-acceptance.sh
+python3 -m unittest discover -s scripts -p 'test_stage_cli_engine.py'
+)
+ci_import_env
+
 # Test library modules
 (
 for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/engine/ledger/recorder pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do

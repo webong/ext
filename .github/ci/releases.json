@@ -537,7 +537,76 @@
       ],
       "version_default": null,
       "publishes": "ext binaries (GitHub release)",
-      "build": [],
+      "build": [
+        {
+          "name": "ext CLI engine (linux-x86_64)",
+          "runner": "ubuntu-22.04",
+          "script": "scripts/release/ext/native.sh",
+          "vars": {
+            "OS": "ubuntu-22.04",
+            "PLATFORM": "linux-x86_64"
+          },
+          "setup": {},
+          "artifact": "release-ext-native-linux-x86_64",
+          "timeout": 30
+        },
+        {
+          "name": "ext CLI engine (linux-aarch64)",
+          "runner": "ubuntu-22.04-arm",
+          "script": "scripts/release/ext/native.sh",
+          "vars": {
+            "OS": "ubuntu-22.04-arm",
+            "PLATFORM": "linux-aarch64"
+          },
+          "setup": {},
+          "artifact": "release-ext-native-linux-aarch64",
+          "timeout": 30
+        },
+        {
+          "name": "ext CLI engine (macos-universal)",
+          "runner": "macos-15",
+          "script": "scripts/release/ext/native.sh",
+          "vars": {
+            "OS": "macos-15",
+            "PLATFORM": "macos-universal"
+          },
+          "setup": {},
+          "artifact": "release-ext-native-macos-universal",
+          "timeout": 30
+        },
+        {
+          "name": "ext CLI engine (windows-x86_64)",
+          "runner": "windows-latest",
+          "script": "scripts/release/ext/native.sh",
+          "vars": {
+            "MSVC": "amd64",
+            "OS": "windows-latest",
+            "PLATFORM": "windows-x86_64"
+          },
+          "setup": {
+            "msvc": "true",
+            "msvc_arch": "amd64"
+          },
+          "artifact": "release-ext-native-windows-x86_64",
+          "timeout": 30
+        },
+        {
+          "name": "ext CLI engine (windows-aarch64)",
+          "runner": "windows-11-arm",
+          "script": "scripts/release/ext/native.sh",
+          "vars": {
+            "MSVC": "arm64",
+            "OS": "windows-11-arm",
+            "PLATFORM": "windows-aarch64"
+          },
+          "setup": {
+            "msvc": "true",
+            "msvc_arch": "arm64"
+          },
+          "artifact": "release-ext-native-windows-aarch64",
+          "timeout": 30
+        }
+      ],
       "publish_setup": {
         "go": "1.26.x",
         "go_cache": "true"

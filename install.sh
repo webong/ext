@@ -30,6 +30,18 @@ if [ -f "$ROOT/cmd/ext/main.go" ] && [ "${EXT_INSTALL_SOURCE:-1}" = 1 ]; then
   ARCH=$(go env GOARCH)
   mkdir -p "$BUNDLE/bin/ext-packages"
   (cd "$ROOT" && CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o "$BUNDLE/bin/ext" ./cmd/ext)
+  command -v cmake >/dev/null 2>&1 || { printf 'ext: CMake and a C compiler are required for source installation\n' >&2; exit 1; }
+  cmake -S "$ROOT/lib/plugin" -B "$TMP/engine" -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
+  cmake --build "$TMP/engine" --target ext_plugin_host_shared -j 4
+  case "$OS" in darwin) LIBRARY=libext_plugin_host.dylib;; linux) LIBRARY=libext_plugin_host.so;; *) printf 'ext: unsupported source platform %s\n' "$OS" >&2; exit 1;; esac
+  mkdir -p "$BUNDLE/bin/ext-lib"
+  cp -L "$TMP/engine/$LIBRARY" "$BUNDLE/bin/ext-lib/$LIBRARY"
+  cp "$ROOT/lib/plugin/interface.json" "$BUNDLE/bin/ext-lib/interface.json"
+  cmake -S "$ROOT/lib/ledger" -B "$TMP/ledger" -DCMAKE_BUILD_TYPE=Release -DEXT_LEDGER_SHARED=ON -DEXT_LEDGER_TESTS=OFF
+  cmake --build "$TMP/ledger" --target ext_ledger_shared -j 4
+  case "$OS" in darwin) LEDGER=libext_ledger.dylib;; linux) LEDGER=libext_ledger.so;; esac
+  cp -L "$TMP/ledger/$LEDGER" "$BUNDLE/bin/ext-lib/$LEDGER"
+  cp "$ROOT/lib/ledger/interface.json" "$BUNDLE/bin/ext-lib/ledger-interface.json"
   for product in ctx ctn cto; do
     package_dir="$BUNDLE/bin/ext-packages/ext%2f$product"
     mkdir -p "$package_dir"
@@ -66,12 +78,19 @@ fi
 [ -x "$BUNDLE/bin/ext" ] && [ -d "$BUNDLE/bin/ext-packages" ] || {
   printf 'ext: bundle is missing the CLI or product packages\n' >&2; exit 1;
 }
+[ -d "$BUNDLE/bin/ext-lib" ] || { printf 'ext: bundle is missing the canonical engine\n' >&2; exit 1; }
+case "$OS" in darwin) LEDGER=libext_ledger.dylib;; linux) LEDGER=libext_ledger.so;; esac
+[ -f "$BUNDLE/bin/ext-lib/$LEDGER" ] || { printf 'ext: bundle is missing the C ledger\n' >&2; exit 1; }
+EXT_HOME="$TMP/verify-home" EXT_PLUGIN_LIBRARY= EXT_LEDGER_LIBRARY= "$BUNDLE/bin/ext" package plan >/dev/null
+EXT_HOME="$TMP/verify-home" EXT_PLUGIN_LIBRARY= EXT_LEDGER_LIBRARY= "$BUNDLE/bin/ext" ctx graph status >/dev/null
 mkdir -p "$BIN_DIR" "$CONFIG_DIR"
 if [ -e "$BIN_DIR/ext" ] && ! "$BIN_DIR/ext" version >/dev/null 2>&1; then
   printf 'ext: %s exists and is not an ext executable\n' "$BIN_DIR/ext" >&2; exit 1
 fi
 cp "$BUNDLE/bin/ext" "$BIN_DIR/ext"
 chmod +x "$BIN_DIR/ext"
+mkdir -p "$BIN_DIR/ext-lib"
+cp "$BUNDLE/bin/ext-lib/"* "$BIN_DIR/ext-lib/"
 rm -rf "$BIN_DIR/ext-packages"
 cp -R "$BUNDLE/bin/ext-packages" "$BIN_DIR/ext-packages"
 EXT_HOME="$CONFIG_DIR" "$BIN_DIR/ext" commands >/dev/null

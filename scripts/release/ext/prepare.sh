@@ -15,9 +15,12 @@ done
 )
 ci_import_env
 
-# sh ./scripts/build-release-ext.sh "${GITHUB_REF_NAME#ext-}" dist
+# Assemble only after every required native engine artifact is present.
 (
-sh ./scripts/build-release-ext.sh "${GITHUB_REF_NAME#ext-}" dist
+unset EXT_RELEASE_TARGETS
+EXT_RELEASE_NATIVE_DIR="$PWD/dist/native" sh ./scripts/build-release-ext.sh "${GITHUB_REF_NAME#ext-}" cli-dist
+cp cli-dist/ext-* dist/
+rm -rf cli-dist dist/native
 )
 ci_import_env
 

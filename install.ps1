@@ -26,6 +26,27 @@ try {
             $env:CGO_ENABLED = '0'
             & go build -trimpath -ldflags '-s -w' -o (Join-Path $bundle 'bin\ext.exe') ./cmd/ext
             if ($LASTEXITCODE -ne 0) { throw 'Building ext failed.' }
+            if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) { throw 'CMake and a C compiler are required for source installation.' }
+            $engineBuild = Join-Path $temporary 'engine'
+            & cmake -S (Join-Path $root 'lib/plugin') -B $engineBuild -DEXT_BUILD_SHARED=ON -DCMAKE_BUILD_TYPE=Release
+            if ($LASTEXITCODE -ne 0) { throw 'Configuring the canonical engine failed.' }
+            & cmake --build $engineBuild --target ext_plugin_host_shared --config Release -j 4
+            if ($LASTEXITCODE -ne 0) { throw 'Building the canonical engine failed.' }
+            $engineDLL = @('ext_plugin_host.dll', 'Release/ext_plugin_host.dll', 'libext_plugin_host.dll') | ForEach-Object { Join-Path $engineBuild $_ } | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if (-not $engineDLL) { throw 'Canonical engine DLL missing.' }
+            $engineDir = Join-Path $bundle 'bin/ext-lib'
+            New-Item -ItemType Directory -Force -Path $engineDir | Out-Null
+            Copy-Item $engineDLL (Join-Path $engineDir 'ext_plugin_host.dll')
+            Copy-Item (Join-Path $root 'lib/plugin/interface.json') $engineDir
+            $ledgerBuild = Join-Path $temporary 'ledger'
+            & cmake -S (Join-Path $root 'lib/ledger') -B $ledgerBuild -DEXT_LEDGER_SHARED=ON -DEXT_LEDGER_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+            if ($LASTEXITCODE -ne 0) { throw 'Configuring the C ledger failed.' }
+            & cmake --build $ledgerBuild --target ext_ledger_shared --config Release -j 4
+            if ($LASTEXITCODE -ne 0) { throw 'Building the C ledger failed.' }
+            $ledgerDLL = @('ext_ledger.dll', 'Release/ext_ledger.dll', 'libext_ledger.dll') | ForEach-Object { Join-Path $ledgerBuild $_ } | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if (-not $ledgerDLL) { throw 'C ledger DLL missing.' }
+            Copy-Item $ledgerDLL (Join-Path $engineDir 'ext_ledger.dll')
+            Copy-Item (Join-Path $root 'lib/ledger/interface.json') (Join-Path $engineDir 'ledger-interface.json')
             foreach ($product in @('ctx', 'ctn', 'cto')) {
                 $packageDir = Join-Path $packages "ext%2f$product"
                 New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
@@ -59,6 +80,25 @@ try {
     $binary = Join-Path $bundle 'bin\ext.exe'
     $packages = Join-Path $bundle 'bin\ext-packages'
     if (-not (Test-Path $binary) -or -not (Test-Path $packages)) { throw 'The ext bundle is incomplete.' }
+    $engineDir = Join-Path $bundle 'bin/ext-lib'
+    if (-not (Test-Path (Join-Path $engineDir 'ext_plugin_host.dll'))) { throw 'The ext bundle is missing its canonical engine.' }
+    if (-not (Test-Path (Join-Path $engineDir 'ext_ledger.dll'))) { throw 'The ext bundle is missing its C ledger.' }
+    $previousHome = $env:EXT_HOME
+    $previousLibrary = $env:EXT_PLUGIN_LIBRARY
+    $previousLedger = $env:EXT_LEDGER_LIBRARY
+    try {
+        $env:EXT_HOME = Join-Path $temporary 'verify-home'
+        $env:EXT_PLUGIN_LIBRARY = ''
+        $env:EXT_LEDGER_LIBRARY = ''
+        & $binary package plan | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Bundled canonical engine failed verification.' }
+        & $binary ctx graph status | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Bundled C ledger failed verification.' }
+    } finally {
+        $env:EXT_HOME = $previousHome
+        $env:EXT_PLUGIN_LIBRARY = $previousLibrary
+        $env:EXT_LEDGER_LIBRARY = $previousLedger
+    }
     New-Item -ItemType Directory -Force -Path $BinDir, $ConfigDir | Out-Null
     $target = Join-Path $BinDir 'ext.exe'
     if (Test-Path $target) {
@@ -66,6 +106,9 @@ try {
         if ($LASTEXITCODE -ne 0 -or $installedVersion -notmatch '^ext ') { throw "$target is not an ext executable." }
     }
     Copy-Item $binary $target -Force
+    $targetEngine = Join-Path $BinDir 'ext-lib'
+    New-Item -ItemType Directory -Force -Path $targetEngine | Out-Null
+    Copy-Item (Join-Path $engineDir '*') $targetEngine -Force
     $targetPackages = Join-Path $BinDir 'ext-packages'
     if (Test-Path $targetPackages) { Remove-Item $targetPackages -Recurse -Force }
     Copy-Item $packages $targetPackages -Recurse

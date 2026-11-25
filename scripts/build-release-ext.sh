@@ -28,6 +28,15 @@ CTX_VERSION=${CTX_VERSION:-$(embedded_version ctx)}
 CTN_VERSION=${CTN_VERSION:-$(embedded_version ctn)}
 CTO_VERSION=${CTO_VERSION:-$(embedded_version cto)}
 
+NATIVE=${EXT_RELEASE_NATIVE_DIR:-$ROOT/dist/native}
+TARGETS=${EXT_RELEASE_TARGETS:-"darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64"}
+# Validate all requested engines before compiling or emitting any archive.
+verify=$(mktemp -d "$OUTPUT/.engine-check.XXXXXX")
+for target in $TARGETS; do
+  python3 "$ROOT/scripts/stage-cli-engine.py" verify "$NATIVE/$target" "$target" "$verify/$target"
+done
+rm -rf "$verify"
+
 build_bundle() {
   os=$1
   arch=$2
@@ -51,6 +60,7 @@ build_bundle() {
       -o "$package_dir/$product$extension" "./src/$product/plugin")
     (cd "$ROOT" && go run ./cmd/ext/tools/package-product "$product" "$product_version" "$os" "$arch" "$package_dir/$product$extension")
   done
+  python3 "$ROOT/scripts/stage-cli-engine.py" verify "$NATIVE/$os/$arch" "$os/$arch" "$bundle/bin/ext-lib"
   cp "$ROOT/LICENSE" "$bundle/"
   if [ "$os" = windows ]; then
     (cd "$staging" && zip -qr "$OUTPUT/ext-$os-$arch.zip" ext)
@@ -60,9 +70,8 @@ build_bundle() {
   rm -rf "$staging"
 }
 
-build_bundle darwin amd64 ''
-build_bundle darwin arm64 ''
-build_bundle linux amd64 ''
-build_bundle linux arm64 ''
-build_bundle windows amd64 '.exe'
-build_bundle windows arm64 '.exe'
+for target in $TARGETS; do
+  os=${target%/*}; arch=${target#*/}; extension=''
+  [ "$os" != windows ] || extension='.exe'
+  build_bundle "$os" "$arch" "$extension"
+done

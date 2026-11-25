@@ -4,9 +4,12 @@ package adaptersnapshot
 import (
 	"context"
 	"fmt"
+	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/host/commandscope"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
@@ -14,15 +17,15 @@ import (
 	"github.com/webong/ext/res/system/service/host/dirlock"
 )
 
-// Prepare owns only this invocation's package. Nested dependency calls
-// continue through the product dispatcher and perform their own admission.
-func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapter) (*adapter.Adapter, func(), error) {
-	fail := func(err error) (*adapter.Adapter, func(), error) { return nil, nil, err }
+// Prepare reviews and snapshots the complete dependency closure under the writer.
+// The returned broker owns those copies until every nested dispatch has joined.
+func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapter) (*adapter.Adapter, *commandscope.Scope, error) {
+	fail := func(err error) (*adapter.Adapter, *commandscope.Scope, error) { return nil, nil, err }
 	if err := ctx.Err(); err != nil {
 		return fail(err)
 	}
 	if owner == nil || candidate == nil {
-		return fail(fmt.Errorf("adapter snapshot requires a store and selection"))
+		return fail(fmt.Errorf("adapter snapshot requires store and selection"))
 	}
 	release, err := dirlock.Acquire(filepath.Join(filepath.Dir(owner.Home), ".package-write.lock"))
 	if err != nil {
@@ -34,14 +37,7 @@ func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapt
 		return fail(err)
 	}
 	if !reflect.DeepEqual(current.Package, candidate.Package) {
-		return fail(fmt.Errorf("adapter %s changed after selection", candidate.Manifest.Name))
-	}
-	if err := owner.AssertTrusted(current); err != nil {
-		return fail(err)
-	}
-	digest, err := current.Checksum()
-	if err != nil {
-		return fail(err)
+		return fail(fmt.Errorf("adapter changed after selection"))
 	}
 	path := os.Getenv("EXT_PLUGIN_LIBRARY")
 	var native *library.Library
@@ -63,39 +59,49 @@ func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapt
 	if err != nil {
 		return fail(err)
 	}
-	root, err := os.MkdirTemp("", "ext-adapter-snapshot-")
+
+	packages, err := store.New(owner.Home, store.Limits{})
 	if err != nil {
 		return fail(err)
 	}
-	cleanup := func() { _ = os.RemoveAll(root) }
-	target, err := lib.Open("store", map[string]any{"root": root}, nil)
+	installed, err := packages.List()
 	if err != nil {
-		cleanup()
 		return fail(err)
 	}
-	defer target.Close()
-	if err := target.Call("snapshot", map[string]any{"source": current.Directory, "id": current.Package.Name(), "reviewed_digest": digest}, nil); err != nil {
-		cleanup()
-		return fail(err)
+	manifests := make([]packagekit.Manifest, len(installed))
+	for i, p := range installed {
+		manifests[i] = p.Manifest
 	}
-	packages, err := store.New(root, store.Limits{})
+	projected, err := adapter.ProjectDependencies(manifests, runtime.GOOS)
 	if err != nil {
-		cleanup()
 		return fail(err)
 	}
-	installed, err := packages.Load(current.Package.Name())
+	rows := make([]commandscope.Row, len(installed))
+	for i, p := range installed {
+		rows[i] = commandscope.Row{Manifest: projected[i], Directory: p.Directory}
+	}
+	scope, err := commandscope.Open(ctx, lib, commandscope.Options{Root: current.Package.Descriptor.Identity, Rows: rows, Review: func(m packagekit.Manifest) (string, error) {
+		a, err := owner.Load(m.Name())
+		if err != nil {
+			return "", err
+		}
+		if err := owner.AssertTrusted(a); err != nil {
+			return "", err
+		}
+		return a.Checksum()
+	}, Dispatch: dispatch})
 	if err != nil {
-		cleanup()
 		return fail(err)
 	}
-	copied, err := adapter.LoadDirectory(installed.Directory)
+	pinned, err := scope.Load(current.Package.Descriptor.Identity)
 	if err != nil {
-		cleanup()
+		_ = scope.Close()
 		return fail(err)
 	}
-	if err := ctx.Err(); err != nil {
-		cleanup()
+	copied, err := adapter.LoadDirectory(pinned.Directory)
+	if err != nil {
+		_ = scope.Close()
 		return fail(err)
 	}
-	return copied, cleanup, nil
+	return copied, scope, nil
 }

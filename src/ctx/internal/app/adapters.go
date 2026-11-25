@@ -324,11 +324,11 @@ func invokeAdapterIO(resolver *config.Resolver, candidate *modpkg.Adapter, opera
 }
 
 func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter, operation, selection string, args []string, requestedCommand string, stdin io.Reader, stdout, stderr io.Writer, extraEnv map[string]string) int {
-	copied, cleanup, err := adaptersnapshot.Prepare(context.Background(), adapterStore(), candidate)
+	copied, scope, err := adaptersnapshot.Prepare(context.Background(), adapterStore(), candidate)
 	if err != nil {
 		return reportError(stderr, err)
 	}
-	defer cleanup()
+	defer scope.Close()
 	candidate = copied
 	if candidate.IsRuntime("manager") && strings.HasPrefix(selection, "@") {
 		registry, err := readManagerRegistry()
@@ -427,7 +427,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	for key, value := range extraEnv {
 		command.Env = setEnvironment(command.Env, key, value)
 	}
-	command.Env = adapterenv.Dependencies(command.Env, candidate.Manifest.Dependencies)
+	command.Env = scope.WithEnvironment(adapterenv.Dependencies(command.Env, candidate.Manifest.Dependencies), candidate.Package.Descriptor.Identity)
 	if operation == "list" || operation == "observe" || operation == "programs" || (candidate.IsRuntime("browser") && operation == "share" && len(args) == 2 && args[0] == "status" && args[1] == "probe") {
 		return runPreparedDiscovery(command, stdout, stderr)
 	}

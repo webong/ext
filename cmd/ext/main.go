@@ -6,9 +6,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/host/commandscope"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 
 	"github.com/webong/ext/cmd/ext/internal/app"
@@ -24,6 +27,17 @@ import (
 )
 
 func main() {
+	if os.Getenv(commandscope.AddressEnv) != "" || os.Getenv(commandscope.TokenEnv) != "" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		code, err := commandscope.Relay(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
+		stop()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "ext:", err)
+			code = 1
+		}
+		os.Exit(code)
+	}
+
 	reg := registry.New()
 	home := adapter.ConfigHome()
 	for _, c := range []registry.Command{

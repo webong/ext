@@ -187,17 +187,17 @@ func supportsCookieQuery(adapter *modpkg.Adapter) bool {
 }
 
 func invoke(ctx context.Context, store *modpkg.Store, adapter *modpkg.Adapter, operation, profile string, args []string, input []byte) ([]byte, error) {
-	copied, cleanup, err := adaptersnapshot.Prepare(ctx, store, adapter)
+	copied, scope, err := adaptersnapshot.Prepare(ctx, store, adapter)
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
+	defer scope.Close()
 	adapter = copied
 	command, err := adapter.CommandContext(ctx, modpkg.Invocation{Operation: operation, Selection: profile, Arguments: args})
 	if err != nil {
 		return nil, err
 	}
-	command.Env = adapterenv.Dependencies(adapterenv.Host(command.Env), adapter.Manifest.Dependencies)
+	command.Env = scope.WithEnvironment(adapterenv.Dependencies(adapterenv.Host(command.Env), adapter.Manifest.Dependencies), adapter.Package.Descriptor.Identity)
 	command.Stdin = bytes.NewReader(input)
 	stdout := &boundedBuffer{limit: 8 << 20}
 	stderr := &boundedBuffer{limit: 4 << 10}

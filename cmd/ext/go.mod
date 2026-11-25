@@ -13,3 +13,5 @@ require github.com/ebitengine/purego v0.11.3 // indirect
 replace github.com/webong/ext/pkg/ext-go/engine => ../../pkg/ext-go/engine
 
 replace github.com/webong/ext/pkg/ext-go/cengine => ../../pkg/ext-go/cengine
+
+require github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1

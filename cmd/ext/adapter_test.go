@@ -177,7 +177,7 @@ rmdir "$EXT_HOME/.package-write.lock"
 				t.Fatalf("expected both invocations: %s", paths)
 			}
 			for _, path := range lines {
-				if !strings.Contains(path, "ext-adapter-snapshot-") {
+				if !strings.Contains(path, "ext-command-graph-") {
 					t.Fatalf("executed installed adapter: %s", path)
 				}
 				if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {
@@ -197,7 +197,7 @@ rmdir "$EXT_HOME/.package-write.lock"
 				t.Fatalf("browser dependency calls: %s", paths)
 			}
 			for _, path := range lines {
-				if !strings.Contains(path, "ext-adapter-snapshot-") {
+				if !strings.Contains(path, "ext-command-graph-") {
 					t.Fatalf("browser executed original: %s", path)
 				}
 				if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {

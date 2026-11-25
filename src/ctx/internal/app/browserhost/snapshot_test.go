@@ -52,7 +52,7 @@ printf '%s' "$0"`
 		t.Fatal(err)
 	}
 	path := string(out)
-	if !strings.Contains(path, "ext-adapter-snapshot-") {
+	if !strings.Contains(path, "ext-command-graph-") {
 		t.Fatalf("not a snapshot: %q", path)
 	}
 	if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {

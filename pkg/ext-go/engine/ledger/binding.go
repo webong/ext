@@ -23,9 +23,20 @@ func Bind(native *library.Library) (*Library, error) {
 	if err != nil {
 		return nil, err
 	}
+	return BindInterface(api)
+}
+
+// BindInterface accepts the canonical described ABI from any explicit driver.
+func BindInterface(api *library.Interface) (*Library, error) {
+	if api == nil || api.Prefix() != "ext_ledger" {
+		return nil, errors.New("ledger: ext_ledger interface required")
+	}
 	d, err := library.Describe(api)
 	if err != nil {
 		return nil, err
+	}
+	if d.Description.ABIVersion != 1 {
+		return nil, errors.New("ledger: unsupported described ABI")
 	}
 	return &Library{api: d}, nil
 }
@@ -73,10 +84,11 @@ func (l *Library) OpenStore(ctx context.Context, backend, path string, options O
 }
 
 type NativeStore struct {
-	mu      sync.Mutex
-	closed  bool
-	object  *library.Object
-	library *Library
+	watchers map[*NativeWatch]struct{}
+	mu       sync.Mutex
+	closed   bool
+	object   *library.Object
+	library  *Library
 }
 
 func (s *NativeStore) Close() error {
@@ -84,6 +96,11 @@ func (s *NativeStore) Close() error {
 	defer s.mu.Unlock()
 	if s.closed {
 		return nil
+	}
+	for w := range s.watchers {
+		if err := w.Close(); err != nil {
+			return err
+		}
 	}
 	err := s.object.Close()
 	if err == nil {

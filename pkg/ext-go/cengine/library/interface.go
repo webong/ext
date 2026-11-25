@@ -13,6 +13,7 @@ import (
 // for its error codes. It knows nothing else about the library: ext_ledger's objects and operations
 // are the ledger's, ext_plugin's the plugin engine's.
 type Interface struct {
+	driver   Driver
 	prefix   string
 	library  *Library
 	version  func() uint32
@@ -21,6 +22,27 @@ type Interface struct {
 	close    func(handle uint64) int32
 	free     func(p unsafe.Pointer)
 	codeName func(code int32) string
+}
+
+// Driver transports the same described ABI through linked or translated code.
+// Implementations own their allocation boundary and return canonical CodeErrors.
+type Driver interface {
+	Prefix() string
+	ABIVersion() uint32
+	Open([]byte) (uint64, error)
+	Call(uint64, string, []byte) ([]byte, error)
+	Close(uint64) error
+}
+
+// FromDriver validates an explicit driver; it never substitutes another engine.
+func FromDriver(driver Driver, prefix string, want uint32) (*Interface, error) {
+	if driver == nil || !libraryName.MatchString(prefix) {
+		return nil, errors.New("library: valid driver and prefix required")
+	}
+	if driver.Prefix() != prefix || driver.ABIVersion() != want {
+		return nil, fmt.Errorf("library: driver does not implement %s ABI %d", prefix, want)
+	}
+	return &Interface{prefix: prefix, driver: driver}, nil
 }
 
 // A CodeError is a non-zero code a library returned, with its name when the library exports one.
@@ -72,6 +94,9 @@ func (i *Interface) Prefix() string { return i.prefix }
 
 // Open opens an object from a JSON config and returns its handle.
 func (i *Interface) Open(config []byte) (uint64, error) {
+	if i.driver != nil {
+		return i.driver.Open(config)
+	}
 	var handle uint64
 	if code := i.open(bytePtr(config), uintptr(len(config)), &handle); code != 0 {
 		return 0, i.err("open", code)
@@ -82,6 +107,12 @@ func (i *Interface) Open(config []byte) (uint64, error) {
 // Call runs op on handle (0 for the library itself) with a JSON object and returns the JSON value
 // it answers.
 func (i *Interface) Call(handle uint64, op string, input []byte) ([]byte, error) {
+	if i.driver != nil {
+		if _, err := cString(op); err != nil {
+			return nil, err
+		}
+		return i.driver.Call(handle, op, input)
+	}
 	name, err := cString(op)
 	if err != nil {
 		return nil, err
@@ -103,6 +134,9 @@ func (i *Interface) Call(handle uint64, op string, input []byte) ([]byte, error)
 
 // Close frees the object behind handle.
 func (i *Interface) Close(handle uint64) error {
+	if i.driver != nil {
+		return i.driver.Close(handle)
+	}
 	if code := i.close(handle); code != 0 {
 		return i.err("close", code)
 	}

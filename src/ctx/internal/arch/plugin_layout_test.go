@@ -40,7 +40,7 @@ const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
 	"pkg/ext-go/engine":                 {"pkg/ext-go/cengine", "res/system"},
-	"pkg/ext-go/cgoengine":              {"pkg/ext-go/engine"},
+	"pkg/ext-go/cgoengine":              {"pkg/ext-go/engine", "pkg/ext-go/cengine", "res/system"},
 	"pkg/ext-go/c2goengine":             {"pkg/ext-go/engine"},
 	"pkg/ext-go/wasm":                   {"pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":              {"pkg/ext-go/engine"},

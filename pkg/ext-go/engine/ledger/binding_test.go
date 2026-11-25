@@ -8,6 +8,7 @@ import (
 
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	ledger "github.com/webong/ext/pkg/ext-go/engine/ledger"
+	"github.com/webong/ext/pkg/ext-go/engine/ledger/ledgertest"
 	process "github.com/webong/ext/res/system/service/process"
 )
 
@@ -113,5 +114,35 @@ func TestNativeClose(t *testing.T) {
 	}
 	if _, err := g.Store.Snapshot(context.Background(), ledger.Namespace); !errors.Is(err, ledger.ErrClosed) {
 		t.Fatalf("closed store: %v", err)
+	}
+}
+
+func TestNativeStoreConformance(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	n, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := ledger.Bind(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, backend := range []string{"memory", "file"} {
+		t.Run(backend, func(t *testing.T) {
+			b := ledgertest.Backend{Durable: backend == "file", Open: func(t testing.TB, dir string, o ledger.Options) ledger.Store {
+				s, err := l.OpenStore(context.Background(), backend, dir, o)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return s
+			}}
+			if backend == "file" {
+				ledgertest.Run(t, b)
+			}
+			ledgertest.RunBehaviour(t, b)
+		})
 	}
 }

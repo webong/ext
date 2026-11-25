@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 
-	"github.com/webong/ext/pkg/ext-go/c2goengine/internal/ccgo"
+	"github.com/webong/ext/pkg/ext-go/c2goengine/plugin/internal/ccgo"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 

@@ -553,7 +553,7 @@
               },
               "artifact": {
                 "name": "translation-linux-amd64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_amd64.go",
+                "path": "pkg/ext-go/c2goengine/plugin/internal/ccgo/generated_linux_amd64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -575,7 +575,7 @@
               },
               "artifact": {
                 "name": "translation-linux-arm64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_arm64.go",
+                "path": "pkg/ext-go/c2goengine/plugin/internal/ccgo/generated_linux_arm64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -597,7 +597,7 @@
               },
               "artifact": {
                 "name": "translation-darwin-arm64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_arm64.go",
+                "path": "pkg/ext-go/c2goengine/plugin/internal/ccgo/generated_darwin_arm64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -619,7 +619,7 @@
               },
               "artifact": {
                 "name": "translation-darwin-amd64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_amd64.go",
+                "path": "pkg/ext-go/c2goengine/plugin/internal/ccgo/generated_darwin_amd64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -645,7 +645,7 @@
               },
               "artifact": {
                 "name": "translation-windows-amd64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_amd64.go",
+                "path": "pkg/ext-go/c2goengine/plugin/internal/ccgo/generated_windows_amd64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -673,7 +673,7 @@
               },
               "artifact": {
                 "name": "translation-windows-arm64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_arm64.go",
+                "path": "pkg/ext-go/c2goengine/plugin/internal/ccgo/generated_windows_arm64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14

@@ -12,6 +12,7 @@ cmake -S lib/ledger -B "$work/native" -DEXT_LEDGER_PORTABLE=ON -DEXT_LEDGER_TEST
 cmake --build "$work/native" --parallel 3
 ctest --test-dir "$work/native" --output-on-failure
 (cd pkg/ext-go/c2goengine/tools && GOWORK=off go run . -library ledger -publish "$work/go")
+# Public API tests exercise ledger/internal/ccgo through ledger.Bind.
 # A missing test or an unexpected skip fails the gate.
 go test -tags ext_ledger_c2go -count=1 -json ./pkg/ext-go/c2goengine/ledger | python3 scripts/check-go-test-results.py \
   TestTranslatedLedgerConformance TestTranslatedLedgerMemoryAndFingerprints \

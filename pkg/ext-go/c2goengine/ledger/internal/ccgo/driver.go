@@ -1,6 +1,6 @@
 //go:build ext_ledger_c2go && (darwin || linux) && (amd64 || arm64)
 
-package ledgerccgo
+package ccgo
 
 import (
 	"github.com/webong/ext/pkg/ext-go/cengine/library"

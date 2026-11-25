@@ -1,6 +1,7 @@
-package main
+package generate
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,5 +122,22 @@ func TestCanonicalSource(t *testing.T) {
 		if got := string(canonicalSource([]byte(c.in))); got != c.want {
 			t.Errorf("%s: canonicalSource(%q) = %q, want %q", c.name, c.in, got, c.want)
 		}
+	}
+}
+
+func TestCompilerChecksumsMatchModule(t *testing.T) {
+	sums, err := os.ReadFile("../go.sum")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(sums, compilerSums) {
+		t.Fatal("refresh generate/dependencies.sum from tools/go.sum after changing tool dependencies")
+	}
+	mod, err := os.ReadFile("../go.mod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(mod), "modernc.org/ccgo/v4 "+CompilerVersion) || !strings.Contains(string(mod), "modernc.org/libc "+RuntimeVersion) {
+		t.Fatal("compiler or runtime version differs from module pins")
 	}
 }

@@ -1,21 +1,21 @@
-package main
+package generate
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
-
-	ccgo "modernc.org/ccgo/v4/lib"
 )
 
 // generateLedger translates the canonical store and recorder. Host collection
 // and process supervision require native kernels and are explicitly unsupported
 // by this profile; no Go implementation is substituted.
-func generateLedger(root, out string) error {
+func generateLedger(ctx context.Context, log io.Writer, root, out string) error {
 	if (runtime.GOOS != "darwin" && runtime.GOOS != "linux") || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64") {
 		return fmt.Errorf("ledger translation: unsupported target %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
@@ -48,17 +48,10 @@ func generateLedger(root, out string) error {
 	if err := os.WriteFile(filepath.Join(work, "description.c"), []byte(description.String()), 0644); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(work, "go.mod"), []byte("module ledger/generate\n\ngo 1.26.0\n\nrequire modernc.org/libc "+libcVersion+"\n"), 0644); err != nil {
+	if err := prepareTranslationModule(work, "ledger/generate"); err != nil {
 		return err
 	}
-	sums, err := os.ReadFile(filepath.Join(root, "pkg/ext-go/c2goengine/tools/go.sum"))
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(work, "go.sum"), sums, 0644); err != nil {
-		return err
-	}
-	args := []string{"ccgo", "-o", "ledger.go", "--package-name", "ledgerccgo", "-I", "src", "-I", "include", "-I", "shim", "-DEXT_LEDGER_STATIC", "-DEXT_LEDGER_PORTABLE", "-include", "shim/compat_core.h"}
+	args := []string{"ccgo", "-o", "ledger.go", "--package-name", "ccgo", "-I", "src", "-I", "include", "-I", "shim", "-DEXT_LEDGER_STATIC", "-DEXT_LEDGER_PORTABLE", "-include", "shim/compat_core.h"}
 	cmake, err := os.ReadFile(filepath.Join(root, "lib/ledger/CMakeLists.txt"))
 	if err != nil {
 		return err
@@ -71,27 +64,17 @@ func generateLedger(root, out string) error {
 	args = append(args, "src/platform_posix.c", "src/sqlite_none.c")
 
 	args = append(args, "description.c")
-	previous, err := os.Getwd()
-	if err != nil {
+	if err := runCCGO(ctx, work, args, log); err != nil {
 		return err
-	}
-	if err := os.Chdir(work); err != nil {
-		return err
-	}
-	var stderr bytes.Buffer
-	err = ccgo.NewTask(runtime.GOOS, runtime.GOARCH, args, os.Stdout, &stderr, nil).Main()
-	restore := os.Chdir(previous)
-	if err != nil {
-		return fmt.Errorf("ccgo ledger: %w\n%s", err, tail(stderr.String(), 50))
-	}
-	if restore != nil {
-		return restore
 	}
 	data, err := os.ReadFile(filepath.Join(work, "ledger.go"))
 	if err != nil {
 		return err
 	}
 	data = bytes.Replace(data, []byte("//go:build "), []byte("//go:build ext_ledger_c2go && "), 1)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(out), 0755); err != nil {
 		return err
 	}

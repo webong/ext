@@ -45,7 +45,7 @@ code there is Win32. The platforms are darwin/arm64, darwin/amd64, linux/arm64, 
 windows/amd64 and windows/arm64.
 
 The translation is not committed. This module holds the generator (`tools`) and the hand-written
-binding beside the translation (`internal/ccgo`), which builds only with `-tags ext_c2go`, once a
+binding beside the translation (`plugin/internal/ccgo`), which builds only with `-tags ext_c2go`, once a
 translation is there; without it `Available` and `HostAvailable` are false and the calls return
 `plugin.ErrUnsupported`.
 
@@ -65,7 +65,7 @@ the project, with each file named for its platform and no build tag needed.
 
 ```sh
 cd pkg/ext-go/c2goengine/tools
-GOWORK=off go run .                     # internal/ccgo/generated_<goos>_<goarch>.go, not committed
+GOWORK=off go run .                     # plugin/internal/ccgo/generated_<goos>_<goarch>.go, not committed
 cd .. && go test -tags ext_c2go ./...    # the translation with its binding, against the oracle
 ```
 
@@ -98,7 +98,7 @@ generator's shims and none in the C:
   and ccgo cannot type-check that declaration; on Windows the macro stays defined (the engine never
   uses the type).
 - ccgo's Windows libc has no `__fpclassify`, which `fpclassify` expands to, and no `clock_gettime64`,
-  which winpthreads' inline `clock_gettime` calls. `tools/shim/windows.c` defines both, once: the
+  which winpthreads' inline `clock_gettime` calls. `tools/generate/shim/windows.c` defines both, once: the
   wall clock from `_ftime64` (millisecond resolution), the monotonic clock from the performance
   counter.
 - The shim is a source of its own and not part of the force-included header, because every
@@ -114,12 +114,12 @@ changes in the generator and none in the C:
   checked to match exactly once).
 - `<stdatomic.h>`: ccgo does not translate the `__c11_atomic` builtins, so a stand-in over the GCC
   ones it does translate.
-- Condition variables (`tools/shim/compat.h`, `missing.c`): ccgo's libc does not implement
+- Condition variables (`tools/generate/shim/compat.h`, `missing.c`): ccgo's libc does not implement
   condition-variable attributes, and takes timed-wait deadlines on the real-time clock where the
   engine's are on the monotonic one, so a wait that takes either replaces `pthread_cond_timedwait`.
   macOS's relative timed wait and the attribute functions are defined the same way.
 - The channel to a child process (`channel.h`, eight functions): written in Go over `os/exec`
-  (`internal/ccgo/channel.go`) in place of `channel_posix.c`, which needs `socketpair` and
+  (`plugin/internal/ccgo/channel.go`) in place of `channel_posix.c`, which needs `socketpair` and
   `posix_spawn`, absent from ccgo's libc. The C calls it through a table the Go code installs.
 
 Every byte slice that crosses is copied into memory the translated code owns: it does pointer
@@ -128,7 +128,7 @@ allow (the race detector's pointer checks stop the program).
 
 The vet diagnostics ccgo's output attracts (unreachable code, `unsafe.Pointer` conversions) are not
 ours to fix, so `scripts/check-standalone-modules.sh` and `scripts/release-standalone.sh` vet every
-package of the module except `internal/ccgo`.
+package of the module except `plugin/internal/ccgo`.
 
 ## Not here yet
 
@@ -143,7 +143,9 @@ and binding the rest is the same work again for each.
 
 ## Ledger driver
 
-`ledger.Bind()` uses the translated `lib/ledger` portable profile. Generate it
+`ledger.Bind()` uses the translated `lib/ledger` portable profile. Its private ABI
+driver and generated translation live in `ledger/internal/ccgo`; the public
+`ledger` package and its `Bind()` API are unchanged. Generate it
 with `go run . -library ledger` in `tools`, then build with
 `-tags ext_ledger_c2go`. `-publish <directory>` stages the translation and driver
 without build tags, for a fetched package. Nothing is published by this command.
@@ -165,3 +167,13 @@ build tags, supported-target checks and unavailable behavior. It does not own
 Yaegi, WASM or HashiCorp guest execution; those are independent plugin backends
 at their existing module paths. Shared plugin definitions live in `core/plugin`
 and remain available through `engine/plugin` compatibility exports.
+
+The generator also accepts `-out-dir`, custom JSON recipes (`-recipe`), and
+existing Go translation packages (`-translations`). See the [generator guide](tools/README.md)
+for precedence, external-library examples, and runtime requirements. Built-in
+plugin and ledger defaults are unchanged.
+
+Build-time Go programs can call `tools/generate.Generate(ctx, Config)` directly.
+It accepts typed recipes and explicit source/output locations; the existing
+generator command delegates to that API. The tools module remains separate from
+the runtime SDK.

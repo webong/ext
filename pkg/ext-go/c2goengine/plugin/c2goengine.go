@@ -11,7 +11,7 @@ package plugin
 import (
 	"encoding/json"
 
-	"github.com/webong/ext/pkg/ext-go/c2goengine/internal/ccgo"
+	"github.com/webong/ext/pkg/ext-go/c2goengine/plugin/internal/ccgo"
 )
 
 // Available reports whether this build holds the translation.

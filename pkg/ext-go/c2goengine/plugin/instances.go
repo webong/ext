@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/webong/ext/pkg/ext-go/c2goengine/internal/ccgo"
+	"github.com/webong/ext/pkg/ext-go/c2goengine/plugin/internal/ccgo"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 

@@ -19,11 +19,10 @@ CTN also owns the public `model.tensor/v1` bridge in `src/ctn/model`,
 which peer products can use to call installed provider packages directly.
 These bridges build on the generic Ext Go plugin engine.
 
-The umbrella package itself, `plugingo`, holds what needs more than one part:
-`PlanGraph` joins a package plan to the host graph (`res/system`). The `core` package
-chooses between the three engines (see below). The `cmd/ext-plugin-bridge`
-command and the cross-language conformance tests (`crosslang`, `bench`) also live
-here, because they need the engine and a backend together.
+The umbrella package itself, `plugingo`, holds functionality that needs more than
+one library, including `PlanGraph`. Cross-language conformance lives in
+`tests/crosslang`. Ext-go is a library and ships no public executable; the
+transport bridge runs as `ext bridge --config …`, owned by `cmd/ext`.
 
 The `wasm` module requires `res/web/host` for protocol-neutral WebAssembly inspection,
 WASI execution and reactor hosting, then binds those mechanisms to

@@ -212,7 +212,7 @@ the npm package `@ctx/plugin` and the Zig package `ext_plugin`; none of them was
 no compatibility alias. The Zig fingerprint keeps its 32-bit id, and its checksum half follows the new name.
 
 Not renamed, because they name something else: the C ABI (the `ext_plugin_guest_*` symbols and `ext_plugin_guest.h`),
-the `ext.plugin/v1` protocol, the Go commands `ext-plugin` and `ext-plugin-bridge`, and the unpublished
+the `ext.plugin/v1` protocol and the unpublished
 `ext-plugin-engine` crate.
 
 **One version per package.** Every area a package offers shares that package's version: `ext-io` 0.2.0 is
@@ -834,3 +834,7 @@ the `module` line, then no further tags:
 The old `pkg/plugin-go` v0.1.x keeps resolving for existing consumers; its replacement
 at the same path is the umbrella v0.2.0 and its engine API is `cengine`. Tell every
 consumer before any tag is pushed, because they migrate by rewriting imports.
+
+The former `pkg/ext-go/cmd/ext-plugin-bridge` executable is now
+`ext bridge --config <path>`, implemented privately in `cmd/ext/internal/bridgecmd`.
+Ext-go ships reusable libraries; `cmd/ext` owns the public executable.

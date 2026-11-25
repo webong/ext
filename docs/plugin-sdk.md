@@ -1,6 +1,6 @@
-# CTX plugin SDK
+# Ext plugin SDK
 
-CTX owns the reusable plugin library alongside `res/web` and `res/system`
+Ext owns the reusable plugin library alongside `res/web` and `res/system`
 (and the ledger supervisor, `pkg/ext-go/engine/ledger/supervisor`). `res/web/host/engine/wasm` owns the protocol-neutral
 wazero runtime; `pkg/ext-go/wasm` binds it to the plugin engine.
 Hosts and guests share one protocol and can select a supported transport.
@@ -8,8 +8,8 @@ Adapters and applications own their domain contracts, grants, native behavior,
 distribution and activation. HashiCorp go-plugin remains a dependency of
 `pkg/ext-go/hashicorp` inside the library.
 
-This change is entirely within CTX. Migration of other consumers is deferred.
-Their existing native protocols are not automatically compatible with CTX.
+Applications consume this library through declared Ext contracts. Existing native
+protocols require an explicit binding or domain translation.
 
 ## Packages
 
@@ -90,7 +90,7 @@ named runtime, platform artifact, protocol and exact host dependency versions.
 | C shared library | Serialized per handle | Release caller; clean up after native call returns | Embedding host; image stays loaded |
 
 All bind the same `Guest`. A transport error or cancellation after dispatch
-fails its CTX session; start a fresh verified session to reconnect. Actions are
+fails its Ext session; start a fresh verified session to reconnect. Actions are
 never replayed automatically. The standard bindings expose unary calls. The
 SDK's pull stream capability works over those unary calls; native gRPC streams,
 HashiCorp broker callbacks and reattachment still require explicit bindings.
@@ -319,8 +319,7 @@ registry releases. Current examples/CI pin Rust 1.98.1 and Zig 0.17.0.
 
 ### Ecosystem adoption
 
-This is the first implemented SDK layer covering the six planned areas. CTX
-adapters retain their existing shared descriptor/integrity integration and native
+Ext adapters retain their existing shared descriptor/integrity integration and native
 argv/stream behavior. Other consumers are reference consumers for future
 adoption; no migration or dependency change is included in their repositories.
 
@@ -345,7 +344,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
 `pkg/ext-go/engine/plugin/host/interop` plans explicit direct/bridged routes; `pkg/ext-go/engine/plugin/transport/bridge` exposes a
-verified backend as an Endpoint. `pkg/ext-go/cmd/ext-plugin-bridge` connects JSON-line hosts
+verified backend as an Endpoint. `ext bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)
 for configuration, ownership and the tested host/guest matrix. This extends

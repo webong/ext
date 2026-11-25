@@ -128,6 +128,7 @@ func failed(reg *registry.Registry, name string, err error, stderr io.Writer) in
 func usage(reg *registry.Registry, w io.Writer) {
 	fmt.Fprintln(w, "usage: ext [--source=builtin|package] <command> [args]")
 	fmt.Fprintln(w, "       ext commands | which <command> | package ... | version | help")
+	fmt.Fprintln(w, "       ext bridge --config <path> (plugin transport bridge)")
 	fmt.Fprintln(w, "\ncommands:")
 	seen := map[string]bool{}
 	for _, e := range reg.List() {

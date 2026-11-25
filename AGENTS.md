@@ -61,7 +61,9 @@ every language's guests and hosts against each other, with `pkg/ext-go` as the h
 listed in `go.work`, are never tagged or published, and no library imports them. `src/` is a container like `res/`; the context manager is the module
 `src/ctx` (with its private code in `src/ctx/internal`), the content manager is
 `src/ctn`, and containment is `src/cto`. Each product exports a reusable Go
-library and ships a private Ext package guest. Only `cmd/ext` ships a public binary. A product
+library and ships a private Ext package guest. Only `cmd/ext` ships a public binary. Its `ext bridge --config` command owns the
+transport bridge executable lifecycle in `cmd/ext/internal/bridgecmd`; ext-go
+retains only the reusable transport libraries. A product
 never imports another product module. The standalone `src/cto/sandbox` contract
 is available to its consumers. Shared implementation code goes in `pkg/` or `res/`.
 `examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android

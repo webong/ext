@@ -1,6 +1,6 @@
 //go:build !ext_cengine || !cgo || (!darwin && !linux)
 
-package main
+package bridgecmd
 
 import (
 	"context"

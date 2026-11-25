@@ -1,6 +1,6 @@
-# One CTX contract, interoperable implementations
+# One Ext contract, interoperable implementations
 
-CTX's plugin library supports independently built hosts and guests. Go, C,
+Ext's plugin library supports independently built hosts and guests. Go, C,
 Rust, Zig and TypeScript implementations can coexist. There is no requirement
 to migrate every host to one engine or to write a full SDK for every language.
 The public contract and conformance suite define interoperability. A language
@@ -18,7 +18,7 @@ binding is a convenience; it is not permission to use a plugin.
 | `plugin/interop` | Resolve an explicitly declared direct route or one installed bridge |
 | Conformance tooling | Exercise behavior across hosts, guests, runtimes and bridges |
 
-A CTX host API can hide whether a guest is reached through JSON lines, HashiCorp,
+A Ext host API can hide whether a guest is reached through JSON lines, HashiCorp,
 WASI or a native ABI. Their execution properties remain observable: a native
 call cannot become sandboxed or forcibly cancellable merely by wrapping it.
 Applications retain control of allowed runtimes and permissions.
@@ -34,7 +34,7 @@ Transport names describe wire bindings, not source languages. Both ends must
 share an implemented protocol version. Native concurrency, streaming and callback
 requirements must be satisfied across every hop. JSON-line transport serializes
 calls; wrapping a concurrent HashiCorp backend does not make that path concurrent.
-CTX pull-stream operations can use unary calls and are separate from native
+Ext pull-stream operations can use unary calls and are separate from native
 transport streaming. No speculative bridge chains, protocol downgrades, retries
 or executable discovery are performed.
 
@@ -97,28 +97,27 @@ where callers have different authority.
 
 ## HashiCorp bridge executable
 
-`pkg/ext-go/cmd/ext-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
-HashiCorp frontend. Its default exposes a HashiCorp CTX guest as a JSON-line command. A Rust, Zig, JS, C or Go host uses its normal CTX JSON-line binding.
+`ext bridge` (implemented in `cmd/ext/internal/bridgecmd`) exposes a reviewed Ext guest through a JSON-line or
+HashiCorp frontend. Its default exposes a HashiCorp Ext guest as a JSON-line command. A Rust, Zig, JS, C or Go host uses its normal Ext JSON-line binding.
 The bridge contains Go and runs in its own process; the host does not need to
 embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
 
 ```text
 Host in any language
   → ext.plugin/v1 JSON lines
-  → ext-plugin-bridge (Go)
+  → ext bridge (Go)
   → HashiCorp gRPC or net/rpc
-  → guest implementing the selected CTX domain contract
+  → guest implementing the selected Ext domain contract
 ```
 
-Build and invoke:
+Invoke:
 
 ```sh
-go build -o /tmp/ext-plugin-bridge ./pkg/ext-go/cmd/ext-plugin-bridge
-/tmp/ext-plugin-bridge --config /absolute/path/bridge.json
+ext bridge --config /absolute/path/bridge.json
 ```
 
 Configuration uses `ext.bridge/v1` and is reviewed local launch policy. The
-`descriptor` is the complete selected CTX descriptor, unchanged by the bridge:
+`descriptor` is the complete selected Ext descriptor, unchanged by the bridge:
 
 ```json
 {
@@ -148,10 +147,11 @@ Use immutable artifact paths. The bridge does not expand descriptor permissions
 from request data. The child environment is explicit; go-plugin adds its native
 handshake/authentication variables. Standard output is protocol-only.
 
-For launchers that cannot supply arguments, the default configuration path is
-`<bridge-executable>.json`. This sidecar has the same trust requirements as an
-explicit config file. A validated configuration snapshot is sent privately to
-the watchdog, avoiding a second read of mutable launch policy.
+Invoke `ext bridge --config /absolute/path/bridge.json`; an explicit configuration
+is required. Launchers that cannot supply arguments can use a private wrapper
+that executes that command. A validated configuration snapshot is sent privately
+to the worker, avoiding a second read of mutable launch policy. Workers re-enter
+`ext bridge --watch-parent`; this internal mode uses inherited file descriptors.
 
 The Unix executable uses a parent-liveness pipe and a small worker subprocess.
 The worker owns the actual go-plugin client and doubles as the watchdog. On
@@ -182,7 +182,7 @@ and provide a pinned `jsonline` selection:
 
 These fields belong in the same `ext.bridge/v1` configuration with the complete
 `descriptor` and explicit `allow` list shown above. Select exactly one upstream
-process. The frontend uses CTX's HashiCorp handshake and plugin binding. Its
+process. The frontend uses Ext's HashiCorp handshake and plugin binding. Its
 worker owns the JSON-line guest; launcher death closes the private lifetime pipe
 so the worker can close and reap that guest even if go-plugin kills the frontend.
 
@@ -200,7 +200,7 @@ binding := &hashicorp.Plugin{Guest: relay}
 ```
 
 Any backend implementing the shared Endpoint/Backend contract can participate
-in a relay. Existing non-CTX HashiCorp interfaces still require an explicit
+in a relay. Existing non-Ext HashiCorp interfaces still require an explicit
 domain translation through `hashicorp.ConnectInterface`; the bridge cannot
 infer the meaning of arbitrary native methods. HashiCorp's Go package is one
 implementation, while its gRPC protocol can also be implemented in other
@@ -213,10 +213,10 @@ languages with the proper startup/service bindings.
 | Host/front | Bridge/backend | Guest | Coverage |
 | --- | --- | --- | --- |
 | Go Session | generic Relay | in-process fixture | reusable backend conformance |
-| Go JSON-line | bridge executable / gRPC and net/rpc | Go CTX HashiCorp guest | conformance, allowlist, digest rejection, startup-failure and abrupt-death cleanup |
-| Go/Rust/Zig/Node through C engine | bridge executable / gRPC and net/rpc | Go CTX HashiCorp guest | echo and structured errors |
-| Independent TypeScript SDK | bridge executable / both transports | Go CTX HashiCorp guest | echo and structured errors |
-| Independent Rust/Zig SDKs | bridge executable / both transports | Go CTX HashiCorp guest | optional prebuilt-host checks |
+| Go JSON-line | bridge executable / gRPC and net/rpc | Go Ext HashiCorp guest | conformance, allowlist, digest rejection, startup-failure and abrupt-death cleanup |
+| Go/Rust/Zig/Node through C engine | bridge executable / gRPC and net/rpc | Go Ext HashiCorp guest | echo and structured errors |
+| Independent TypeScript SDK | bridge executable / both transports | Go Ext HashiCorp guest | echo and structured errors |
+| Independent Rust/Zig SDKs | bridge executable / both transports | Go Ext HashiCorp guest | optional prebuilt-host checks |
 | Go HashiCorp host | production HashiCorp bridge frontend / JSON lines | Go guest | reverse-route conformance with gRPC and net/rpc |
 | Go HashiCorp host | production HashiCorp bridge frontend / JSON lines | Rust/Zig guests | optional prebuilt-guest conformance |
 

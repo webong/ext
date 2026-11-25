@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 
 	"github.com/webong/ext/cmd/ext/internal/app"
+	"github.com/webong/ext/cmd/ext/internal/bridgecmd"
 	"github.com/webong/ext/cmd/ext/internal/bundlecmd"
 	"github.com/webong/ext/cmd/ext/internal/config"
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
@@ -36,6 +37,11 @@ func main() {
 			code = 1
 		}
 		os.Exit(code)
+	}
+
+	// Protocol startup must not depend on installed packages or user configuration.
+	if len(os.Args) > 1 && os.Args[1] == "bridge" {
+		os.Exit(bridgecmd.Run(os.Args[2:]))
 	}
 
 	reg := registry.New()

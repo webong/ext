@@ -1,6 +1,6 @@
 //go:build !darwin && !linux && !freebsd
 
-package main
+package bridgecmd
 
 import plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 

@@ -18,15 +18,15 @@ if [[ "${EXT_INTEROP_ENGINE:-go}" == c ]]; then
   export CGO_CFLAGS="${CGO_CFLAGS:-} -I$PWD/lib/plugin/include" # cgoengine carries no headers: point it at the engine's
 fi
 export EXT_BRIDGE_REQUIRED=1
-export EXT_BRIDGE_EXECUTABLE="$build_dir/ext-plugin-bridge"
+export EXT_BRIDGE_EXECUTABLE="$build_dir/ext"
 export EXT_BRIDGE_GUEST="$build_dir/hashicorp-guest"
 export EXT_BRIDGE_JSONLINE_GUEST="$EXT_CENGINE_BUILD_DIR/go-guest"
-go build "${go_tags[@]}" -o "$EXT_BRIDGE_EXECUTABLE" ./pkg/ext-go/cmd/ext-plugin-bridge
+go build "${go_tags[@]}" -o "$EXT_BRIDGE_EXECUTABLE" ./cmd/ext
 go build -o "$EXT_BRIDGE_GUEST" ./pkg/ext-go/hashicorp/testdata/hashicorp-guest
-go test "${go_tags[@]}" -race -count=1 -timeout=120s ./pkg/ext-go/engine/plugin/transport/bridge ./pkg/ext-go/hashicorp/interoptest ./pkg/ext-go/cmd/ext-plugin-bridge
+go test "${go_tags[@]}" -race -count=1 -timeout=120s ./pkg/ext-go/engine/plugin/transport/bridge ./pkg/ext-go/hashicorp/interoptest ./cmd/ext/internal/bridgecmd
 (cd pkg/ext-go/hashicorp && go test "${go_tags[@]}" -race -count=1 -timeout=120s ./...)
 python3 - "$build_dir" "$EXT_CENGINE_BUILD_DIR" <<'PY'
-import datetime,hashlib,json,pathlib,shutil,sys
+import datetime,hashlib,json,pathlib,shlex,sys
 p=pathlib.Path(sys.argv[1]); fixtures=pathlib.Path(sys.argv[2]); descriptor=json.loads((fixtures/'descriptor.json').read_text())
 (p/'descriptor.json').write_text(json.dumps(descriptor))
 for operation in ('echo','public-error'):
@@ -34,7 +34,9 @@ for operation in ('echo','public-error'):
  (p/(operation+'.json')).write_text(json.dumps(request))
 guest=p/'hashicorp-guest'
 for protocol in ('grpc','netrpc'):
- executable=p/('bridge-'+protocol);shutil.copy2(p/'ext-plugin-bridge',executable)
+ executable=p/('bridge-'+protocol)
+ executable.write_text('#!/bin/sh\nexec '+shlex.quote(str(p/'ext'))+' bridge --config '+shlex.quote(str(executable)+'.json')+' \"$@\"\n')
+ executable.chmod(0o700)
  config=dict(apiVersion='ext.bridge/v1',descriptor=descriptor,process=dict(executable=str(guest),sha256=hashlib.sha256(guest.read_bytes()).hexdigest(),protocol=protocol,arguments=['--protocol',protocol]),allow=[dict(contract=dict(name=c['name'],version=c['version']),operation=o['name']) for c in descriptor['contracts'] for o in c['operations']])
  pathlib.Path(str(executable)+'.json').write_text(json.dumps(config))
 PY
@@ -58,10 +60,10 @@ for language in ('go','rust','zig','node'):
   rows=[json.loads(line) for line in (p/(language+'-'+protocol+'.jsonl')).read_text().splitlines()]
   assert len(rows)==2 and rows[0]['payload']=={'value':7},(language,protocol,rows)
   assert rows[1]['error']['code']=='busy' and rows[1]['error']['retryAfterMilliseconds']==10,(language,protocol,rows)
-print('Four host bindings reached both HashiCorp transports through the common CTX contract.')
+print('Four host bindings reached both HashiCorp transports through the common Ext contract.')
 PY
 # Reverse direction: a HashiCorp frontend relays to independently authored guests.
 for guest in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
-  if [[ -n "$guest" ]]; then EXT_BRIDGE_JSONLINE_GUEST="$guest" go test "${go_tags[@]}" -race -count=1 -timeout=90s -run '^TestReverseHashicorpFrontend$' ./pkg/ext-go/cmd/ext-plugin-bridge; fi
+  if [[ -n "$guest" ]]; then EXT_BRIDGE_JSONLINE_GUEST="$guest" go test "${go_tags[@]}" -race -count=1 -timeout=90s -run '^TestReverseHashicorpFrontend$' ./cmd/ext/internal/bridgecmd; fi
 done
 echo "Interoperability artifacts: $build_dir"

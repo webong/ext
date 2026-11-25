@@ -1,4 +1,4 @@
-package main
+package bridgecmd
 
 import (
 	"context"
@@ -98,7 +98,7 @@ func (c *processConn) Close() error {
 }
 func connect(t *testing.T, exe, path string) (*jsonline.Client, *exec.Cmd) {
 	t.Helper()
-	cmd := exec.Command(exe, "--config", path)
+	cmd := exec.Command(exe, "bridge", "--config", path)
 	cmd.Env = []string{}
 	out, err := cmd.StdoutPipe()
 	if err != nil {
@@ -171,8 +171,17 @@ func TestReverseHashicorpFrontend(t *testing.T) {
 			c.Process = hashicorp.Process{}
 			c.Frontend = "hashicorp-" + protocol
 			c.JSONLine = &jsonlineProcess{Executable: guest, SHA256: hex.EncodeToString(guestSum[:])}
-			process := hashicorp.Process{Executable: exe, SHA256: hex.EncodeToString(sum[:]), Protocol: protocol, Arguments: []string{"--config", configured(t, c)}}
+			process := hashicorp.Process{Executable: exe, SHA256: hex.EncodeToString(sum[:]), Protocol: protocol, Arguments: []string{"bridge", "--config", configured(t, c)}}
 			plugintest.Run(t, func(ctx context.Context) (plugin.Backend, error) { return hashicorp.ConnectProcess(ctx, process) })
 		})
+	}
+}
+
+func TestExplicitConfigurationRequired(t *testing.T) {
+	if err := run(nil); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("missing configuration: %v", err)
+	}
+	if code := Run([]string{"--help"}); code != 0 {
+		t.Fatalf("help exit code: %d", code)
 	}
 }

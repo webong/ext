@@ -1,4 +1,4 @@
-// Package bridge exposes a verified CTX backend as a CTX endpoint. It changes
+// Package bridge exposes a verified Ext backend as a Ext endpoint. It changes
 // transport, not domain meaning. Both sides retain their own admission policy.
 package bridge
 

@@ -1,6 +1,6 @@
-// ext-plugin-bridge exposes a reviewed HashiCorp-backed endpoint over CTX JSON
+// ext bridge exposes a reviewed HashiCorp-backed endpoint over Ext JSON
 // lines. Configuration is supplied by the embedding application's trust policy.
-package main
+package bridgecmd
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func decode(reader io.Reader) (config, error) {
 	}
 	requirements := make([]plugin.Requirement, len(c.Allow))
 	for i, a := range c.Allow {
-		requirements[i] = plugin.Requirement(a)
+		requirements[i] = plugin.Requirement{Identity: a.Identity, Contract: a.Contract, Operation: a.Operation}
 	}
 	if err = plugin.CheckRequirements(c.Descriptor, requirements); err != nil {
 		return c, err
@@ -85,12 +85,17 @@ func (c config) authorize(_ context.Context, r plugin.Request) error {
 	}
 	return plugin.ErrDenied
 }
-func main() {
-	if err := run(os.Args[1:]); err != nil {
-		// Errors can originate in native runtimes; don't dump guest payloads or config.
-		fmt.Fprintln(os.Stderr, "ext-plugin-bridge: stopped:", safeError(err))
-		os.Exit(1)
+
+// Run serves protocol traffic on standard input/output for the ext bridge command.
+func Run(args []string) int {
+	if err := run(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintln(os.Stderr, "ext bridge: stopped:", safeError(err))
+		return 1
 	}
+	return 0
 }
 func safeError(err error) string {
 	for _, e := range []error{plugin.ErrInvalid, plugin.ErrDenied, plugin.ErrMismatch, plugin.ErrUnsupported, context.Canceled, context.DeadlineExceeded} {
@@ -105,14 +110,17 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	flags := flag.NewFlagSet("ext-plugin-bridge", flag.ContinueOnError)
+	flags := flag.NewFlagSet("ext bridge", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
-	file := flags.String("config", self+".json", "reviewed bridge configuration (defaults to executable.json)")
+	file := flags.String("config", "", "reviewed bridge configuration (required)")
 	watch := flags.Bool("watch-parent", false, "internal parent-liveness supervisor (fd 3)")
 	if err = flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
+		return plugin.ErrInvalid
+	}
+	if !*watch && *file == "" {
 		return plugin.ErrInvalid
 	}
 	path, err := filepath.Abs(*file)
@@ -180,7 +188,7 @@ func launchWorker(ctx context.Context, self string, c config) error {
 		_ = lifeRead.Close()
 		return err
 	}
-	command := exec.Command(self, "--watch-parent")
+	command := exec.Command(self, "bridge", "--watch-parent")
 	command.Env = []string{}
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
@@ -262,7 +270,7 @@ func connectWorker(ctx context.Context, self string, c config) (plugin.Backend, 
 		_ = lifeWrite.Close()
 		return nil, err
 	}
-	cmd := exec.Command(self, "--watch-parent")
+	cmd := exec.Command(self, "bridge", "--watch-parent")
 	cmd.Env = []string{}
 	cmd.Stderr = os.Stderr
 	cmd.ExtraFiles = []*os.File{lifeRead, configRead}

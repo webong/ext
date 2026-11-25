@@ -1,4 +1,4 @@
-/* Host resources as res/system's DiscoverResources reports them: logical CPUs
+/* Host resources: logical CPUs
  * and the capacity a cgroup quota leaves (Linux), physical memory and a cgroup
  * limit, container evidence (Linux), storage and power (Linux), and uptime with
  * the boot time it implies. Local files and counters only; no command runs. */
@@ -285,7 +285,7 @@ static lj_value *linux_storage(void) {
     if (lj_array_push(list, s)) break;
   }
   fclose(f);
-  if (list && !list->u.array.len) { /* Go leaves an empty list out */
+  if (list && !list->u.array.len) { /* omit an empty list */
     lj_free(list);
     list = NULL;
   }

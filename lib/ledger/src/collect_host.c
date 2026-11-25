@@ -1,6 +1,5 @@
-/* Host inventory, the portable part: shells and filesystems as res/system's
- * DiscoverShellsOnPath and DiscoverFilesystems assemble them from what each
- * platform reports. Discovery checks paths and permissions; it never runs a
+/* Host inventory: shells and filesystems assembled from what each platform
+ * reports. Discovery checks paths and permissions; it never runs a
  * shell or reads a filesystem's contents. */
 #include "collect.h"
 #include "recorder.h"

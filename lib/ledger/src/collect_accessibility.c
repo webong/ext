@@ -1,5 +1,4 @@
-/* The focused application's accessibility tree, as res/system's
- * DiscoverAccessibility reports it with its default bounds (1024 elements,
+/* The focused application's accessibility tree, with bounds (1024 elements,
  * depth 16, no text): the Accessibility API on macOS, the foreground window and
  * its child windows on Windows. Each element is identified by its process
  * instance and its path in the tree. */

@@ -1,7 +1,5 @@
-/* The collectors: what the recorder reads from the machine itself, through
- * each kernel's own interface. Their results take the JSON forms of
- * res/system's types, so the recorder records them as it records the same
- * observations given from outside. */
+/* The ledger's machine collectors, through each kernel's native interface.
+ * Their JSON observations are the recorder's input contract. */
 #ifndef EXT_LEDGER_COLLECT_H
 #define EXT_LEDGER_COLLECT_H
 
@@ -23,7 +21,7 @@ char *ll_os_namespaces(size_t *len);
 /* The recorder environment of this machine, as JSON (ext_ledger_collect_environment). */
 char *ll_machine_environment(void);
 
-/* The digest res/system calls the host environment (identity.HostEnvironment). */
+/* The stable digest identifying the observed host environment. */
 char *ll_host_environment(void);
 
 /* ---- statuses ---- */
@@ -38,7 +36,17 @@ lj_value *ll_status_errno(int err, const char *what);
 int ll_process_host_id(char out[25]);
 /* Appends one ProcessInfo object per process to processes (identity only), and sets *enumeration. */
 int ll_processes(const ext_ledger_context *ctx, int64_t limit, lj_value *processes, lj_value **enumeration);
-/* The start identity of one process (res/system's process.Lookup); NOT_FOUND when it has none. */
+/* Append one process identity, or return NOT_FOUND if it exited. */
+int ll_process_one(const ext_ledger_context *ctx, int64_t pid, lj_value *processes);
+/* Add bounded usage and resource evidence to one identity observation. */
+int ll_process_resources(const ext_ledger_context *ctx, int64_t pid, int64_t limit, lj_value *process);
+/* Resource fields obey the ledger's 4096-byte string bound and per-kind limit. */
+int ll_process_resource(lj_value *process, lj_value *resource, int64_t limit);
+int ll_native_resource(lj_value *process, int64_t limit, const char *kind, const char *path, const char *descriptor,
+                       const char *protocol, const char *local, const char *remote, const char *endpoint, const char *state);
+int ll_process_coverage(lj_value *process, const char *kind, const char *state, const char *reason, const char *detail);
+int ll_process_coverage_errno(lj_value *process, const char *kind, int err, const char *what);
+/* The start identity of one process; NOT_FOUND when it has none. */
 int ll_process_start(int64_t pid, char *out, size_t n);
 
 /* ---- host inventory (collect_host.c; collect_host_posix.c, collect_win32.c) ---- */
@@ -66,5 +74,10 @@ int ll_collect_surfaces(const ext_ledger_context *ctx, lj_value **out);  /* coll
 int ll_collect_permissions(const ext_ledger_context *ctx, lj_value **out);
 int ll_collect_desktop(const ext_ledger_context *ctx, lj_value **out); /* collect_desktop.c */
 int ll_collect_accessibility(const ext_ledger_context *ctx, lj_value **out); /* collect_accessibility.c */
+
+/* The described interface can bound process enumeration without changing the
+ * default typed C API. The caller supplies a limit from 1 to 65536. */
+int ll_collect_with_options(const ext_ledger_context *ctx, const char *what, int64_t limit, int64_t pid, int64_t resource_limit,
+                            char **out, size_t *out_len);
 
 #endif

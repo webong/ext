@@ -9,7 +9,7 @@
       "operations": {
         "describe": {"about": "This description.", "input": {"type": "object"}, "output": {"type": "object"}},
         "code_name": {"input": {"type": "object", "required": ["code"], "properties": {"code": {"type": "integer"}}}, "output": {"type": "string"}},
-        "collect": {"about": "One collector's observation of this machine.", "input": {"type": "object", "required": ["what"], "properties": {"what": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "collect": {"about": "One collector's observation of this machine. Processes may be bounded with limit (1 to 65536; default 4096). Targeted process takes pid and optional resource_limit (default 1024).", "input": {"type": "object", "required": ["what"], "properties": {"what": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 65536}, "pid": {"type": "integer", "minimum": 1, "maximum": 2147483647}, "resource_limit": {"type": "integer", "minimum": 1, "maximum": 65536}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
         "collect_environment": {"about": "The environment a recorder records against.", "input": {"type": "object"}, "output": {"type": "object"}},
         "vocabulary": {"about": "The recorder's vocabulary: its schemas and operations.", "input": {"type": "object"}, "output": {"type": "object"}},
         "canonical_transaction": {"input": {"type": "object", "required": ["transaction"], "properties": {"transaction": {"type": "object"}}}, "output": {"type": "object", "properties": {"canonical": {"type": "object"}, "fingerprint": {"type": "string"}}}}
@@ -42,7 +42,7 @@
       "config": {"type": "object", "required": ["object", "store"], "properties": {"object": {"const": "recorder"}, "store": {"type": "integer"}, "environment": {"type": "object"}, "machine": {"type": "boolean"}}},
       "operations": {
         "record": {"input": {"type": "object", "required": ["operation"], "properties": {"operation": {"type": "string"}, "input": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
-        "scan": {"input": {"type": "object", "required": ["what"], "properties": {"what": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}}
+        "scan": {"input": {"type": "object", "required": ["what"], "properties": {"what": {"type": "string"}, "pid": {"type": "integer", "minimum": 1, "maximum": 2147483647}, "resource_limit": {"type": "integer", "minimum": 1, "maximum": 65536}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}}
       }
     },
     "supervisor": {

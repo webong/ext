@@ -83,6 +83,25 @@ int main(void) {
   }
   expect(0, "canonical_transaction", "{\"transaction\":{\"vertices\":[],\"namespace\":\"demo\"}}", "\"fingerprint\"");
   expect(0, "collect_environment", NULL, "\"hostname\"");
+  ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"limit\":0}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"limit\":65537}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"limit\":1.5}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"host\",\"limit\":1}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"process\"}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"process\",\"pid\":0}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"process\",\"pid\":1,\"resource_limit\":65537}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"pid\":1}", EXT_LEDGER_INVALID));
+  {
+    const char *input = "{\"what\":\"processes\",\"limit\":1}";
+    char *snapshot = NULL;
+    size_t length = 0;
+    int rc = ext_ledger_call(0, "collect", input, strlen(input), &snapshot, &length);
+    CHECK(rc == EXT_LEDGER_OK || rc == EXT_LEDGER_UNAVAILABLE || rc == EXT_LEDGER_DENIED || rc == EXT_LEDGER_UNSUPPORTED,
+          "bounded process collection: %s", ext_ledger_code_name(rc));
+    if (rc == EXT_LEDGER_OK) CHECK(snapshot && strstr(snapshot, "\"processes\"") && strstr(snapshot, "\"enumeration\""),
+                                   "bounded process collection has an inventory");
+    ext_ledger_free(snapshot);
+  }
 
   /* A recorder over the store, and a store that will not close under it. */
   uint64_t recorder = open_json("{\"object\":\"recorder\",\"store\":1,\"machine\":true}", EXT_LEDGER_OK);

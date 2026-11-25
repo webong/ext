@@ -1,5 +1,4 @@
-/* Displays, windows and the permissions observing them needs, as res/system's
- * DiscoverSurfaces and DiscoverPermissions report them: CoreGraphics and the
+/* Displays, windows and the permissions observing them needs: CoreGraphics and the
  * Accessibility API on macOS, user32 on Windows, and X11 (loaded when it is
  * there, never linked) on Linux. A window is identified by its process
  * instance, so a reused PID never inherits a window. */
@@ -51,7 +50,7 @@ static lj_value *now_text(void) {
 }
 
 #if defined(LL_WINDOWING)
-/* kind:digest(kind \0 native), res/system's surface identity. */
+/* kind:digest(kind \0 native), the stable surface identity. */
 static void surface_id(char out[64], const char *kind, const char *native) {
   lj_buf b = {0};
   lj_buf_puts(&b, kind);

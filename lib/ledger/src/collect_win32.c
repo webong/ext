@@ -1,4 +1,4 @@
-/* The machine and its processes on Windows, as res/system reads them: Toolhelp
+/* The machine and its processes on Windows: Toolhelp
  * for the process list, the creation time as the start identity, the full image
  * name, and the owner's SID; the boot GUID for the host identity. */
 #ifdef _WIN32
@@ -184,6 +184,23 @@ static int read_process(const PROCESSENTRY32W *e, lj_value *processes) {
   CloseHandle(h);
   bad |= set(p, "coverage", coverage) | lj_array_push(processes, p);
   return bad ? -1 : 0;
+}
+
+int ll_process_one(const ext_ledger_context *ctx, int64_t pid, lj_value *processes) {
+  int rc = ll_ctx_check(ctx);
+  if (rc) return rc;
+  HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return GetLastError() == ERROR_ACCESS_DENIED ? EXT_LEDGER_DENIED : EXT_LEDGER_UNAVAILABLE;
+  PROCESSENTRY32W e;
+  e.dwSize = sizeof e;
+  rc = EXT_LEDGER_NOT_FOUND;
+  for (BOOL ok = Process32FirstW(snap, &e); ok; ok = Process32NextW(snap, &e)) {
+    if ((int64_t)e.th32ProcessID != pid) continue;
+    rc = read_process(&e, processes) == 0 ? 0 : EXT_LEDGER_IO;
+    break;
+  }
+  CloseHandle(snap);
+  return rc;
 }
 
 int ll_process_start(int64_t pid, char *out, size_t n) {

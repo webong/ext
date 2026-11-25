@@ -184,4 +184,36 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
 6. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
    build-time drivers.
 7. The ledger: its drivers (purego first, then cgo), its release and citation, and a
-   `pkg/ext-go/ledger` that lists them; ctx moves onto it.
+   `pkg/ext-go/engine/ledger` as the existing Go API; CTX uses its C-backed binding.
+   Do not introduce a sibling `pkg/ext-go/ledger` module. The portable plugin packages
+   remain standard-library-only; the engine module now also requires the C loader
+   and system wire contracts for its ledger API.
+
+### CTX ledger adoption
+
+CTX now reaches `lib/ledger` through `pkg/ext-go/engine/ledger.Bind`,
+`Library.OpenStore` and `NewGraph`. The binding uses the existing generic
+`cengine/library` interface with purego; it opens no Go recorder or Go store.
+`Library.Objects` exposes the remaining described C operations. Additional driver
+implementations remain a separate migration step.
+
+The shared observation types and portable host-selection policy live beside
+that binding. The previous recorder preserves its published Go names as aliases
+and delegates selection to the same policy. `NewMemory`, the Go supervisor and
+legacy recorder remain compatibility APIs until their other users migrate.
+CTX's `graphapi` owns location and upgrade policy, while collection, recording,
+resolution of stored inventory, storage and reconciliation execute in C.
+
+On first use CTX stages a snapshot of every namespace in its old `graph.db`
+into a private C file store and publishes it as `ledger/` only after success.
+The SQLite source is read-only and is retained with its history. Current facts,
+links, labels and provenance migrate; revisions, record timestamps and change
+cursors belong to the new store generation. Resume change readers from a fresh
+snapshot after upgrading. Stop old CTX writers during cutover: subsequent writes
+to the preserved SQLite database are not merged. Failed imports leave the old
+store and destination untouched. SQLite is only used for this legacy import.
+
+The CLI bundle carries both C libraries. Ext gives private product guests the
+ledger's library path, and standalone Go consumers explicitly load or provide
+the library before calling `Bind`. Installation verifies a CTX graph operation
+using the bundled ledger outside the source workspace.

@@ -69,6 +69,13 @@ func Code(err error) string {
 	case errors.Is(err, ErrBusy):
 		return "busy"
 	default:
+		var named interface{ CodeName() string }
+		if errors.As(err, &named) {
+			switch name := named.CodeName(); name {
+			case "invalid", "not_found", "changed", "exists", "denied", "too_large", "expired", "unsupported", "unavailable", "busy", "canceled", "timeout", "io":
+				return name
+			}
+		}
 		return "io"
 	}
 }

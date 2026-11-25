@@ -2,53 +2,14 @@ package recorder
 
 import (
 	"context"
-	"fmt"
+	native "github.com/webong/ext/pkg/ext-go/engine/ledger"
 	"sort"
 	"time"
-
-	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
 )
 
-// ContextCandidate is a graph observation, not authorization to run an
-// adapter. Callers must still check trust and validate the native selection.
-type ContextCandidate struct {
-	Adapter           string            `json:"adapter"`
-	Runtime           string            `json:"runtime"`
-	Selection         string            `json:"selection"`
-	SelectionDigest   string            `json:"selection_digest"`
-	SelectionRedacted bool              `json:"selection_redacted,omitempty"`
-	Capabilities      []string          `json:"capabilities"`
-	Supports          []string          `json:"supports,omitempty"`
-	Engine            []string          `json:"engine,omitempty"`
-	Role              []string          `json:"role,omitempty"`
-	BrowserShare      map[string]string `json:"browser_share,omitempty"`
-	Program           *ContextProgram   `json:"program,omitempty"`
-	// Default marks the adapter the user prefers for the kind a resolve asked for.
-	// It filters nothing; a caller that wants one adapter asks for a pick.
-	Default    bool      `json:"default,omitempty"`
-	ObservedAt time.Time `json:"observed_at"`
-}
-
-// ContextProgram is the executable a context runs, as observed. Installers names
-// the installer adapters that reported the file; it is empty when the file was
-// found on PATH alone. The file may have been replaced since the scan.
-type ContextProgram struct {
-	Path       string   `json:"path"`
-	RealPath   string   `json:"realpath"`
-	Version    string   `json:"version,omitempty"`
-	OnPath     bool     `json:"on_path,omitempty"`
-	Installers []string `json:"installers,omitempty"`
-	// Suggested names installers the adapter that runs the file guessed from its
-	// location. It is not a fact; see "installers".
-	Suggested []string `json:"suggested_installers,omitempty"`
-}
-
-// Inventory is the latest reconciled adapter view. ObservedAt is refreshed on
-// every scan, even when the set of contexts is unchanged.
-type Inventory struct {
-	ObservedAt time.Time          `json:"observed_at"`
-	Contexts   []ContextCandidate `json:"contexts"`
-}
+type ContextCandidate = native.ContextCandidate
+type ContextProgram = native.ContextProgram
+type Inventory = native.Inventory
 
 // ResolveInventory reads the CTX projection from the public graph. A blank
 // runtime returns every context. Redacted selections remain in the graph for
@@ -59,12 +20,12 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 		return Inventory{}, err
 	}
 	result := Inventory{}
-	adapters := map[string]store.Vertex{}
+	adapters := map[string]native.Vertex{}
 	capabilityNames := map[string]string{}
 	adapterCapabilities := map[string][]string{}
 	supportNames := map[string]string{}
 	adapterSupports := map[string][]string{}
-	programs := map[string]store.Vertex{}
+	programs := map[string]native.Vertex{}
 	for _, vertex := range snapshot.Vertices {
 		switch vertex.Kind {
 		case Namespace + "/inventory":
@@ -161,33 +122,6 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 		return result.Contexts[i].Adapter < result.Contexts[j].Adapter
 	})
 	return result, nil
-}
-
-func (inventory Inventory) FreshWithin(maxAge time.Duration) bool {
-	return !inventory.ObservedAt.IsZero() && time.Since(inventory.ObservedAt) <= maxAge
-}
-
-// Find returns a currently observed context with the requested capabilities.
-func (inventory Inventory) Find(adapter, selection string, capabilities ...string) (ContextCandidate, error) {
-	for _, candidate := range inventory.Contexts {
-		if candidate.Adapter != adapter || (candidate.Selection != selection && candidate.SelectionDigest != digest(selection)) {
-			continue
-		}
-		for _, required := range capabilities {
-			found := false
-			for _, capability := range candidate.Capabilities {
-				if capability == required {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return ContextCandidate{}, fmt.Errorf("%s:%s does not offer %s", adapter, selection, required)
-			}
-		}
-		return candidate, nil
-	}
-	return ContextCandidate{}, fmt.Errorf("%s:%s is not in the current machine graph", adapter, selection)
 }
 
 func stringList(value any) []string {

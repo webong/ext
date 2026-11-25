@@ -7,25 +7,23 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"net/url"
+	native "github.com/webong/ext/pkg/ext-go/engine/ledger"
 	"path/filepath"
-	"strings"
 	"time"
 
-	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
 	"github.com/webong/ext/pkg/ext-go/engine/ledger/recorder/sqlite"
 )
 
 const Namespace = "ext.system"
 
 type Graph struct {
-	Store store.Store
+	Store native.Store
 	env   *environment
 }
 
-// Open opens the ext.system graph in configHome/graph.db, the SQLite store.
+// Open opens the ext.system graph in configHome/graph.db, the SQLite native.
 func Open(configHome string) (*Graph, error) {
-	backing, err := sqlite.Open(context.Background(), filepath.Join(configHome, "graph.db"), store.Options{})
+	backing, err := sqlite.Open(context.Background(), filepath.Join(configHome, "graph.db"), native.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -37,9 +35,9 @@ func Open(configHome string) (*Graph, error) {
 	return projected, nil
 }
 
-// New registers the CTX system vocabulary on any store.Store. Other services
-// may keep their own namespaces in the same store.
-func New(backing store.Store) (*Graph, error) {
+// New registers the CTX system vocabulary on any native.Store. Other services
+// may keep their own namespaces in the same native.
+func New(backing native.Store) (*Graph, error) {
 	if err := backing.Register(context.Background(), Schema()); err != nil {
 		return nil, err
 	}
@@ -51,8 +49,8 @@ const SchemaVersion = "1"
 
 // Schema is the declarative ext.system vocabulary: every vertex kind, and
 // every relationship with the kinds of its endpoints.
-func Schema() store.Schema {
-	return store.Schema{Namespace: Namespace, Version: SchemaVersion, Kinds: append([]string(nil), systemKinds...), Relationships: append([]store.Relationship(nil), systemRelationships...)}
+func Schema() native.Schema {
+	return native.Schema{Namespace: Namespace, Version: SchemaVersion, Kinds: append([]string(nil), systemKinds...), Relationships: append([]native.Relationship(nil), systemRelationships...)}
 }
 
 var systemKinds = []string{
@@ -88,7 +86,7 @@ var systemKinds = []string{
 	Namespace + "/host-resource",
 }
 
-var systemRelationships = []store.Relationship{
+var systemRelationships = []native.Relationship{
 	{Type: Namespace + "/runs", From: Namespace + "/machine", To: Namespace + "/process"},
 	{Type: Namespace + "/parent-of", From: Namespace + "/process", To: Namespace + "/process"},
 	{Type: Namespace + "/executes", From: Namespace + "/process", To: Namespace + "/executable"},
@@ -147,23 +145,23 @@ func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selection
 	sessionID := "shell/" + itoa(parent)
 	host := env.hostname()
 	now := env.now().UTC()
-	vertices := []store.Vertex{
-		{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": env.goos, "architecture": env.goarch}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
-		{ID: sessionID, Kind: Namespace + "/shell-session", Attributes: map[string]any{"parent_pid": float64(parent), "shell": shell, "terminal": terminal, "working_directory": cwd, "active_profile": profile, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
-		{ID: "directory/" + digest(cwd), Kind: Namespace + "/directory", Attributes: map[string]any{"path": cwd}, Provenance: store.Provenance{Source: "ctx", Operation: "directory-observed", At: now}},
-		{ID: "project/" + digest(project), Kind: Namespace + "/project", Attributes: map[string]any{"path": project}, Provenance: store.Provenance{Source: "ctx", Operation: "project-observed", At: now}},
+	vertices := []native.Vertex{
+		{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": env.goos, "architecture": env.goarch}, Provenance: native.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
+		{ID: sessionID, Kind: Namespace + "/shell-session", Attributes: map[string]any{"parent_pid": float64(parent), "shell": shell, "terminal": terminal, "working_directory": cwd, "active_profile": profile, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: native.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
+		{ID: "directory/" + digest(cwd), Kind: Namespace + "/directory", Attributes: map[string]any{"path": cwd}, Provenance: native.Provenance{Source: "ctx", Operation: "directory-observed", At: now}},
+		{ID: "project/" + digest(project), Kind: Namespace + "/project", Attributes: map[string]any{"path": project}, Provenance: native.Provenance{Source: "ctx", Operation: "project-observed", At: now}},
 	}
-	edges := []store.Edge{
+	edges := []native.Edge{
 		{ID: "machine-shell/" + itoa(parent), From: "machine/local", To: sessionID, Type: Namespace + "/hosts"},
 		{ID: "shell-directory/" + itoa(parent), From: sessionID, To: "directory/" + digest(cwd), Type: Namespace + "/working-in"},
 		{ID: "directory-project/" + digest(cwd), From: "directory/" + digest(cwd), To: "project/" + digest(project), Type: Namespace + "/within"},
 	}
 	if profile != "" {
-		vertices = append(vertices, store.Vertex{ID: "profile/" + digest(profile), Kind: Namespace + "/profile", Attributes: map[string]any{"name": profile}, Provenance: store.Provenance{Source: "ctx", Operation: "profile-observed", At: now}})
-		edges = append(edges, store.Edge{ID: "shell-profile/" + itoa(parent), From: sessionID, To: "profile/" + digest(profile), Type: Namespace + "/uses-profile"})
+		vertices = append(vertices, native.Vertex{ID: "profile/" + digest(profile), Kind: Namespace + "/profile", Attributes: map[string]any{"name": profile}, Provenance: native.Provenance{Source: "ctx", Operation: "profile-observed", At: now}})
+		edges = append(edges, native.Edge{ID: "shell-profile/" + itoa(parent), From: sessionID, To: "profile/" + digest(profile), Type: Namespace + "/uses-profile"})
 	}
 
-	selectionEdges := []store.Edge{}
+	selectionEdges := []native.Edge{}
 	for key, value := range selections {
 		if key == "" || key == "profile" || value == "" {
 			continue
@@ -175,17 +173,17 @@ func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selection
 		} else {
 			attributes["value_redacted"] = true
 		}
-		vertices = append(vertices, store.Vertex{ID: selectionID, Kind: Namespace + "/selection", Attributes: attributes, Provenance: store.Provenance{Source: "ctx", Operation: "selection-observed", At: now}})
-		selectionEdges = append(selectionEdges, store.Edge{ID: "shell-selection/" + itoa(parent) + "/" + digest(key), From: sessionID, To: selectionID, Type: Namespace + "/selects"})
+		vertices = append(vertices, native.Vertex{ID: selectionID, Kind: Namespace + "/selection", Attributes: attributes, Provenance: native.Provenance{Source: "ctx", Operation: "selection-observed", At: now}})
+		selectionEdges = append(selectionEdges, native.Edge{ID: "shell-selection/" + itoa(parent) + "/" + digest(key), From: sessionID, To: selectionID, Type: Namespace + "/selects"})
 	}
 	edges = append(edges, selectionEdges...)
-	tx := store.Transaction{Namespace: Namespace, Vertices: vertices, Edges: edges}
+	tx := native.Transaction{Namespace: Namespace, Vertices: vertices, Edges: edges}
 	if profile == "" {
 		if _, err := g.Store.GetEdge(ctx, Namespace, "shell-profile/"+itoa(parent)); err == nil {
-			tx.DeleteEdges = []store.EdgeRef{{Namespace: Namespace, ID: "shell-profile/" + itoa(parent)}}
+			tx.DeleteEdges = []native.EdgeRef{{Namespace: Namespace, ID: "shell-profile/" + itoa(parent)}}
 		}
 	}
-	oldSelections, err := g.Store.QueryEdges(ctx, store.EdgeQuery{Namespace: Namespace, Type: Namespace + "/selects", From: sessionID, Limit: 256})
+	oldSelections, err := g.Store.QueryEdges(ctx, native.EdgeQuery{Namespace: Namespace, Type: Namespace + "/selects", From: sessionID, Limit: 256})
 	if err != nil {
 		return err
 	}
@@ -195,7 +193,7 @@ func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selection
 	}
 	for _, edge := range oldSelections {
 		if !current[edge.ID] {
-			tx.DeleteEdges = append(tx.DeleteEdges, store.EdgeRef{Namespace: Namespace, ID: edge.ID})
+			tx.DeleteEdges = append(tx.DeleteEdges, native.EdgeRef{Namespace: Namespace, ID: edge.ID})
 		}
 	}
 	if existing, err := g.Store.GetVertex(ctx, Namespace, sessionID); err == nil && equalAttributes(existing.Attributes, vertices[1].Attributes) {
@@ -236,15 +234,15 @@ func (g *Graph) ObserveWeb(ctx context.Context, provider, profile, scheme, host 
 	env := g.environment()
 	now := env.now().UTC()
 	id := "browser/current"
-	vertices := []store.Vertex{{ID: id, Kind: Namespace + "/browser-context", Attributes: map[string]any{"provider": provider, "profile": profile, "scheme": scheme, "host": host, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "web-origin-observed", At: now}}}
+	vertices := []native.Vertex{{ID: id, Kind: Namespace + "/browser-context", Attributes: map[string]any{"provider": provider, "profile": profile, "scheme": scheme, "host": host, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: native.Provenance{Source: "ctx", Operation: "web-origin-observed", At: now}}}
 	parent := env.parentPID()
-	edge := store.Edge{ID: "shell-browser/" + itoa(parent), From: "shell/" + itoa(parent), To: id, Type: Namespace + "/opened"}
+	edge := native.Edge{ID: "shell-browser/" + itoa(parent), From: "shell/" + itoa(parent), To: id, Type: Namespace + "/opened"}
 	if existing, err := g.Store.GetVertex(ctx, Namespace, id); err == nil && equalAttributes(existing.Attributes, vertices[0].Attributes) {
 		if old, edgeErr := g.Store.GetEdge(ctx, Namespace, edge.ID); edgeErr == nil && old.From == edge.From && old.To == edge.To {
 			return nil
 		}
 	}
-	_, err := g.Store.Apply(ctx, store.Transaction{Namespace: Namespace, Vertices: vertices, Edges: []store.Edge{edge}})
+	_, err := g.Store.Apply(ctx, native.Transaction{Namespace: Namespace, Vertices: vertices, Edges: []native.Edge{edge}})
 	return err
 }
 
@@ -305,16 +303,4 @@ func equalAttributes(a, b map[string]any) bool {
 	return true
 }
 
-// SafeOrigin parses a navigation URL and returns only scheme and host.
-func SafeOrigin(raw string) (scheme, host string, ok bool) {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme == "" || parsed.Hostname() == "" {
-		return "", "", false
-	}
-	scheme = strings.ToLower(parsed.Scheme)
-	host = strings.ToLower(parsed.Hostname())
-	if parsed.Port() != "" {
-		host += ":" + parsed.Port()
-	}
-	return scheme, host, true
-}
+func SafeOrigin(raw string) (string, string, bool) { return native.SafeOrigin(raw) }

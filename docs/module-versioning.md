@@ -481,10 +481,11 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. Most light libraries
-(`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the `res/*`
+(`pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the `res/*`
 modules other than `res/system`) declare `go 1.23.0`; `res/web/host` additionally
 pins wazero at a version with that floor. `res/system` declares `go 1.25.0` because its bounded
-volume operations use `os.Root`; adapters that import its credential packages
+volume operations use `os.Root`; `pkg/ext-go/engine` now also declares Go 1.25
+because its C-backed ledger API requires `cengine` and `res/system`. adapters that import its credential packages
 therefore declare at least Go 1.25. Four modules declare `go 1.26.0` because
 `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/ext-go/hashicorp` (gRPC), the umbrella `pkg/ext-go` (it requires `hashicorp`), `src/ctx`

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
+	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 
 	systemprocess "github.com/webong/ext/res/system/service/process"
 )
@@ -62,14 +62,11 @@ func graphProcessCommand(ctx context.Context, system *systemgraph.Graph, command
 	var observation systemprocess.ProcessSnapshot
 	var err error
 	if command == "process" {
-		observation, err = systemprocess.InspectProcess(ctx, pid, options)
+		observation, err = system.InspectProcess(ctx, pid, options)
 	} else {
-		observation, err = systemprocess.DiscoverProcesses(ctx, options)
+		observation, err = system.ScanProcesses(ctx, options)
 	}
 	if err != nil {
-		return reportError(stderr, err)
-	}
-	if err = system.ObserveProcesses(ctx, observation); err != nil {
 		return reportError(stderr, err)
 	}
 	encoder := json.NewEncoder(stdout)

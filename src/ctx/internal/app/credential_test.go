@@ -140,13 +140,24 @@ dependencies_linux = "credential:vault@2.0"
 	if code, _, errText := run("get", "vault:alpha", "--to-file", output); code == 0 || !strings.Contains(errText, "already exists") {
 		t.Fatalf("existing output code=%d diagnostics=%q", code, errText)
 	}
-	// The SQLite graph keeps recent pages in its write-ahead log, so read both.
-	graph, err := os.ReadFile(filepath.Join(root, "state", "graph.db"))
+	// Scan every durable file, including the C store journal.
+	err = filepath.WalkDir(filepath.Join(root, "state", "ledger"), func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(data, []byte("private-value")) {
+			t.Fatal("credential leaked to graph")
+		}
+		return nil
+	})
 	if err != nil {
-		t.Fatalf("graph unavailable: %v", err)
-	}
-	wal, _ := os.ReadFile(filepath.Join(root, "state", "graph.db-wal"))
-	if bytes.Contains(graph, []byte("private-value")) || bytes.Contains(wal, []byte("private-value")) {
-		t.Fatal("credential leaked to graph")
+		t.Fatal(err)
 	}
 }

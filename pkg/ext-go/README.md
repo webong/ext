@@ -6,7 +6,7 @@ module of its own and a program that wants less takes less:
 
 | Module | For |
 | --- | --- |
-| [`engine`](engine) | the pure-Go engine: the contract, sessions, guests, packages, bridges (standard library only) |
+| [`engine`](engine) | portable plugin contract, sessions, guests and packages; `engine/ledger` is the C-backed Go ledger API |
 | [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |

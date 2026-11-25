@@ -13,20 +13,7 @@ import (
 	"github.com/webong/ext/res/system/service/host"
 )
 
-// HostInventory is discovered directly by the graph library, independently of
-// adapters. Nil slices and pointers in ObserveHost preserve the corresponding
-// inventory; non-nil empty slices remove previously observed entries of that kind.
-type HostInventory struct {
-	Shells          []host.ShellInfo               `json:"shells"`
-	Filesystems     []host.FilesystemInfo          `json:"filesystems"`
-	Webviews        []host.WebviewInfo             `json:"webviews"`
-	Desktop         *surface.DesktopInfo           `json:"desktop,omitempty"`
-	Surfaces        *surface.SurfaceSnapshot       `json:"surfaces,omitempty"`
-	Accessibility   *surface.AccessibilitySnapshot `json:"accessibility,omitempty"`
-	Permissions     *surface.PermissionSnapshot    `json:"permissions,omitempty"`
-	Resources       *host.ResourceInfo             `json:"resources,omitempty"`
-	shellSearchPath *string
-}
+type HostInventory = store.HostInventory
 
 // DiscoverHost returns local host inventory without opening a graph store.
 func DiscoverHost(ctx context.Context) (HostInventory, error) {
@@ -98,8 +85,8 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		managedKinds[Namespace+"/shell"] = true
 		managedTypes[Namespace+"/has-shell"] = true
 		searchPath := env.getenv("PATH")
-		if inventory.shellSearchPath != nil {
-			searchPath = *inventory.shellSearchPath
+		if inventory.ShellSearchPath != nil {
+			searchPath = *inventory.ShellSearchPath
 		}
 		add("host-inventory/shells", "host-inventory", "has-host-inventory", map[string]any{"kind": "shell", "count": len(inventory.Shells), "observed_at": now.Format(time.RFC3339Nano), "environment": shellEnvironment(env, searchPath)})
 		for _, shell := range inventory.Shells {

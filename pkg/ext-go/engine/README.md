@@ -1,21 +1,19 @@
-# Pure-Go engines
+# Go library APIs
 
-`github.com/webong/ext/pkg/ext-go/engine` holds the pure-Go engines of the libraries in `lib/`, one
-package each, using only the standard library. It has no root package.
+`github.com/webong/ext/pkg/ext-go/engine` holds the Go APIs for Ext's libraries,
+with no root package. The portable plugin packages use the standard library;
+the ledger API additionally depends on `cengine` and the system wire contracts.
+The module requires Go 1.25.
 
-## ledger
-
-`github.com/webong/ext/pkg/ext-go/engine/ledger`: the pure-Go ledger store, the supervisor
-(`ledger/supervisor`) and the store fixtures runner (`ledger/ledgertest`), the fallback for
-[`lib/ledger`](../../../lib/ledger/README.md). The recorder, which projects `res/system`'s
-observations, is the nested module `ledger/recorder`, so this module stays standard library only.
-See [ledger](ledger/README.md).
-
-## plugin
+`github.com/webong/ext/pkg/ext-go/engine/ledger` binds the canonical C ledger.
+CTX uses `Bind`, `Library.OpenStore` and `NewGraph` for collection, recording and
+persistent graph operations. The older Go memory store, supervisor and nested
+`ledger/recorder` remain compatibility APIs until their remaining users migrate.
+There is no separate `pkg/ext-go/ledger` module.
 
 `github.com/webong/ext/pkg/ext-go/engine/plugin`: the pure-Go plugin engine, the oracle that
 `cgoengine/plugin` and `c2goengine/plugin` are held against. It is the ext plugin contract and the tooling built on it, using only the
-standard library (Go 1.23). It holds the contract
+standard library. It holds the contract
 data model, host sessions and guests, `ext.package/v1` manifests and the installed
 package store's building blocks, JSON-line and bridge transports, process launching,
 schemas and typed authoring, instances and streams, and the conformance suite.
@@ -70,7 +68,7 @@ installed, err := s.InstallArchive(ctx, store.Archive{
 ```
 
 The format is read from the content, not the name, and an unrecognized one is `ErrUnsupported`.
-Formats that need a dependency (zstd, xz) are not supported, since this module is standard library
+Formats that need a dependency (zstd, xz) are not supported, since the portable plugin packages are standard library
 only. The archive is checked against the digest before
 anything is extracted; extraction is bounded by the store's `Limits` (`MaxArchiveBytes`,
 `MaxTreeFiles`, `MaxTreeBytes`, `MaxArtifactBytes`) and refuses links, special files, absolute paths

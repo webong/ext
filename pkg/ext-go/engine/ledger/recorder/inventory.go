@@ -6,65 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	native "github.com/webong/ext/pkg/ext-go/engine/ledger"
+	"github.com/webong/ext/res/system/service/program"
 	"regexp"
 	"sort"
 	"time"
-
-	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	"github.com/webong/ext/res/system/service/program"
 )
 
-// AdapterObservation describes an installed adapter and any contexts it listed.
-// Listed means its discovery operation completed; it does not prove each
-// configured remote endpoint is running or authorize its use.
-type AdapterObservation struct {
-	Name, Runtime, Selector                          string
-	DiscoveryStatus                                  string
-	Surfaces, Capabilities, Supports                 []string
-	Engine, Role                                     []string
-	BrowserShare                                     []string
-	Trusted, ListSupported, ObserveSupported, Listed bool
-	Contexts                                         []ContextObservation
-	// Programs are the executables CTX found for the commands this adapter
-	// declares. They are machine facts: the graph holds one vertex per file, however
-	// many adapters were given it.
-	Programs  []program.Candidate
-	Resources []ResourceObservation
-	Relations []RelationObservation
-}
-
-// InstallerObservation declares an installer that is not an adapter, such as one
-// the user described in their own configuration. Installers that are adapters
-// (role "installer") need no entry here.
-type InstallerObservation struct {
-	Name, Source string
-}
-
-// ContextObservation is a native adapter selection with optional narrower
-// capabilities and resource support, plus ordinary non-secret metadata.
-type ContextObservation struct {
-	Selection    string            `json:"selection"`
-	Capabilities []string          `json:"capabilities,omitempty"`
-	Supports     []string          `json:"supports,omitempty"`
-	BrowserShare map[string]string `json:"browser_share,omitempty"`
-	Attributes   map[string]any    `json:"attributes,omitempty"`
-}
-
-// ResourceObservation identifies a resource in one observed context. ID is
-// adapter-local; the graph stores a digest rather than the raw identifier.
-type ResourceObservation struct {
-	ID, Kind, Context string
-	Attributes        map[string]any
-}
-
-// RelationObservation connects two resources reported by the same adapter.
-type RelationObservation struct{ From, To, Kind string }
-
-// AliasObservation is a local user declaration that names one adapter context.
-type AliasObservation struct {
-	Space, Name, Adapter, Selection string
-	Metadata                        map[string]string
-}
+type AdapterObservation = native.AdapterObservation
+type InstallerObservation = native.InstallerObservation
+type ContextObservation = native.ContextObservation
+type ResourceObservation = native.ResourceObservation
+type RelationObservation = native.RelationObservation
+type AliasObservation = native.AliasObservation
 
 func sortedCopy(values []string) []string {
 	copied := append([]string(nil), values...)
@@ -85,11 +39,11 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 	env := g.environment()
 	now := env.now().UTC()
 	host := env.hostname()
-	vertices := map[string]store.Vertex{
-		"machine/local":     {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": env.goos, "architecture": env.goarch}, Provenance: store.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
-		"inventory/current": {ID: "inventory/current", Kind: Namespace + "/inventory", Attributes: map[string]any{"observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
+	vertices := map[string]native.Vertex{
+		"machine/local":     {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": env.goos, "architecture": env.goarch}, Provenance: native.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
+		"inventory/current": {ID: "inventory/current", Kind: Namespace + "/inventory", Attributes: map[string]any{"observed_at": now.Format(time.RFC3339Nano)}, Provenance: native.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
 	}
-	edges := map[string]store.Edge{}
+	edges := map[string]native.Edge{}
 	observed := map[string]bool{}
 	for _, adapter := range adapters {
 		if adapter.Name == "" {
@@ -102,20 +56,20 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 		sort.Strings(capabilities)
 		sort.Strings(supports)
 		sort.Strings(surfaces)
-		vertices[adapterID] = store.Vertex{ID: adapterID, Kind: Namespace + "/adapter", Attributes: map[string]any{"name": adapter.Name, "runtime": adapter.Runtime, "surfaces": surfaces, "supports": supports, "engine": sortedCopy(adapter.Engine), "role": sortedCopy(adapter.Role), "browser_share": adapter.BrowserShare, "selector": adapter.Selector, "trusted": adapter.Trusted, "list_supported": adapter.ListSupported, "observe_supported": adapter.ObserveSupported, "listed": adapter.Listed, "discovery_status": adapter.DiscoveryStatus}, Provenance: store.Provenance{Source: "ctx", Operation: "adapter-inventory", At: now}}
+		vertices[adapterID] = native.Vertex{ID: adapterID, Kind: Namespace + "/adapter", Attributes: map[string]any{"name": adapter.Name, "runtime": adapter.Runtime, "surfaces": surfaces, "supports": supports, "engine": sortedCopy(adapter.Engine), "role": sortedCopy(adapter.Role), "browser_share": adapter.BrowserShare, "selector": adapter.Selector, "trusted": adapter.Trusted, "list_supported": adapter.ListSupported, "observe_supported": adapter.ObserveSupported, "listed": adapter.Listed, "discovery_status": adapter.DiscoveryStatus}, Provenance: native.Provenance{Source: "ctx", Operation: "adapter-inventory", At: now}}
 		edgeID := "machine-adapter/" + adapter.Name
-		edges[edgeID] = store.Edge{ID: edgeID, From: "machine/local", To: adapterID, Type: Namespace + "/has-adapter"}
+		edges[edgeID] = native.Edge{ID: edgeID, From: "machine/local", To: adapterID, Type: Namespace + "/has-adapter"}
 		for _, capability := range capabilities {
 			capabilityID := "capability/" + digest(capability)
-			vertices[capabilityID] = store.Vertex{ID: capabilityID, Kind: Namespace + "/capability", Attributes: map[string]any{"name": capability}, Provenance: store.Provenance{Source: "ctx", Operation: "adapter-declared", At: now}}
+			vertices[capabilityID] = native.Vertex{ID: capabilityID, Kind: Namespace + "/capability", Attributes: map[string]any{"name": capability}, Provenance: native.Provenance{Source: "ctx", Operation: "adapter-declared", At: now}}
 			edgeID := "adapter-capability/" + digest(adapter.Name+"\x00"+capability)
-			edges[edgeID] = store.Edge{ID: edgeID, From: adapterID, To: capabilityID, Type: Namespace + "/supports"}
+			edges[edgeID] = native.Edge{ID: edgeID, From: adapterID, To: capabilityID, Type: Namespace + "/supports"}
 		}
 		for _, kind := range supports {
 			supportID := "support/" + digest(kind)
-			vertices[supportID] = store.Vertex{ID: supportID, Kind: Namespace + "/support", Attributes: map[string]any{"name": kind}, Provenance: store.Provenance{Source: "ctx", Operation: "adapter-declared", At: now}}
+			vertices[supportID] = native.Vertex{ID: supportID, Kind: Namespace + "/support", Attributes: map[string]any{"name": kind}, Provenance: native.Provenance{Source: "ctx", Operation: "adapter-declared", At: now}}
 			edgeID := "adapter-support/" + digest(adapter.Name+"\x00"+kind)
-			edges[edgeID] = store.Edge{ID: edgeID, From: adapterID, To: supportID, Type: Namespace + "/supports-kind"}
+			edges[edgeID] = native.Edge{ID: edgeID, From: adapterID, To: supportID, Type: Namespace + "/supports-kind"}
 		}
 		if !adapter.Trusted || !adapter.Listed {
 			continue
@@ -144,9 +98,9 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 			} else {
 				attributes["selection_redacted"] = true
 			}
-			vertices[id] = store.Vertex{ID: id, Kind: Namespace + "/context", Attributes: attributes, Provenance: store.Provenance{Source: adapter.Name, Operation: "adapter-list", At: now}}
+			vertices[id] = native.Vertex{ID: id, Kind: Namespace + "/context", Attributes: attributes, Provenance: native.Provenance{Source: adapter.Name, Operation: "adapter-list", At: now}}
 			edgeID := "adapter-context/" + digest(adapter.Name+"\x00"+selection)
-			edges[edgeID] = store.Edge{ID: edgeID, From: adapterID, To: id, Type: Namespace + "/offers"}
+			edges[edgeID] = native.Edge{ID: edgeID, From: adapterID, To: id, Type: Namespace + "/offers"}
 			observed[id] = true
 		}
 		for _, resource := range adapter.Resources {
@@ -158,9 +112,9 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 			if len(resource.Attributes) > 0 {
 				attributes["metadata"] = resource.Attributes
 			}
-			vertices[resourceID] = store.Vertex{ID: resourceID, Kind: Namespace + "/resource", Attributes: attributes, Provenance: store.Provenance{Source: adapter.Name, Operation: "adapter-observe", At: now}}
+			vertices[resourceID] = native.Vertex{ID: resourceID, Kind: Namespace + "/resource", Attributes: attributes, Provenance: native.Provenance{Source: adapter.Name, Operation: "adapter-observe", At: now}}
 			edgeID := "context-resource/" + digest(adapter.Name+"\x00"+resource.Context+"\x00"+resource.ID)
-			edges[edgeID] = store.Edge{ID: edgeID, From: contextID(adapter.Name, resource.Context), To: resourceID, Type: Namespace + "/contains"}
+			edges[edgeID] = native.Edge{ID: edgeID, From: contextID(adapter.Name, resource.Context), To: resourceID, Type: Namespace + "/contains"}
 		}
 		for _, relation := range adapter.Relations {
 			from := "resource/" + digest(adapter.Name+"\x00"+relation.From)
@@ -169,7 +123,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 				continue
 			}
 			edgeID := "resource-relation/" + digest(adapter.Name+"\x00"+relation.From+"\x00"+relation.To+"\x00"+relation.Kind)
-			edges[edgeID] = store.Edge{ID: edgeID, From: from, To: to, Type: Namespace + "/relates", Attributes: map[string]any{"kind": relation.Kind}}
+			edges[edgeID] = native.Edge{ID: edgeID, From: from, To: to, Type: Namespace + "/relates", Attributes: map[string]any{"kind": relation.Kind}}
 		}
 	}
 	observeInventoryPrograms(adapters, installers, vertices, edges, now)
@@ -186,10 +140,10 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 		if len(alias.Metadata) > 0 {
 			attributes["metadata"] = alias.Metadata
 		}
-		vertices[aliasID] = store.Vertex{ID: aliasID, Kind: Namespace + "/alias", Attributes: attributes, Provenance: store.Provenance{Source: "ctx", Operation: "alias-declared", At: now}}
+		vertices[aliasID] = native.Vertex{ID: aliasID, Kind: Namespace + "/alias", Attributes: attributes, Provenance: native.Provenance{Source: "ctx", Operation: "alias-declared", At: now}}
 		if observed[id] {
 			edgeID := "alias-context/" + digest(alias.Space+"\x00"+alias.Name)
-			edges[edgeID] = store.Edge{ID: edgeID, From: aliasID, To: id, Type: Namespace + "/resolves-to"}
+			edges[edgeID] = native.Edge{ID: edgeID, From: aliasID, To: id, Type: Namespace + "/resolves-to"}
 		}
 	}
 	for attempt := 0; attempt < 3; attempt++ {
@@ -197,14 +151,14 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 		if err != nil {
 			return err
 		}
-		tx := store.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
-		currentVertices := map[string]store.Vertex{}
-		currentEdges := map[string]store.Edge{}
+		tx := native.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
+		currentVertices := map[string]native.Vertex{}
+		currentEdges := map[string]native.Edge{}
 		for _, vertex := range snapshot.Vertices {
 			currentVertices[vertex.ID] = vertex
 			if isInventoryVertex(vertex) {
 				if _, keep := vertices[vertex.ID]; !keep {
-					tx.DeleteVertices = append(tx.DeleteVertices, store.VertexRef{Namespace: Namespace, ID: vertex.ID})
+					tx.DeleteVertices = append(tx.DeleteVertices, native.VertexRef{Namespace: Namespace, ID: vertex.ID})
 				}
 			}
 		}
@@ -212,7 +166,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 			currentEdges[edge.ID] = edge
 			if isInventoryEdge(edge) {
 				if _, keep := edges[edge.ID]; !keep {
-					tx.DeleteEdges = append(tx.DeleteEdges, store.EdgeRef{Namespace: Namespace, ID: edge.ID})
+					tx.DeleteEdges = append(tx.DeleteEdges, native.EdgeRef{Namespace: Namespace, ID: edge.ID})
 				}
 			}
 		}
@@ -232,7 +186,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 			return nil
 		}
 		_, err = g.Store.Apply(ctx, tx)
-		if errors.Is(err, store.ErrConflict) {
+		if errors.Is(err, native.ErrConflict) {
 			continue
 		}
 		return err
@@ -246,7 +200,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 // in its "executable" attribute is joined to it. A program found only on PATH has
 // no installer edge: the absence is the fact. An installer that is not an observed
 // adapter stays in the "installers" attribute only.
-func observeInventoryPrograms(adapters []AdapterObservation, declared []InstallerObservation, vertices map[string]store.Vertex, edges map[string]store.Edge, now time.Time) {
+func observeInventoryPrograms(adapters []AdapterObservation, declared []InstallerObservation, vertices map[string]native.Vertex, edges map[string]native.Edge, now time.Time) {
 	type merged struct {
 		candidate program.Candidate
 		names     map[string]bool
@@ -313,9 +267,9 @@ func observeInventoryPrograms(adapters []AdapterObservation, declared []Installe
 		if entry.candidate.Version != "" {
 			attributes["version"] = entry.candidate.Version
 		}
-		vertices[id] = store.Vertex{ID: id, Kind: Namespace + "/program", Attributes: attributes, Provenance: store.Provenance{Source: "ctx", Operation: "program-discovered", At: now}}
+		vertices[id] = native.Vertex{ID: id, Kind: Namespace + "/program", Attributes: attributes, Provenance: native.Provenance{Source: "ctx", Operation: "program-discovered", At: now}}
 		edgeID := "machine-program/" + digest(file)
-		edges[edgeID] = store.Edge{ID: edgeID, From: "machine/local", To: id, Type: Namespace + "/has-program"}
+		edges[edgeID] = native.Edge{ID: edgeID, From: "machine/local", To: id, Type: Namespace + "/has-program"}
 		for _, installer := range installers {
 			if !seenInstaller[installer] {
 				seenInstaller[installer] = true
@@ -326,7 +280,7 @@ func observeInventoryPrograms(adapters []AdapterObservation, declared []Installe
 				}
 			}
 			edgeID := "program-installer/" + digest(file+"\x00"+installer)
-			edges[edgeID] = store.Edge{ID: edgeID, From: id, To: installerID(installer), Type: Namespace + "/installed-by"}
+			edges[edgeID] = native.Edge{ID: edgeID, From: id, To: installerID(installer), Type: Namespace + "/installed-by"}
 		}
 		programIDs[file] = id
 		programIDs[entry.candidate.Path] = id
@@ -337,11 +291,11 @@ func observeInventoryPrograms(adapters []AdapterObservation, declared []Installe
 		if installerAdapter[name] {
 			attributes["adapter"] = name
 		}
-		vertices[id] = store.Vertex{ID: id, Kind: Namespace + "/installer", Attributes: attributes, Provenance: store.Provenance{Source: "ctx", Operation: "installer-declared", At: now}}
+		vertices[id] = native.Vertex{ID: id, Kind: Namespace + "/installer", Attributes: attributes, Provenance: native.Provenance{Source: "ctx", Operation: "installer-declared", At: now}}
 		if installerAdapter[name] {
 			if _, ok := vertices["adapter/"+name]; ok {
 				edgeID := "installer-adapter/" + digest(name)
-				edges[edgeID] = store.Edge{ID: edgeID, From: id, To: "adapter/" + name, Type: Namespace + "/implemented-by"}
+				edges[edgeID] = native.Edge{ID: edgeID, From: id, To: "adapter/" + name, Type: Namespace + "/implemented-by"}
 			}
 		}
 	}
@@ -357,7 +311,7 @@ func observeInventoryPrograms(adapters []AdapterObservation, declared []Installe
 			continue
 		}
 		edgeID := "context-program/" + digest(id)
-		edges[edgeID] = store.Edge{ID: edgeID, From: id, To: programID, Type: Namespace + "/uses-program"}
+		edges[edgeID] = native.Edge{ID: edgeID, From: id, To: programID, Type: Namespace + "/uses-program"}
 		if hint, _ := metadata["suggested_installer"].(string); hint != "" {
 			if suggested[programID] == nil {
 				suggested[programID] = map[string]bool{}
@@ -407,7 +361,7 @@ func sortedKeys(set map[string]bool) []string {
 	return keys
 }
 
-func isInventoryVertex(vertex store.Vertex) bool {
+func isInventoryVertex(vertex native.Vertex) bool {
 	switch vertex.Kind {
 	case Namespace + "/inventory", Namespace + "/adapter", Namespace + "/capability", Namespace + "/support", Namespace + "/context", Namespace + "/resource", Namespace + "/alias", Namespace + "/program", Namespace + "/installer":
 		return true
@@ -415,7 +369,7 @@ func isInventoryVertex(vertex store.Vertex) bool {
 	return false
 }
 
-func isInventoryEdge(edge store.Edge) bool {
+func isInventoryEdge(edge native.Edge) bool {
 	switch edge.Type {
 	case Namespace + "/has-adapter", Namespace + "/supports", Namespace + "/supports-kind", Namespace + "/offers", Namespace + "/contains", Namespace + "/relates", Namespace + "/resolves-to", Namespace + "/has-program", Namespace + "/installed-by", Namespace + "/implemented-by", Namespace + "/uses-program":
 		return true

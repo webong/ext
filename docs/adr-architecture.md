@@ -75,6 +75,11 @@ design obligation.
 
 ## `res/graph` storage and `lib/ledger`
 
+The [Ext graph decision](adr-ext-graph.md) names the common entity/relationship
+model used by both plugin and ledger. Ledger implements its store; plugin can
+project resolved package facts into the same transaction contract without a
+runtime dependency between the libraries.
+
 The [graph runtime](adr-graph-runtime.md) says large installations need indexed persistence behind
 the same interface. The first two steps were done in Go; on 2026-11-19 the graph moved to C.
 
@@ -132,3 +137,13 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 - The Ruby and Lua hosts on Windows (#119), and the PHP SDK and host on Windows, which are in progress,
   go beyond what tier 3 requires. They are done because the gaps were small. They are not a precedent
   that tier 3 must run everywhere.
+
+### Go ledger API location
+
+The C ledger's Go API remains `pkg/ext-go/engine/ledger`. CTX binds the C
+library there rather than importing a new sibling module. Portable plugin
+packages remain standard-library-only; the engine module now requires the C
+loader and system observation types for its ledger API. Legacy Go ledger
+implementations remain compatibility code during consumer migration. See
+[CTX ledger adoption](adr-library-opener.md#ctx-ledger-adoption) for ownership,
+the storage cutover and remaining driver work.

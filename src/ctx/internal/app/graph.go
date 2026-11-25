@@ -10,11 +10,11 @@ import (
 	"time"
 
 	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
 	systemsurface "github.com/webong/ext/res/system/capture/surface"
 	systemhost "github.com/webong/ext/res/system/service/host"
 	systemprocess "github.com/webong/ext/res/system/service/process"
 	"github.com/webong/ext/src/ctx/internal/config"
+	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
 func graphCommand(args []string, stdout, stderr io.Writer) int {
@@ -49,31 +49,35 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		var result any
 		switch args[0] {
 		case "shells":
-			inventory.Shells, err = systemhost.DiscoverShells(ctx)
+			err = system.Collect(ctx, "shells", nil, &inventory.Shells)
 			result = inventory.Shells
 		case "filesystems":
-			inventory.Filesystems, err = systemhost.DiscoverFilesystems(ctx)
+			err = system.Collect(ctx, "filesystems", nil, &inventory.Filesystems)
 			result = inventory.Filesystems
 		case "webviews":
-			inventory.Webviews, err = systemhost.DiscoverWebviews(ctx)
+			err = system.Collect(ctx, "webviews", nil, &inventory.Webviews)
 			result = inventory.Webviews
 		case "surfaces":
-			surfaces, surfaceErr := systemsurface.DiscoverSurfaces(ctx, systemsurface.DefaultSurfaceOptions())
+			var surfaces systemsurface.SurfaceSnapshot
+			surfaceErr := system.Collect(ctx, "surfaces", nil, &surfaces)
 			err = surfaceErr
 			inventory.Surfaces = &surfaces
 			result = surfaces
 		case "accessibility":
-			accessibility, accessibilityErr := systemsurface.DiscoverAccessibility(ctx, systemsurface.DefaultAccessibilityOptions())
+			var accessibility systemsurface.AccessibilitySnapshot
+			accessibilityErr := system.Collect(ctx, "accessibility", nil, &accessibility)
 			err = accessibilityErr
 			inventory.Accessibility = &accessibility
 			result = accessibility
 		case "permissions":
-			permissions, permissionErr := systemsurface.DiscoverPermissions(ctx)
+			var permissions systemsurface.PermissionSnapshot
+			permissionErr := system.Collect(ctx, "permissions", nil, &permissions)
 			err = permissionErr
 			inventory.Permissions = &permissions
 			result = permissions
 		case "resources":
-			resources, resourceErr := systemhost.DiscoverResources(ctx)
+			var resources systemhost.ResourceInfo
+			resourceErr := system.Collect(ctx, "resources", nil, &resources)
 			err = resourceErr
 			inventory.Resources = &resources
 			result = resources
@@ -230,7 +234,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "ctx: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "store: %s/graph.db\nnamespace: %s\nrevision: %d\ncursor: %d\nvertices: %d\nedges: %d\n", configHomePath(), snapshot.Namespace, snapshot.Revision, snapshot.Cursor, len(snapshot.Vertices), len(snapshot.Edges))
+		fmt.Fprintf(stdout, "store: %s/ledger\nnamespace: %s\nrevision: %d\ncursor: %d\nvertices: %d\nedges: %d\n", configHomePath(), snapshot.Namespace, snapshot.Revision, snapshot.Cursor, len(snapshot.Vertices), len(snapshot.Edges))
 		inventory, err := system.ResolveInventory(ctx, "")
 		if err != nil {
 			return reportError(stderr, err)

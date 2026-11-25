@@ -19,8 +19,8 @@ import (
 // pkg/ext-go is a tree of modules, not one module. Each heavy part is its own
 // module so an application imports only what it needs:
 //
-//	engine      the pure-Go engine, the oracle and the shared data model; standard library only
-//	            (plugin and ledger); its nested module engine/ledger/recorder, which projects
+//	engine      portable plugin code and shared model; engine/ledger binds the C ledger
+//	            (plugin code is standard-library-only); its legacy engine/ledger/recorder, which projects
 //	            res/system's observations onto the ledger, needs engine and res/system
 //	cgoengine   the C engine binding and pure-Go build of the same API; needs engine
 //	c2goengine  the C engine's portable core translated to Go; needs engine
@@ -39,7 +39,7 @@ const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
-	"pkg/ext-go/engine":                 {},
+	"pkg/ext-go/engine":                 {"pkg/ext-go/cengine", "res/system"},
 	"pkg/ext-go/cgoengine":              {"pkg/ext-go/engine"},
 	"pkg/ext-go/c2goengine":             {"pkg/ext-go/engine"},
 	"pkg/ext-go/wasm":                   {"pkg/ext-go/engine", "res/web/host"},
@@ -56,8 +56,8 @@ var pluginRequires = map[string][]string{
 	"src/cto/sandbox":                   {},
 	"res/web/host":                      {},
 	"res/system":                        {},
-	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/engine", "res/system"},
-	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "pkg/ext-go/cguest", "pkg/ext-go/engine/ledger/recorder", "res/web/host"},
+	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/engine", "pkg/ext-go/cengine", "res/system"},
+	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "pkg/ext-go/cguest", "pkg/ext-go/engine/ledger/recorder", "res/web/host", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -141,10 +141,11 @@ func TestYaegiBackendRequiresOnlyYaegi(t *testing.T) {
 	}
 }
 
-// pkg/ext-go/engine is the lean choice: standard library only.
-func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
+// The portable plugin engine and guest contract stay standard-library-only.
+// engine/ledger is the C-backed ledger API and may import its binding and OS wire types.
+func TestPluginEngineUsesOnlyTheStandardLibrary(t *testing.T) {
 	root := repoRoot(t)
-	err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine"), func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine/plugin"), func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -169,7 +170,7 @@ func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 			first, _, _ := strings.Cut(name, "/")
 			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") {
 				rel, _ := filepath.Rel(root, path)
-				t.Errorf("%s imports %s; the engine module uses only the standard library", filepath.ToSlash(rel), name)
+				t.Errorf("%s imports %s; the portable plugin engine uses only the standard library", filepath.ToSlash(rel), name)
 			}
 		}
 		return nil

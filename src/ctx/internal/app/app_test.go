@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
+	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
 func TestVersion(t *testing.T) {
@@ -101,7 +101,7 @@ func TestCTXRecordsSystemContextAndGraphCommandReadsIt(t *testing.T) {
 	if !strings.Contains(stdout.String(), "ext.system/shell-session") {
 		t.Fatalf("shell facts missing from graph query: %s", stdout.String())
 	}
-	if _, err := os.Stat(filepath.Join(stateDir, "graph.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(stateDir, "ledger", "log")); err != nil {
 		t.Fatalf("persistent CTX graph missing: %v", err)
 	}
 	store, err := systemgraph.Open(stateDir)

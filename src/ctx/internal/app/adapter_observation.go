@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
+	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
 const maxAdapterObservationBytes = 1 << 20

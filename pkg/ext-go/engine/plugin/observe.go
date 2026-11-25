@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"errors"
+	shared "github.com/webong/ext/pkg/ext-go/core/plugin"
 	"time"
 )
 
@@ -28,7 +29,7 @@ func eventCode(err error) string {
 		return "ok"
 	}
 	var remote *RemoteError
-	if errors.As(err, &remote) && remote != nil && identifier.MatchString(remote.Code) {
+	if errors.As(err, &remote) && remote != nil && shared.ValidIdentifier(remote.Code) {
 		return remote.Code
 	}
 	switch {
@@ -55,7 +56,7 @@ func eventCode(err error) string {
 
 func observe(ctx context.Context, observer Observer, event Event, start time.Time, err error) {
 	if observer != nil {
-		if !identifier.MatchString(event.Operation) {
+		if !shared.ValidIdentifier(event.Operation) {
 			event.Operation = ""
 		}
 		if event.Contract.Validate() != nil {

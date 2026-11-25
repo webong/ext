@@ -8,3 +8,5 @@ require (
 )
 
 require github.com/tetratelabs/wazero v1.10.1 // indirect
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect

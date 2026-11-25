@@ -49,6 +49,17 @@ static double number(const lj_value *o, const char *key) {
 int main(void) {
   char *out;
   size_t len;
+  const char *invalid_search[] = {
+    "{\"what\":\"shells\",\"search_path\":null}",
+    "{\"what\":\"shells\",\"search_path\":42}",
+    "{\"what\":\"shells\",\"search_path\":\"x\\u0000y\"}",
+    "{\"what\":\"filesystems\",\"search_path\":\"\"}"
+  };
+  for (size_t i = 0; i < sizeof invalid_search / sizeof *invalid_search; i++) {
+    int result = ext_ledger_call(0, "collect", invalid_search[i], strlen(invalid_search[i]), &out, &len);
+    CHECK(result == EXT_LEDGER_INVALID, "invalid shell search path rejected: %s", invalid_search[i]);
+    if (out) ext_ledger_free(out);
+  }
   int rc = ext_ledger_collect_environment(&out, &len);
   CHECK(rc == 0, "machine environment: %s", ext_ledger_code_name(rc));
   lj_value *env = rc ? NULL : lj_parse(out, len, NULL);

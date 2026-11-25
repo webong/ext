@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	systemhost "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
+	systemprocess "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
+	systemsurface "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
 	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	systemsurface "github.com/webong/ext/res/system/capture/surface"
-	systemhost "github.com/webong/ext/res/system/service/host"
-	systemprocess "github.com/webong/ext/res/system/service/process"
 	"github.com/webong/ext/src/ctx/internal/config"
 	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )

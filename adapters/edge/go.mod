@@ -14,3 +14,5 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0
 	github.com/webong/ext/res/system v0.3.0 // indirect
 )
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect

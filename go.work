@@ -41,7 +41,6 @@ use (
 	./pkg/ext-go/c2goengine
 	./pkg/ext-go/cengine
 	./pkg/ext-go/cgoengine
-	./pkg/ext-go/cguest
 	./pkg/ext-go/core
 	./pkg/ext-go/engine
 	./pkg/ext-go/engine/ledger/recorder
@@ -69,10 +68,6 @@ replace github.com/webong/ext/pkg/ext-go/core v0.1.0 => ./pkg/ext-go/core
 // The cengine module (the C side and the C guest backend) has no published version yet. Remove this
 // once pkg/ext-go/cengine/v0.1.0 is tagged.
 replace github.com/webong/ext/pkg/ext-go/cengine v0.1.0 => ./pkg/ext-go/cengine
-
-// The cguest module (the plugin backend for C shared guests) has no published version yet. Remove
-// this once pkg/ext-go/cguest/v0.1.0 is tagged.
-replace github.com/webong/ext/pkg/ext-go/cguest v0.1.0 => ./pkg/ext-go/cguest
 
 // The ledger recorder module (pkg/ext-go/engine/ledger/recorder) has no published version yet.
 // Remove this once pkg/ext-go/engine/ledger/recorder/v0.1.0 is tagged.

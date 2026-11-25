@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	model "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	oldrec "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
-	"github.com/webong/ext/pkg/ext-go/engine/ledger/recorder/sqlite"
+	"database/sql"
+	model "github.com/webong/ext/pkg/ext-go/cengine/ledger"
 )
 
 func requireNative(t *testing.T) {
@@ -23,31 +22,21 @@ func TestLegacyGraphMigration(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, "graph.db")
 	ctx := context.Background()
-	old, err := sqlite.Open(ctx, path, model.Options{})
+	fixture, err := os.ReadFile("testdata/legacy-graph.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, ns := range []string{"ext.system", "external"} {
-		schema := model.Schema{Namespace: ns, Version: "1"}
-		if ns == "ext.system" {
-			schema = oldrec.Schema()
-		}
-		if err := old.Register(ctx, schema); err != nil {
-			t.Fatal(err)
-		}
-		if ns == "ext.system" {
-			_, err = old.Apply(ctx, model.Transaction{Namespace: ns, Vertices: []model.Vertex{{ID: "saved-machine", Kind: "ext.system/machine"}}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			continue
-		}
-		_, err = old.Apply(ctx, model.Transaction{Namespace: ns, Vertices: []model.Vertex{{ID: "saved", Kind: ns + "/fact", Attributes: map[string]any{"value": "preserved"}}, {ID: "other", Kind: ns + "/fact"}}, Edges: []model.Edge{{ID: "edge", Type: ns + "/link", From: "saved", To: "other"}}})
-		if err != nil {
-			t.Fatal(err)
-		}
+	old, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	old.Close()
+	if _, err := old.ExecContext(ctx, string(fixture)); err != nil {
+		old.Close()
+		t.Fatal(err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

@@ -9,11 +9,15 @@ import (
 	"path/filepath"
 	"runtime"
 
+	model "github.com/webong/ext/pkg/ext-go/cengine/ledger"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
-	model "github.com/webong/ext/pkg/ext-go/engine/ledger"
 )
 
-type Graph = model.Graph
+type Graph struct{ *model.Graph }
+type HostSnapshot = model.HostSnapshot
+type HostCandidates = model.HostCandidates
+type WebviewValidator = model.WebviewValidator
+type HostRequirementError = model.HostRequirementError
 
 const Namespace = model.Namespace
 const Directory = "ledger"
@@ -77,7 +81,10 @@ func Open(home string) (*Graph, error) {
 	if err != nil {
 		store.Close()
 	}
-	return g, err
+	if err != nil {
+		return nil, err
+	}
+	return &Graph{Graph: g}, nil
 }
 func NewMemory() (*Graph, error) {
 	lib, err := Library()
@@ -92,5 +99,8 @@ func NewMemory() (*Graph, error) {
 	if err != nil {
 		s.Close()
 	}
-	return g, err
+	if err != nil {
+		return nil, err
+	}
+	return &Graph{Graph: g}, nil
 }

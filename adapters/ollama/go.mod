@@ -11,3 +11,5 @@ require (
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0 // indirect
 	github.com/webong/ext/res/int v0.2.0 // indirect
 )
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect

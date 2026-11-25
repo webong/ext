@@ -6,4 +6,5 @@ require github.com/webong/ext/pkg/ext-go/engine v0.4.0
 
 require github.com/webong/ext/pkg/ext-go/cengine v0.1.0
 
-require github.com/webong/ext/res/system v0.5.1
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0

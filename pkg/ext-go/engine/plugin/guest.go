@@ -7,14 +7,6 @@ import (
 	"time"
 )
 
-// Endpoint is the shared host/guest interface. Transport clients implement it
-// for hosts; Guest implements it for plugin authors. The interface carries no
-// transport or process ownership. Backend adds host-side connection cleanup.
-type Endpoint interface {
-	Handshake(context.Context) (Descriptor, error)
-	Invoke(context.Context, Request) (Response, error)
-}
-
 // Handler authorizes and executes a consumer-owned operation. Implementations
 // must check domain authority, honor ctx, and support concurrent calls when
 // used with concurrent transports. Return RemoteError only for intentional

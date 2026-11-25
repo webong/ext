@@ -29,7 +29,7 @@ for candidate in libext_ledger.dylib libext_ledger.so libext_ledger.dll ext_ledg
 done
 [[ -n "$ledger_path" ]] || { echo "Required C ledger library missing" >&2; exit 1; }
 export EXT_LEDGER_LIBRARY="$ledger_path"
-go test ./pkg/ext-go/engine/ledger/supervisor -run '^TestNativeSupervisor$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeSupervisor
+go test ./pkg/ext-go/cengine/ledger/supervisor -run '^TestNativeSupervisor$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeSupervisor
 # Test the same described ledger through a linked C driver. No fallback allowed.
 ledger_link="$ledger_path"
 case "$(go env GOOS)" in
@@ -37,7 +37,7 @@ case "$(go env GOOS)" in
 esac
 CGO_ENABLED=1 CGO_CFLAGS="-I$repo/lib/ledger/include" CGO_LDFLAGS="$ledger_link" go test -tags ext_ledger_cgo ./pkg/ext-go/cgoengine/ledger -run '^TestLinkedLedgerConformance$' -count=1 -json | python3 scripts/check-go-test-results.py TestLinkedLedgerConformance
 EXT_PLUGIN_LIBRARY="$library_path" go test ./cmd/ext/internal/nativeplugin -run '^TestGraphPublicationOwnership$' -count=1 -json | python3 scripts/check-go-test-results.py TestGraphPublicationOwnership
-go test ./pkg/ext-go/engine/ledger -run '^(TestNativeRecorderAndInventory|TestNativeProcessAndCancellation|TestNativeClose|TestNativeStoreConformance)$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeRecorderAndInventory TestNativeProcessAndCancellation TestNativeClose TestNativeStoreConformance TestNativeStoreConformance/memory TestNativeStoreConformance/file
+go test ./pkg/ext-go/cengine/ledger -run '^(TestNativeShellSearchPath|TestNativeRecorderAndInventory|TestNativeProcessAndCancellation|TestNativeClose|TestNativeStoreConformance)$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeShellSearchPath TestNativeRecorderAndInventory TestNativeProcessAndCancellation TestNativeClose TestNativeStoreConformance TestNativeStoreConformance/memory TestNativeStoreConformance/file
 go test ./src/ctx/internal/graphapi -count=1 -json | python3 scripts/check-go-test-results.py TestLegacyGraphMigration TestMigrationFailurePreservesLegacy
 EXT_PLUGIN_LIBRARY="$library_path" go test ./src/ctx/internal/app -run '^(TestCTXRecordsSystemContextAndGraphCommandReadsIt|TestGraphProcessCLIValidation)$' -count=1 -json | python3 scripts/check-go-test-results.py TestCTXRecordsSystemContextAndGraphCommandReadsIt TestGraphProcessCLIValidation
 EXT_PLUGIN_LIBRARY="$library_path" EXT_LEDGER_LIBRARY="$ledger_path" go test ./tests/crosslang -run '^TestExtGraph(AcrossLibraries|Reconciliation|LiveProcess|ProcessIdentity)$' -count=1 -json | python3 scripts/check-go-test-results.py TestExtGraphAcrossLibraries TestExtGraphReconciliation TestExtGraphReconciliation/memory TestExtGraphReconciliation/file TestExtGraphLiveProcess TestExtGraphProcessIdentity
@@ -105,3 +105,5 @@ fs_test="$(dirname "$resolve_test")/ext_fs_write_test"
 [[ -f "$fs_test" ]] || fs_test="$fs_test.exe"
 "$fs_test" "$build_dir/writer-fs"
 EXT_PLUGIN_BUILD="$(dirname "$library_path")" go test ./pkg/ext-go/cengine/library -run '^TestDescribedPackageWriter$' -count=1 -timeout=2m
+
+go test ./pkg/ext-go/core/ledger/observation -run "^TestRecorderWireRecords$" -count=1 -json | python3 scripts/check-go-test-results.py TestRecorderWireRecords

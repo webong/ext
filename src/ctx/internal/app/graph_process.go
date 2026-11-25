@@ -12,7 +12,7 @@ import (
 
 	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 
-	systemprocess "github.com/webong/ext/res/system/service/process"
+	systemprocess "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
 )
 
 func graphProcessCommand(ctx context.Context, system *systemgraph.Graph, command string, args []string, stdout, stderr io.Writer) int {

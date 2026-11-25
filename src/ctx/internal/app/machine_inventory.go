@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	wire "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
+	programwire "github.com/webong/ext/res/system/service/program"
 	"io"
 	"strings"
 	"sync"
 	"time"
 
-	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	browsershare "github.com/webong/ext/res/web/host/contract"
 	"github.com/webong/ext/src/ctx/internal/config"
+	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
 // scanMachineInventory asks installed adapters for their declared capabilities
@@ -90,7 +92,7 @@ func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, can
 		ListSupported:    candidate.HasCapability("list"),
 		ObserveSupported: candidate.HasCapability("observe"),
 		DiscoveryStatus:  "not-supported",
-		Programs:         adapterPrograms(resolver, candidate),
+		Programs:         ledgerPrograms(adapterPrograms(resolver, candidate)),
 	}
 	if !trusted {
 		observation.DiscoveryStatus = "untrusted"
@@ -243,4 +245,15 @@ func (buffer *boundedObservationBuffer) Write(data []byte) (int, error) {
 		return 0, fmt.Errorf("adapter observation exceeds 1 MiB")
 	}
 	return buffer.Buffer.Write(data)
+}
+
+func ledgerPrograms(in []programwire.Candidate) []wire.ProgramCandidate {
+	if in == nil {
+		return nil
+	}
+	out := make([]wire.ProgramCandidate, len(in))
+	for i, v := range in {
+		out[i] = wire.ProgramCandidate{Name: v.Name, Path: v.Path, RealPath: v.RealPath, Version: v.Version, Source: v.Source, OnPath: v.OnPath, Installers: v.Installers, Attributes: v.Attributes}
+	}
+	return out
 }

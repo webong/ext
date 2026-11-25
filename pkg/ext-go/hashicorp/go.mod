@@ -23,3 +23,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect

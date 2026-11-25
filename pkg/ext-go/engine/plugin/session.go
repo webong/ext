@@ -10,18 +10,6 @@ import (
 	"time"
 )
 
-// Backend is a consumer-selected transport binding. Implementations must honor
-// cancellation, permit concurrent Invoke calls (possibly serialized internally),
-// and make Close interrupt transport I/O. In-host native execution has no forced
-// termination: native Go handlers cooperate with contexts; C ABI cancellation
-// releases the caller while native work and cleanup may remain outstanding.
-// Backends never decide product authorization. A CLI binding may preserve raw
-// streams outside this JSON invocation API and use ValidateRequest directly.
-type Backend interface {
-	Endpoint
-	Close() error
-}
-
 type Options struct {
 	// Verify must check the reviewed package selection before Connect may run.
 	// A digest proves content equality, not publisher trust or permission.

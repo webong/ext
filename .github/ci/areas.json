@@ -1014,7 +1014,7 @@
       ],
       "main_paths": [
         "lib/ledger/**",
-        "pkg/ext-go/engine/ledger/recorder/sqlite/**",
+        "lib/ledger/testdata/store/v1/legacy-go.sql",
         "lib/ledger/testdata/recorder/**",
         "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",
@@ -1023,7 +1023,7 @@
       ],
       "pr_paths": [
         "lib/ledger/**",
-        "pkg/ext-go/engine/ledger/recorder/sqlite/**",
+        "lib/ledger/testdata/store/v1/legacy-go.sql",
         "lib/ledger/testdata/recorder/**",
         "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",

@@ -11,3 +11,5 @@ require (
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 )
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect

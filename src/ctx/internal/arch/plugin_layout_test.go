@@ -19,7 +19,7 @@ import (
 // pkg/ext-go is a tree of modules, not one module. Each heavy part is its own
 // module so an application imports only what it needs:
 //
-//	engine      portable plugin code and shared model; engine/ledger binds the C ledger
+//	engine      portable plugin sessions and Go ledger, built on core contracts
 //	            (plugin code is standard-library-only); its legacy engine/ledger/recorder, which projects
 //	            res/system's observations onto the ledger, needs engine and res/system
 //	cgoengine   the C engine binding and pure-Go build of the same API; needs engine
@@ -27,37 +27,33 @@ import (
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
-//	core        the switcher: driver picks go or a C driver for a library of lib/; standard
-//	            library only, requires nothing, knows no library by name
-//	cguest      the plugin backend for guests built as C shared libraries, over cengine/cguest;
-//	            needs engine and cengine
+//	core        shared plugin/ledger contracts and driver selection; observation types use res/system
 //	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
-//	            with C ABI guests, and cgo and ccgo register with it; purego only, no ext module
+//	            with C ABI guests; its guest and ledger bindings consume shared core contracts
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all
 //	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
 const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
-	"pkg/ext-go/engine":                 {"pkg/ext-go/cengine", "res/system"},
-	"pkg/ext-go/cgoengine":              {"pkg/ext-go/engine", "pkg/ext-go/cengine", "res/system"},
-	"pkg/ext-go/c2goengine":             {"pkg/ext-go/engine"},
-	"pkg/ext-go/wasm":                   {"pkg/ext-go/engine", "res/web/host"},
-	"pkg/ext-go/hashicorp":              {"pkg/ext-go/engine"},
-	"pkg/ext-go/yaegi":                  {"pkg/ext-go/engine"},
+	"pkg/ext-go/engine":                 {"pkg/ext-go/core"},
+	"pkg/ext-go/cgoengine":              {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
+	"pkg/ext-go/c2goengine":             {"pkg/ext-go/core", "pkg/ext-go/engine"},
+	"pkg/ext-go/wasm":                   {"pkg/ext-go/core", "pkg/ext-go/engine", "res/web/host"},
+	"pkg/ext-go/hashicorp":              {"pkg/ext-go/core", "pkg/ext-go/engine"},
+	"pkg/ext-go/yaegi":                  {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/core":                   {},
-	"pkg/ext-go/cguest":                 {"pkg/ext-go/engine", "pkg/ext-go/cengine"},
-	"pkg/ext-go/cengine":                {},
-	"src/ctn/inference":                 {"pkg/ext-go/engine", "res/int"},
-	"src/ctn/model":                     {"pkg/ext-go/engine", "res/int"},
-	"src/ctn/perception":                {"pkg/ext-go/engine", "res/int"},
-	"src/ctn/realtime":                  {"pkg/ext-go/engine", "res/int"},
+	"pkg/ext-go/cengine":                {"pkg/ext-go/core", "pkg/ext-go/engine"},
+	"src/ctn/inference":                 {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
+	"src/ctn/model":                     {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
+	"src/ctn/perception":                {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
+	"src/ctn/realtime":                  {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
 	"res/int":                           {},
 	"src/cto/sandbox":                   {},
 	"res/web/host":                      {},
 	"res/system":                        {},
-	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/engine", "pkg/ext-go/cengine", "res/system"},
-	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "pkg/ext-go/cguest", "pkg/ext-go/engine/ledger/recorder", "res/web/host", "res/system"},
+	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
+	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "pkg/ext-go/engine/ledger/recorder", "res/web/host", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -90,7 +86,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 // nothing of the C engine. A wazero, gRPC, or CTN bridge user needs no C toolchain.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/cengine", "pkg/ext-go/cguest", "pkg/ext-go/core", "src/ctn/inference", "src/ctn/model", "src/ctn/perception", "src/ctn/realtime"} {
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/cengine", "pkg/ext-go/core", "src/ctn/inference", "src/ctn/model", "src/ctn/perception", "src/ctn/realtime"} {
 		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/plugin", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
@@ -132,17 +128,16 @@ func TestYaegiBackendRequiresOnlyYaegi(t *testing.T) {
 		if len(fields) < 2 || !strings.HasPrefix(fields[1], "v") || !strings.Contains(fields[0], ".") {
 			continue
 		}
-		if fields[0] != "github.com/traefik/yaegi" && fields[0] != pluginPrefix+"/engine" {
+		if fields[0] != "github.com/traefik/yaegi" && fields[0] != pluginPrefix+"/engine" && fields[0] != pluginPrefix+"/core" {
 			got = append(got, fields[0])
 		}
 	}
 	if len(got) > 0 {
-		t.Errorf("pkg/ext-go/yaegi requires %v; it may require only the engine and github.com/traefik/yaegi", got)
+		t.Errorf("pkg/ext-go/yaegi requires %v; it may require only core, engine and github.com/traefik/yaegi", got)
 	}
 }
 
-// The portable plugin engine and guest contract stay standard-library-only.
-// engine/ledger is the C-backed ledger API and may import its binding and OS wire types.
+// The portable plugin engine uses the standard library and shared core plugin contracts.
 func TestPluginEngineUsesOnlyTheStandardLibrary(t *testing.T) {
 	root := repoRoot(t)
 	err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine/plugin"), func(path string, entry fs.DirEntry, walkErr error) error {
@@ -168,9 +163,9 @@ func TestPluginEngineUsesOnlyTheStandardLibrary(t *testing.T) {
 		for _, imp := range file.Imports {
 			name, _ := strconv.Unquote(imp.Path.Value)
 			first, _, _ := strings.Cut(name, "/")
-			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") {
+			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") && name != pluginPrefix+"/core/plugin" {
 				rel, _ := filepath.Rel(root, path)
-				t.Errorf("%s imports %s; the portable plugin engine uses only the standard library", filepath.ToSlash(rel), name)
+				t.Errorf("%s imports %s; the portable plugin engine uses only the standard library and core/plugin", filepath.ToSlash(rel), name)
 			}
 		}
 		return nil
@@ -354,8 +349,8 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 	}
 }
 
-// core/driver and all of cengine are generic: they know no library of lib/ by name, so they import
-// nothing of ext. A library's own Go package lists its drivers and uses them.
+// core/driver and the generic C tooling stay independent of plugin behavior.
+// The native guest and ledger bindings may consume shared contracts; generic loading stays independent.
 func TestSwitcherAndCSideKnowNoLibrary(t *testing.T) {
 	root := repoRoot(t)
 	// The umbrella published a package at pkg/ext-go/core up to v0.12.0, so the core module has no
@@ -365,6 +360,9 @@ func TestSwitcherAndCSideKnowNoLibrary(t *testing.T) {
 	}
 	for dir, own := range map[string]string{"pkg/ext-go/core/driver": pluginPrefix + "/core/driver", "pkg/ext-go/cengine": pluginPrefix + "/cengine/"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr == nil && entry.IsDir() && (path == filepath.Join(root, "pkg/ext-go/cengine/cguest/backend") || path == filepath.Join(root, "pkg/ext-go/cengine/cguest/guest") || path == filepath.Join(root, "pkg/ext-go/cengine/ledger")) {
+				return filepath.SkipDir
+			}
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 				return walkErr
 			}
@@ -374,9 +372,61 @@ func TestSwitcherAndCSideKnowNoLibrary(t *testing.T) {
 			}
 			for _, imp := range file.Imports {
 				name, _ := strconv.Unquote(imp.Path.Value)
-				if strings.HasPrefix(name, "github.com/webong/ext/") && !strings.HasPrefix(name, own) {
+				if strings.HasPrefix(name, "github.com/webong/ext/") && (!strings.HasPrefix(name, own) || strings.HasPrefix(name, pluginPrefix+"/cengine/cguest/backend") || strings.HasPrefix(name, pluginPrefix+"/cengine/cguest/guest")) {
 					rel, _ := filepath.Rel(root, path)
 					t.Errorf("%s imports %s; the switcher and the C side know no library", filepath.ToSlash(rel), name)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// Shared contracts cannot import either implementation, and the Go engine
+// cannot reach the native binding. Cengine may build on core and engine.
+func TestEngineLayersHaveNoBackEdges(t *testing.T) {
+	root := repoRoot(t)
+	for _, layer := range []string{"core", "engine", "cengine"} {
+		base := filepath.Join(root, "pkg/ext-go", layer)
+		err := filepath.WalkDir(base, func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				if path != base {
+					if _, err := os.Stat(filepath.Join(path, "go.mod")); err == nil {
+						return filepath.SkipDir
+					}
+				}
+				return nil
+			}
+			if filepath.Ext(path) != ".go" {
+				return nil
+			}
+			f, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, imp := range f.Imports {
+				name, _ := strconv.Unquote(imp.Path.Value)
+				if strings.HasPrefix(name, "github.com/webong/ext/res/system") {
+					t.Errorf("%s imports OS substrate %s; SDK bindings use ledger wire records", path, name)
+				}
+				forbidden := []string{}
+				if layer != "cengine" {
+					forbidden = []string{"cengine", "cgoengine", "c2goengine"}
+				}
+				if layer == "core" {
+					forbidden = append(forbidden, "engine")
+				}
+				for _, target := range forbidden {
+					prefix := pluginPrefix + "/" + target
+					if name == prefix || strings.HasPrefix(name, prefix+"/") {
+						t.Errorf("%s imports %s against core -> engine -> cengine layering", path, name)
+					}
 				}
 			}
 			return nil

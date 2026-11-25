@@ -5,8 +5,8 @@ package ledger_test
 import (
 	"context"
 	native "github.com/webong/ext/pkg/ext-go/cgoengine/ledger"
-	model "github.com/webong/ext/pkg/ext-go/engine/ledger"
-	"github.com/webong/ext/pkg/ext-go/engine/ledger/ledgertest"
+	model "github.com/webong/ext/pkg/ext-go/cengine/ledger"
+	"github.com/webong/ext/pkg/ext-go/core/ledger/ledgertest"
 	"testing"
 )
 

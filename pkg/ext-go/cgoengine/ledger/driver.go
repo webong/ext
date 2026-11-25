@@ -12,7 +12,7 @@ import "C"
 
 import (
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
-	model "github.com/webong/ext/pkg/ext-go/engine/ledger"
+	model "github.com/webong/ext/pkg/ext-go/cengine/ledger"
 	"unsafe"
 )
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	shared "github.com/webong/ext/pkg/ext-go/core/plugin"
 	"strings"
 	"sync"
 	"time"
@@ -40,8 +41,8 @@ const (
 	DefaultReversePayloadBytes = 1 << 20
 	DefaultReverseInFlight     = 4
 	MaxProgressTextBytes       = 2048
-	DefaultProgressEvents      = 50
-	DefaultProgressBytes       = 64 << 10
+	DefaultProgressEvents      = shared.DefaultProgressEvents
+	DefaultProgressBytes       = shared.DefaultProgressBytes
 )
 
 var (
@@ -117,8 +118,8 @@ type ReverseRequestFrame struct {
 
 // Validate checks the frame's shape. A failure is a protocol violation.
 func (f ReverseRequestFrame) Validate() error {
-	if f.Frame != FrameReverseRequest || f.APIVersion != APIVersion || !revision.MatchString(f.ID) || f.Deadline.IsZero() ||
-		(f.Parent != "" && !revision.MatchString(f.Parent)) || f.Contract.Validate() != nil || !identifier.MatchString(f.Operation) {
+	if f.Frame != FrameReverseRequest || f.APIVersion != APIVersion || !shared.ValidRevision(f.ID) || f.Deadline.IsZero() ||
+		(f.Parent != "" && !shared.ValidRevision(f.Parent)) || f.Contract.Validate() != nil || !shared.ValidIdentifier(f.Operation) {
 		return fmt.Errorf("%w: malformed reverse request", ErrProtocol)
 	}
 	if len(f.Payload) != 0 {
@@ -208,36 +209,10 @@ type ProgressFrame struct {
 
 // Validate checks the frame's shape.
 func (f ProgressFrame) Validate() error {
-	if f.Frame != FrameProgress || f.APIVersion != APIVersion || !revision.MatchString(f.Parent) {
+	if f.Frame != FrameProgress || f.APIVersion != APIVersion || !shared.ValidRevision(f.Parent) {
 		return fmt.Errorf("%w: malformed progress frame", ErrProtocol)
 	}
 	return f.Progress.Validate()
-}
-
-// ProgressLimits is the rate at which a call may report. Zero fields use the
-// defaults. It travels in the request so both ends apply the same limits.
-type ProgressLimits struct {
-	EventsPerSecond int `json:"eventsPerSecond,omitempty"`
-	BytesPerSecond  int `json:"bytesPerSecond,omitempty"`
-}
-
-// Resolved fills in defaults.
-func (l ProgressLimits) Resolved() ProgressLimits {
-	if l.EventsPerSecond <= 0 {
-		l.EventsPerSecond = DefaultProgressEvents
-	}
-	if l.BytesPerSecond <= 0 {
-		l.BytesPerSecond = DefaultProgressBytes
-	}
-	return l
-}
-
-// Validate bounds explicit limits.
-func (l ProgressLimits) Validate() error {
-	if l.EventsPerSecond < 0 || l.BytesPerSecond < 0 || l.EventsPerSecond > 1<<20 || l.BytesPerSecond > 1<<30 {
-		return fmt.Errorf("%w: progress limits out of range", ErrInvalid)
-	}
-	return nil
 }
 
 // ProgressReporter sends events from inside a call.

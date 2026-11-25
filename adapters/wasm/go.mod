@@ -11,3 +11,5 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0
 	github.com/webong/ext/src/cto/sandbox v0.1.0
 )
+
+require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect

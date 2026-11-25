@@ -359,6 +359,19 @@ static int call_library(const char *op, const lj_value *in, char **out, size_t *
     int has_pid = num(in, "pid", &pid), has_resources = num(in, "resource_limit", &resource_limit);
     if (!what || present < 0 || has_pid < 0 || has_resources < 0 || (present && strcmp(what, "processes")) ||
         (strcmp(what, "process") ? has_pid || has_resources : !has_pid)) return EXT_LEDGER_INVALID;
+    const lj_value *search = lj_get(in, "search_path");
+    if (search) {
+      if (strcmp(what, "shells") || search->type != LJ_STRING || search->u.string.len > 65536 ||
+          strlen(search->u.string.ptr) != search->u.string.len) return EXT_LEDGER_INVALID;
+      lj_value *list = NULL;
+      rc = ll_collect_shells(ctx, search->u.string.ptr, &list);
+      if (rc) return rc;
+      lj_buf b = {0};
+      lj_write(&b, list);
+      lj_free(list);
+      *out = lj_buf_take(&b, out_len);
+      return *out ? EXT_LEDGER_OK : EXT_LEDGER_IO;
+    }
     return ll_collect_with_options(ctx, what, limit, pid, resource_limit, out, out_len);
   }
   if (!strcmp(op, "process_identity")) {

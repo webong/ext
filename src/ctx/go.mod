@@ -3,6 +3,7 @@ module github.com/webong/ext/src/ctx
 go 1.26.0
 
 require (
+	github.com/webong/ext/pkg/ext-go/cengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1
 	github.com/webong/ext/res/system v0.5.1
 	github.com/webong/ext/res/web/host v0.1.0

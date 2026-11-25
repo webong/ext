@@ -13,10 +13,12 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )
 
+var revision = "child"
+
 func main() {
 	d := plugin.Descriptor{
 		APIVersion: plugin.APIVersion,
-		Identity:   plugin.Identity{ID: "example/hello", Revision: "child", Version: "1.0.0"},
+		Identity:   plugin.Identity{ID: "example/hello", Revision: revision, Version: "1.0.0"},
 		Contracts:  []plugin.Contract{pkgcmd.RunContract},
 	}
 	err := jsonline.ServeFunc(context.Background(), d, func(ctx context.Context, method string, payload json.RawMessage) (any, error) {

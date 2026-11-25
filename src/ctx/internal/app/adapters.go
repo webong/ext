@@ -2,7 +2,10 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"github.com/webong/ext/src/ctx/internal/adapterenv"
+	"github.com/webong/ext/src/ctx/internal/adaptersnapshot"
 	"io"
 	"os"
 	"os/exec"
@@ -12,9 +15,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/webong/ext/src/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
+	"github.com/webong/ext/res/system/service/host/dirlock"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 func adapterStore() *modpkg.Store {
@@ -30,17 +34,17 @@ func sortedDependencySpaces(dependencies map[string]modpkg.Dependency) []string 
 	return spaces
 }
 
-func stripDependencyEnvironment(values []string) []string {
-	filtered := values[:0]
-	for _, value := range values {
-		if !strings.HasPrefix(strings.ToUpper(value), "EXT_DEPENDENCY_") {
-			filtered = append(filtered, value)
+func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 {
+		switch args[0] {
+		case "install", "trust", "remove", "add", "refresh":
+			release, err := acquireAdapterWriter()
+			if err != nil {
+				return reportError(stderr, err)
+			}
+			defer func() { _ = release() }()
 		}
 	}
-	return filtered
-}
-
-func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {
 	return (adaptercmd.Options{Name: "ctx", Doctor: func(candidate *modpkg.Adapter, stdout, stderr io.Writer) int {
 		selection, err := adapterSelection(resolver, candidate)
 		if err != nil {
@@ -320,10 +324,12 @@ func invokeAdapterIO(resolver *config.Resolver, candidate *modpkg.Adapter, opera
 }
 
 func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter, operation, selection string, args []string, requestedCommand string, stdin io.Reader, stdout, stderr io.Writer, extraEnv map[string]string) int {
-	store := adapterStore()
-	if err := store.AssertTrusted(candidate); err != nil {
+	copied, cleanup, err := adaptersnapshot.Prepare(context.Background(), adapterStore(), candidate)
+	if err != nil {
 		return reportError(stderr, err)
 	}
+	defer cleanup()
+	candidate = copied
 	if candidate.IsRuntime("manager") && strings.HasPrefix(selection, "@") {
 		registry, err := readManagerRegistry()
 		if err != nil {
@@ -404,12 +410,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	if err != nil {
 		return reportError(stderr, err)
 	}
-	if executable := os.Getenv("EXT_HOST_EXECUTABLE"); executable != "" {
-		command.Env = setEnvironment(command.Env, "EXT_EXECUTABLE", executable)
-		command.Env = setEnvironment(command.Env, "EXT_PRODUCT_PREFIX", "ctx")
-	} else if executable, err := os.Executable(); err == nil {
-		command.Env = setEnvironment(command.Env, "EXT_EXECUTABLE", executable)
-	}
+	command.Env = adapterenv.Host(command.Env)
 	profileValues, err := profileEnvironment(resolver)
 	if err != nil {
 		return reportError(stderr, err)
@@ -426,10 +427,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	for key, value := range extraEnv {
 		command.Env = setEnvironment(command.Env, key, value)
 	}
-	command.Env = stripDependencyEnvironment(command.Env)
-	for space, dependency := range candidate.Manifest.Dependencies {
-		command.Env = setEnvironment(command.Env, "EXT_DEPENDENCY_"+strings.ToUpper(space), dependency.Adapter)
-	}
+	command.Env = adapterenv.Dependencies(command.Env, candidate.Manifest.Dependencies)
 	if operation == "list" || operation == "observe" || operation == "programs" || (candidate.IsRuntime("browser") && operation == "share" && len(args) == 2 && args[0] == "status" && args[1] == "probe") {
 		return runPreparedDiscovery(command, stdout, stderr)
 	}
@@ -494,4 +492,10 @@ func reportError(stderr io.Writer, err error) int { return reportErrorCode(stder
 func reportErrorCode(stderr io.Writer, err error, code int) int {
 	fmt.Fprintf(stderr, "ctx: %v\n", err)
 	return code
+}
+
+// The compatibility commands share the package writer lock with ext package.
+// Keep it across dependency checks, content changes, trust and shim changes.
+func acquireAdapterWriter() (func() error, error) {
+	return dirlock.Acquire(filepath.Join(filepath.Dir(modpkg.Home()), ".package-write.lock"))
 }

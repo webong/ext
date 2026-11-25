@@ -2,6 +2,8 @@ package libcmd
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	"io"
 	"os"
 	"path/filepath"
@@ -87,5 +89,28 @@ func TestBindWritesTheBindingOfADescription(t *testing.T) {
 	}
 	if err := run(context.Background(), io.Discard, []string{"bind", "-lib", "ext_plugin", "-dir", "../outside"}); err == nil || !strings.Contains(err.Error(), "outside the module") {
 		t.Errorf("a directory outside the module: %v", err)
+	}
+}
+
+func TestFetchAllTargetsDeduplicatesDriverAssets(t *testing.T) {
+	root := module(t, `{"libraries":{"demo":{"citation":"demo.citation.json","drivers":["cgo"]}}}`)
+	path := filepath.Join(root, "demo.citation.json")
+	c, err := library.ReadCitation(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := c.Assets[0]
+	extra.Drivers = library.Drivers{PureGo: &library.PureGoFiles{Shared: "lib/demo.so"}}
+	c.Assets = append(c.Assets, extra)
+	data, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	err = run(context.Background(), io.Discard, []string{"fetch", "-lib", "demo", "-target", "all", "-offline"})
+	if err == nil || !strings.Contains(err.Error(), "offline") {
+		t.Fatalf("all failed before download: %v", err)
 	}
 }

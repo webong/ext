@@ -110,6 +110,12 @@ func Command(installed store.Installed, declared Declared, options host.Options)
 		Version: installed.Version(),
 		Run: func(args []string, stdout, stderr io.Writer) int {
 			if declared.Transport == "socket" {
+				if options.Verify != nil {
+					if err := options.Verify(context.Background()); err != nil {
+						fmt.Fprintf(stderr, "ext: %s: %v\n", declared.Name, err)
+						return 1
+					}
+				}
 				return runSocket(installed, declared, args, stdout, stderr)
 			}
 			return run(installed, options, declared.Name, args, stdout, stderr)

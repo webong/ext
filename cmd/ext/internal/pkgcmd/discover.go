@@ -1,6 +1,7 @@
 package pkgcmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/webong/ext/cmd/ext/internal/registry"
@@ -44,8 +45,20 @@ func Discover(reg *registry.Registry, s *store.Store, trust *Trust, options host
 		if p.Verify() != nil {
 			continue // reported above from the store's own checks
 		}
+		commandOptions := options
+		if len(p.Manifest.Requires) > 0 {
+			id := p.Name()
+			commandOptions.Verify = func(ctx context.Context) error {
+				if options.Verify != nil {
+					if err := options.Verify(ctx); err != nil {
+						return err
+					}
+				}
+				return (Manager{Store: s, Trust: trust}).CheckInvocation(id)
+			}
+		}
 		for _, d := range declared {
-			if err := reg.Register(Command(p, d, options)); err != nil {
+			if err := reg.Register(snapshotCommand(p, d, commandOptions, s, trust)); err != nil {
 				reg.Note(fmt.Sprintf("package %s: %v", p.Name(), err))
 			}
 		}

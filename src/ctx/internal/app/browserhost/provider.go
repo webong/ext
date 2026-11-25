@@ -12,6 +12,8 @@ import (
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	browser "github.com/webong/ext/res/web/host/manage/cookie"
+	"github.com/webong/ext/src/ctx/internal/adapterenv"
+	"github.com/webong/ext/src/ctx/internal/adaptersnapshot"
 )
 
 type Provider struct{ AdapterHome string }
@@ -29,7 +31,7 @@ func (provider Provider) Sources(ctx context.Context, options browser.Options) (
 			Adapter: adapter.Manifest.Name, Profile: profile, Label: candidate.label,
 			SupportsQuery: adapter.HasBrowserShare("cookie.query"),
 			Invoke: func(ctx context.Context, operation string, args []string, input []byte) ([]byte, error) {
-				return invoke(ctx, adapter, operation, profile, args, input)
+				return invoke(ctx, store, adapter, operation, profile, args, input)
 			},
 		})
 	}
@@ -48,7 +50,7 @@ func (provider Provider) Normalize(ctx context.Context, name, profile string, re
 	if err := store.AssertTrusted(adapter); err != nil {
 		return nil, err
 	}
-	return invoke(ctx, adapter, "share", profile, []string{"cookie", "normalize"}, request)
+	return invoke(ctx, store, adapter, "share", profile, []string{"cookie", "normalize"}, request)
 }
 
 func adapterHome(override string) string {
@@ -133,7 +135,7 @@ func selectSources(ctx context.Context, store *modpkg.Store, options browser.Opt
 			warnings = append(warnings, name+": profile discovery unavailable")
 			continue
 		}
-		output, err := invoke(ctx, adapter, "list", "", nil, nil)
+		output, err := invoke(ctx, store, adapter, "list", "", nil, nil)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: %v", name, err))
 			continue
@@ -184,11 +186,18 @@ func supportsCookieQuery(adapter *modpkg.Adapter) bool {
 		(adapter.HasBrowserShare("cookie.list") && adapter.HasBrowserShare("cookie.export")))
 }
 
-func invoke(ctx context.Context, adapter *modpkg.Adapter, operation, profile string, args []string, input []byte) ([]byte, error) {
+func invoke(ctx context.Context, store *modpkg.Store, adapter *modpkg.Adapter, operation, profile string, args []string, input []byte) ([]byte, error) {
+	copied, cleanup, err := adaptersnapshot.Prepare(ctx, store, adapter)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	adapter = copied
 	command, err := adapter.CommandContext(ctx, modpkg.Invocation{Operation: operation, Selection: profile, Arguments: args})
 	if err != nil {
 		return nil, err
 	}
+	command.Env = adapterenv.Dependencies(adapterenv.Host(command.Env), adapter.Manifest.Dependencies)
 	command.Stdin = bytes.NewReader(input)
 	stdout := &boundedBuffer{limit: 8 << 20}
 	stderr := &boundedBuffer{limit: 4 << 10}

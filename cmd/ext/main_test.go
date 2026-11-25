@@ -27,6 +27,10 @@ func goBuild(t *testing.T, out, pkg string) {
 // TestEndToEnd drives the real ext binary: install a package that provides commands,
 // see that it is not run until trusted, trust it, run its commands, and remove it.
 func TestEndToEnd(t *testing.T) {
+	native := os.Getenv("EXT_ACCEPTANCE_LIBRARY")
+	if native == "" {
+		t.Skip("run scripts/package-acceptance.sh for command snapshot acceptance")
+	}
 	exe := ""
 	if runtime.GOOS == "windows" {
 		exe = ".exe"
@@ -34,6 +38,7 @@ func TestEndToEnd(t *testing.T) {
 	bin := t.TempDir()
 	ext := filepath.Join(bin, "ext"+exe)
 	goBuild(t, ext, ".")
+	stageAcceptanceEngine(t, bin, native)
 
 	pkg := t.TempDir()
 	guest := filepath.Join(pkg, "hello"+exe)
@@ -49,9 +54,11 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	home := t.TempDir()
+	outside := t.TempDir()
 	run := func(args ...string) (int, string, string) {
 		cmd := exec.Command(ext, args...)
-		cmd.Env = append(os.Environ(), "EXT_HOME="+home)
+		cmd.Dir = outside
+		cmd.Env = acceptanceEnv(home)
 		var out, errOut bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &out, &errOut
 		code := 0
@@ -95,6 +102,30 @@ func TestEndToEnd(t *testing.T) {
 	if _, out, _ := run("commands"); !strings.Contains(out, "bundle") || !strings.Contains(out, "hi") {
 		t.Fatalf("commands = %q", out)
 	}
+	// A new sealed revision requires approval of the new digest.
+	buildUpgrade := exec.Command("go", "build", "-ldflags=-X main.revision=child2", "-o", guest, "./testdata/guest")
+	if output, err := buildUpgrade.CombinedOutput(); err != nil {
+		t.Fatalf("build upgrade: %v\n%s", err, output)
+	}
+	m, err = packagekit.ExecutableManifest("example/hello", "1.0.0", []plugin.Contract{pkgcmd.RunContract}, guest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Descriptor.Identity.Revision = "child2"
+	m.Metadata = make(map[string]json.RawMessage)
+	m.Metadata[pkgcmd.MetadataKey] = json.RawMessage(`{"commands":[{"name":"hi","summary":"Updated greeting"},{"name":"bye"}]}`)
+	if err := store.WriteManifest(pkg, m); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := run("package", "upgrade", pkg); code != 0 {
+		t.Fatalf("upgrade = %d %q", code, errOut)
+	}
+	if code, _, _ := run("hi", "unapproved-upgrade"); code != 2 {
+		t.Fatal("upgraded package retained approval of different bytes")
+	}
+	if code, _, errOut := run("package", "trust", "example/hello"); code != 0 {
+		t.Fatalf("approve upgrade = %d %q", code, errOut)
+	}
 	// Recreate the legacy layout and prove the real CLI requires and performs migration.
 	if err := os.Rename(filepath.Join(home, "packages"), filepath.Join(home, "commands")); err != nil {
 		t.Fatal(err)
@@ -116,5 +147,41 @@ func TestEndToEnd(t *testing.T) {
 	}
 	if code, _, _ := run("hi"); code != 2 {
 		t.Fatal("hi still runs after remove")
+	}
+}
+
+// acceptanceEnv prevents a developer's configured providers or Go workspace
+// from participating in the runtime check. Only staged artifacts are available.
+func acceptanceEnv(home string) []string {
+	var env []string
+	for _, value := range os.Environ() {
+		key, _, _ := strings.Cut(value, "=")
+		if strings.HasPrefix(key, "EXT_") || key == "GOWORK" {
+			continue
+		}
+		env = append(env, value)
+	}
+	return append(env, "EXT_HOME="+home, "GOWORK=off")
+}
+
+func stageAcceptanceEngine(t *testing.T, bin, source string) {
+	t.Helper()
+	name := "libext_plugin_host.so"
+	if runtime.GOOS == "darwin" {
+		name = "libext_plugin_host.dylib"
+	}
+	if runtime.GOOS == "windows" {
+		name = "ext_plugin_host.dll"
+	}
+	dir := filepath.Join(bin, "ext-lib")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), data, 0700); err != nil {
+		t.Fatal(err)
 	}
 }

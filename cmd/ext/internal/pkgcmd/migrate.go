@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/webong/ext/cmd/ext/internal/packagelock"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
@@ -50,6 +51,11 @@ func RunMigration(home string, stdout, stderr io.Writer) int {
 // migrate stages verified packages and their original trust scopes together,
 // then publishes with one rename. Failure leaves the old installation intact.
 func migrate(home string) error {
+	release, err := packagelock.Acquire(home)
+	if err != nil {
+		return err
+	}
+	defer release()
 	target := filepath.Join(home, "packages")
 	if info, err := os.Lstat(target); err == nil {
 		if !info.IsDir() {
@@ -59,14 +65,6 @@ func migrate(home string) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := os.MkdirAll(home, 0700); err != nil {
-		return err
-	}
-	lock := filepath.Join(home, ".package-migration.lock")
-	if err := os.Mkdir(lock, 0700); err != nil {
-		return fmt.Errorf("migration already running or stale lock at %s: %w", lock, err)
-	}
-	defer os.Remove(lock)
 	stage, err := os.MkdirTemp(home, ".packages-")
 	if err != nil {
 		return err

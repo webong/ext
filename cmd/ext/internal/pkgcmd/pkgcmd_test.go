@@ -43,6 +43,28 @@ func TestMain(m *testing.M) {
 				_ = plugin.ProgressFrom(ctx).Report(plugin.Progress{Kind: "log", Stream: stream, Text: text})
 			}
 			switch req.Command {
+
+			case "snapshot":
+				if len(req.Args) != 1 {
+					return nil, fmt.Errorf("missing home")
+				}
+				lock := filepath.Join(req.Args[0], ".package-write.lock")
+				if err := os.Mkdir(lock, 0700); err != nil {
+					return nil, err
+				}
+				if err := os.Remove(lock); err != nil {
+					return nil, err
+				}
+				executable, err := os.Executable()
+				if err != nil {
+					return nil, err
+				}
+				if os.Getenv("EXT_COMMAND_ADDR") != "" {
+					fmt.Fprintln(os.Stdout, executable)
+				} else {
+					report("out", executable+"\n")
+				}
+				return response{}, nil
 			case "echo":
 				report("out", strings.Join(req.Args, " ")+"\n")
 				return response{Exit: 0}, nil
@@ -456,5 +478,103 @@ func TestManageInvalidCommandsDoNotBlockPackageTrust(t *testing.T) {
 	}
 	if len(reg.Notes()) == 0 {
 		t.Fatal("invalid command declaration not diagnosed")
+	}
+}
+
+func TestSocketCommandChecksAdmissionBeforeLaunch(t *testing.T) {
+	var stderr bytes.Buffer
+	called := false
+	command := Command(store.Installed{}, Declared{Name: "blocked", Transport: "socket"}, host.Options{Verify: func(context.Context) error { called = true; return errors.New("dependency approval revoked") }})
+	if got := command.Run(nil, io.Discard, &stderr); got != 1 || !called || !strings.Contains(stderr.String(), "dependency approval revoked") {
+		t.Fatalf("admission: %d %t %s", got, called, stderr.String())
+	}
+}
+
+func TestManagementRefusesConcurrentWriter(t *testing.T) {
+	m, home := manager(t)
+	lock := filepath.Join(home, ".package-write.lock")
+	if err := os.Mkdir(lock, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(lock)
+	for _, command := range []string{"install", "upgrade", "remove", "trust", "untrust", "add", "refresh"} {
+		code, _, stderr := manage(t, m, command, "unused")
+		if code != 1 || !strings.Contains(stderr, "package writer unavailable") {
+			t.Fatalf("%s bypassed writer lock: %d %s", command, code, stderr)
+		}
+	}
+	if err := migrate(home); err == nil || !strings.Contains(err.Error(), "package writer unavailable") {
+		t.Fatalf("migration bypassed lock: %v", err)
+	}
+}
+
+func TestDiscoveredCommandsRunFromPrivateSnapshots(t *testing.T) {
+	for _, transport := range []string{"", "socket"} {
+		name := transport
+		if name == "" {
+			name = "stdio"
+		}
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			metadata := fmt.Sprintf(`{"commands":[{"name":"snapshot","transport":%q}]}`, transport)
+			installed := install(t, filepath.Join(home, "packages"), "1.0.0", metadata)
+			trust, err := LoadTrust(home)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := trust.Trust(installed); err != nil {
+				t.Fatal(err)
+			}
+			reg := discover(t, home)
+			code, out, diagnostics := runCommand(t, reg, "snapshot", home)
+			if code != 0 {
+				t.Fatalf("snapshot command: %d %s", code, diagnostics)
+			}
+			path := strings.TrimSpace(out)
+			if path == "" || strings.HasPrefix(path, installed.Directory+string(os.PathSeparator)) {
+				t.Fatalf("executed original package: %q", path)
+			}
+			if !strings.Contains(path, "ext-command-snapshot-") {
+				t.Fatalf("not private snapshot: %q", path)
+			}
+			if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {
+				t.Fatalf("snapshot not cleaned: %v", err)
+			}
+			// The registry must not retain admission after trust is revoked.
+			if err := trust.Revoke(installed.Name()); err != nil {
+				t.Fatal(err)
+			}
+			if code, _, _ := runCommand(t, reg, "snapshot", home); code == 0 {
+				t.Fatal("cached command bypassed revoked trust")
+			}
+		})
+	}
+}
+
+func TestCommandSnapshotSurvivesSourceRemoval(t *testing.T) {
+	home := t.TempDir()
+	installed := install(t, filepath.Join(home, "packages"), "1.0.0", declares)
+	trust, err := LoadTrust(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trust.Trust(installed); err != nil {
+		t.Fatal(err)
+	}
+	s, err := store.New(filepath.Join(home, "packages"), store.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	copied, cleanup, err := prepareCommandSnapshot(installed, childEnv, s, trust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if err := os.RemoveAll(installed.Directory); err != nil {
+		t.Fatal(err)
+	}
+	var out, diagnostics bytes.Buffer
+	if code := Command(copied, Declared{Name: "echo"}, childEnv).Run([]string{"copied"}, &out, &diagnostics); code != 0 || out.String() != "copied\n" {
+		t.Fatalf("isolated invocation: %d %s %s", code, out.String(), diagnostics.String())
 	}
 }

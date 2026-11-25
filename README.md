@@ -19,7 +19,9 @@ they provide. Plugin-specific usage belongs in each plugin's documentation.
 | --- | --- |
 | `ext commands` | List available commands |
 | `ext package` | Install, trust and manage plugin packages |
-| `ext bundle` | Fetch native library artifacts and generate bindings |
+| `ext resource` | Discover providers, inspect resources and invoke explicitly declared operations |
+| `ext source` | Manage cached package catalogs without granting execution trust |
+| `ext bundle` | Plan and install pinned package groups; fetch native artifacts and generate bindings |
 | `ext which <command>` | Show which implementation supplies a command |
 
 ### Install

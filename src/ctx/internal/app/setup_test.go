@@ -2,10 +2,14 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
+	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
@@ -27,7 +31,9 @@ func TestParseAdapterSelectionNamesAndNumbers(t *testing.T) {
 	}
 }
 
-func TestCatalogAddInstallsDeclaredDependency(t *testing.T) {
+func TestCatalogAddInstallsDeclaredDependency(t *testing.T) { testCatalogDependency(t, false) }
+func TestCatalogAddInstallsPackageDependency(t *testing.T)  { testCatalogDependency(t, true) }
+func testCatalogDependency(t *testing.T, modern bool) {
 	root := t.TempDir()
 	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
 	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
@@ -41,6 +47,30 @@ func TestCatalogAddInstallsDeclaredDependency(t *testing.T) {
 		}
 		if err := modpkg.WriteKeyValueManifest(directory, manifest); err != nil {
 			t.Fatal(err)
+		}
+		if modern && name == "chrome" {
+			pm, err := modpkg.TemplateFromKeyValues(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var metadata map[string]any
+			if err := json.Unmarshal(pm.Metadata[modpkg.MetadataKey], &metadata); err != nil {
+				t.Fatal(err)
+			}
+			delete(metadata, "dependencies_"+runtime.GOOS)
+			metadata["share_dependencies"] = []string{"credential:vault"}
+			pm.Metadata[modpkg.MetadataKey], err = json.Marshal(metadata)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pm.Requires = []packagekit.Dependency{{Provider: "vault", Contract: plugin.ContractRef{Name: plugin.AdapterContractName, Version: modpkg.APIVersion}, Operation: "share", OS: runtime.GOOS, Arch: runtime.GOARCH}}
+			raw, err := json.MarshalIndent(pm, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(directory, "plugin.json"), raw, 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
 		command := "#!/bin/sh\nexit 0\n"
 		if name == "chrome" {
@@ -134,5 +164,24 @@ func TestParseAdapterSelectionRejectsUnknown(t *testing.T) {
 	available := []*modpkg.Adapter{{Manifest: modpkg.Manifest{Name: "docker"}}}
 	if _, err := parseAdapterSelection("unknown", available); err == nil {
 		t.Fatal("unknown adapter was accepted")
+	}
+}
+
+func TestCatalogWritersRespectPackageLock(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("EXT_HOME", home)
+	t.Setenv("EXT_ADAPTER_HOME", "")
+	lock := filepath.Join(home, ".package-write.lock")
+	if err := os.Mkdir(lock, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := addCatalogAdapter("unused"); err == nil || !strings.Contains(err.Error(), "writer unavailable") {
+		t.Fatalf("add bypassed lock: %v", err)
+	}
+	if err := refreshCatalogAdapters(&bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "writer unavailable") {
+		t.Fatalf("refresh bypassed lock: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, "packages")); !os.IsNotExist(err) {
+		t.Fatalf("blocked writer created package store: %v", err)
 	}
 }

@@ -2,14 +2,20 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
 	domain "github.com/webong/ext/res/int/perception"
+	bridge "github.com/webong/ext/src/ctn/perception"
 )
 
 func TestPerceptionProviderPackageTrustAndCall(t *testing.T) {
@@ -66,6 +72,49 @@ func TestPerceptionProviderPackageTrustAndCall(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &observation); err != nil || len(observation.Observations) != 1 || observation.Observations[0].Label != "fixture" {
 		t.Fatalf("observation = %+v, %v", observation, err)
 	}
+
+	t.Run("cancel-owned-session", func(t *testing.T) {
+		pidFile := filepath.Join(t.TempDir(), "guest.pid")
+		t.Setenv("EXT_TEST_PERCEPTION_PID", pidFile)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err := withPerceptionClient(ctx, "perception-fixture", func(client *bridge.Client) error {
+			if _, err := client.Info(ctx); err != nil {
+				return err
+			}
+			if code := command("untrust", "perception-fixture"); code != 1 || !strings.Contains(diagnostics.String(), "writer unavailable") {
+				t.Fatalf("live session allowed mutation: %d %s", code, diagnostics.String())
+			}
+			cancel()
+			return ctx.Err()
+		})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancel: %v", err)
+		}
+		if runtime.GOOS != "windows" {
+			data, err := os.ReadFile(pidFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pid, err := strconv.Atoi(string(data))
+			if err != nil || pid <= 0 {
+				t.Fatalf("invalid guest pid: %q", data)
+			}
+			process, err := os.FindProcess(pid)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = process.Signal(syscall.Signal(0))
+			_ = process.Release()
+			if !errors.Is(err, os.ErrProcessDone) && !errors.Is(err, syscall.ESRCH) {
+				t.Fatalf("canceled guest still running: %d: %v", pid, err)
+			}
+		}
+
+		if _, err := os.Stat(filepath.Join(config, ".package-write.lock")); !os.IsNotExist(err) {
+			t.Fatalf("session retained writer: %v", err)
+		}
+	})
 	if code := command("untrust", "perception-fixture"); code != 0 {
 		t.Fatalf("untrust = %d: %s", code, diagnostics.String())
 	}

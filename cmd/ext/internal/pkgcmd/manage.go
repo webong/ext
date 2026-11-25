@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/webong/ext/cmd/ext/internal/packagelock"
+	"github.com/webong/ext/cmd/ext/internal/sourcecmd"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
@@ -21,8 +24,10 @@ type Manager struct {
 	Trust *Trust
 }
 
-const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sha256 digest] | trust <id> | untrust <id> | remove <id> | list | inspect <id> | verify <id> | migrate
-       ext package build|pack|index|test|doctor|available|add|refresh ...`
+const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sha256 digest] | trust <id> | untrust <id> | remove <id> [--force] | list | inspect <id> | verify <id> | migrate
+       ext package plan [--without <id> | --with <sealed-package-dir>]
+       ext package install|upgrade --source <name>
+       ext package build|pack|index|test|doctor ...`
 
 // Run executes "ext package ..." with args (without "package") and returns the
 // exit code. Installing and upgrading never trust a package: the user trusts the
@@ -34,7 +39,22 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	sub, rest := args[0], args[1:]
 	switch sub {
-	case "build", "pack", "index", "test", "doctor", "available", "add", "refresh":
+	case "install", "upgrade", "trust", "untrust", "remove", "add", "refresh":
+		release, err := packagelock.Acquire(filepath.Dir(m.Store.Root()))
+		if err != nil {
+			fmt.Fprintln(stderr, "ext:", err)
+			return 1
+		}
+		defer release()
+	}
+	if sub == "plan" {
+		return m.plan(rest, stdout, stderr)
+	}
+	switch sub {
+	case "available", "add", "refresh":
+		fmt.Fprintln(stderr, "ext: legacy catalog activation has moved: use ext source import-catalog <directory>, ext source list, then ext package install --source <name> and explicit ext package trust <id>; source refresh never installs or trusts")
+		return 2
+	case "build", "pack", "index", "test", "doctor":
 		return (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
 	}
 	if sub == "ls" {
@@ -47,10 +67,26 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return m.list(stdout, stderr)
 	}
+	if (sub == "install" || sub == "upgrade") && len(rest) == 2 && rest[0] == "--source" {
+		archive, err := (sourcecmd.Manager{Home: filepath.Dir(m.Store.Root())}).Resolve(rest[1])
+		if err != nil {
+			fmt.Fprintln(stderr, "ext: package source:", err)
+			return 1
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		p, err := m.installArchive(ctx, archive)
+		if err != nil {
+			fmt.Fprintln(stderr, "ext: package source:", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "installed %s from source %s; review it, then run: ext package trust %s\n", p.Name(), rest[1], p.Name())
+		return 0
+	}
 	if (sub == "install" || sub == "upgrade") && len(rest) == 3 && rest[1] == "--sha256" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
-		p, err := m.Store.InstallArchive(ctx, store.Archive{Source: rest[0], SHA256: rest[2]}, store.ArchiveOptions{Copy: store.CopyOptions{PreserveExecutableArtifacts: true}})
+		p, err := m.installArchive(ctx, store.Archive{Source: rest[0], SHA256: rest[2]})
 		if err != nil {
 			fmt.Fprintf(stderr, "ext: package %s: %v\n", sub, err)
 			return 1
@@ -60,6 +96,16 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	if sub == "remove" && len(rest) > 0 {
 		if _, err := m.adapterStore().Load(rest[0]); err == nil {
+			if len(rest) != 1 && !(len(rest) == 2 && rest[1] == "--force") {
+				fmt.Fprintln(stderr, manageUsage)
+				return 2
+			}
+			if len(rest) == 1 {
+				if err := m.checkRemoval(rest[0]); err != nil {
+					fmt.Fprintln(stderr, "ext:", err)
+					return 1
+				}
+			}
 			code := (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
 			if code == 0 {
 				if err := m.Trust.Revoke(rest[0]); err != nil {
@@ -69,6 +115,10 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 			}
 			return code
 		}
+	}
+	forceRemove := sub == "remove" && len(rest) == 2 && rest[1] == "--force"
+	if forceRemove {
+		rest = rest[:1]
 	}
 	if len(rest) != 1 {
 		fmt.Fprintln(stderr, manageUsage)
@@ -101,7 +151,7 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "%s is no longer trusted\n", rest[0])
 		}
 	case "remove":
-		err = m.remove(rest[0], stdout)
+		err = m.remove(rest[0], forceRemove, stdout)
 	default:
 		fmt.Fprintf(stderr, "ext: unknown package command %q\n%s\n", sub, manageUsage)
 		return 2
@@ -129,6 +179,9 @@ func (m Manager) install(upgrade bool, dir string, stdout io.Writer) error {
 			p, err = m.Store.Install(dir)
 		}
 	} else {
+		if err := m.checkReplacement(dir); err != nil {
+			return err
+		}
 		p, err = m.Store.UpgradeWithOptions(dir, store.CopyOptions{PreserveExecutableArtifacts: true})
 	}
 	if err != nil {
@@ -146,6 +199,9 @@ func (m Manager) install(upgrade bool, dir string, stdout io.Writer) error {
 }
 
 func (m Manager) trust(id string, stdout io.Writer) error {
+	if err := m.checkRequirements(); err != nil {
+		return err
+	}
 	p, err := m.Store.Load(id)
 	if err != nil {
 		return err
@@ -163,7 +219,33 @@ func (m Manager) trust(id string, stdout io.Writer) error {
 	return nil
 }
 
-func (m Manager) remove(id string, stdout io.Writer) error {
+func (m Manager) checkRemoval(id string) error {
+	installed, _, err := m.Store.ListUnverified()
+	if err != nil {
+		return err
+	}
+	for _, p := range installed {
+		if p.Name() != id && hasRequirements(p.Manifest) {
+			report, err := m.resolvePlan(id, "")
+			if err != nil {
+				return err
+			}
+			if report.Status != "ok" {
+				return fmt.Errorf("removal leaves unresolved dependencies (%s); inspect ext package plan --without %s, or remove --force", report.Status, id)
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func (m Manager) remove(id string, force bool, stdout io.Writer) error {
+	if !force {
+		if err := m.checkRemoval(id); err != nil {
+			return err
+		}
+	}
+
 	if err := m.Store.Remove(id); err != nil {
 		return err
 	}

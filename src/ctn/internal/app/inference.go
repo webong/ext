@@ -91,6 +91,13 @@ func inferenceInstallCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctn: inference install requires one sealed package directory")
 		return 2
 	}
+	release, err := acquirePackageWriter()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer release()
+
 	s, err := store.New(inferencePackageRoot(), store.Limits{})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -140,6 +147,13 @@ func inferenceTrustCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctn: inference trust requires one installed provider ID")
 		return 2
 	}
+	release, err := acquirePackageWriter()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer release()
+
 	s, err := store.New(inferencePackageRoot(), store.Limits{})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -179,6 +193,13 @@ func inferenceUntrustCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctn: inference untrust requires one provider ID")
 		return 2
 	}
+	release, err := acquirePackageWriter()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer release()
+
 	file, err := inferenceTrustFile()
 	if err == nil {
 		err = file.Revoke(inferenceTrustScope, args[0])
@@ -316,6 +337,15 @@ func executableDigest(path string) (string, error) {
 // withProviderClient opens a provider session, creates an inference client,
 // and calls fn. The session is closed when fn returns.
 func withProviderClient(ctx context.Context, providerID string, fn func(*ginference.Client, *ginference.Session) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	release, err := acquirePackageWriter()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	cfg, err := resolveProvider(providerID)
 	if err != nil {
 		return err
@@ -324,7 +354,9 @@ func withProviderClient(ctx context.Context, providerID string, fn func(*ginfere
 	if err != nil {
 		return err
 	}
-	defer session.Close(ctx)
+	// This invocation owns the session. Abort also joins its backend when the
+	// request context is canceled, before the package writer is released.
+	defer session.Abort()
 	client := ginference.NewClient(session)
 	return fn(client, session)
 }

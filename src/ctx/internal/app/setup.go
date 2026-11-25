@@ -15,9 +15,21 @@ import (
 func catalogStore() *modpkg.Store            { return adaptercmd.CatalogStore() }
 func installedAdapterNames() map[string]bool { return adaptercmd.InstalledAdapterNames() }
 func addCatalogAdapter(name string) (*modpkg.Adapter, error) {
+	release, err := acquireAdapterWriter()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = release() }()
 	return adaptercmd.AddCatalogAdapter(name)
 }
-func refreshCatalogAdapters(w io.Writer) error { return adaptercmd.RefreshCatalogAdapters(w) }
+func refreshCatalogAdapters(w io.Writer) error {
+	release, err := acquireAdapterWriter()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = release() }()
+	return adaptercmd.RefreshCatalogAdapters(w)
+}
 
 func setupCommand(args []string, input io.Reader, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "adapters" {

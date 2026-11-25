@@ -13,9 +13,12 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
@@ -53,7 +56,12 @@ func runSocket(installed store.Installed, declared Declared, args []string, stdo
 	cmd := exec.Command(path)
 	cmd.Dir = dir
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, stdout, stderr
-	cmd.Env = commandEnvironment(listener.Addr().String(), token, installed)
+	enginePath, err := nativeplugin.Path()
+	if err != nil {
+		fmt.Fprintf(stderr, "ext: %s: %v\n", name, err)
+		return 1
+	}
+	cmd.Env = commandEnvironment(listener.Addr().String(), token, installed, enginePath)
 	files, err := attachFDs(cmd, args, declared.FDFlags)
 	if err != nil {
 		fmt.Fprintf(stderr, "ext: %s: %v\n", name, err)
@@ -135,15 +143,26 @@ func runSocket(installed store.Installed, declared Declared, args []string, stdo
 	return result.Exit
 }
 
-func commandEnvironment(address, token string, installed store.Installed) []string {
+func commandEnvironment(address, token string, installed store.Installed, enginePath string) []string {
 	env := make([]string, 0, len(os.Environ())+4)
 	for _, item := range os.Environ() {
-		if !strings.HasPrefix(item, "EXT_COMMAND_") {
+		if !strings.HasPrefix(item, "EXT_COMMAND_") && !strings.HasPrefix(item, "EXT_PLUGIN_LIBRARY=") {
 			env = append(env, item)
 		}
 	}
+	if os.Getenv("EXT_LEDGER_LIBRARY") == "" {
+		name := "libext_ledger.so"
+		if runtime.GOOS == "darwin" {
+			name = "libext_ledger.dylib"
+		}
+		if runtime.GOOS == "windows" {
+			name = "ext_ledger.dll"
+		}
+		env = append(env, "EXT_LEDGER_LIBRARY="+filepath.Join(filepath.Dir(enginePath), name))
+	}
 	hostExecutable, _ := os.Executable()
 	env = append(env,
+		"EXT_PLUGIN_LIBRARY="+enginePath,
 		"EXT_COMMAND_ADDR="+address,
 		"EXT_COMMAND_TOKEN="+token,
 		"EXT_COMMAND_ID="+installed.Name(),

@@ -141,12 +141,6 @@
   "metadata": {
     "ctx.adapter/v1": {
       "browser_query_priority": 110,
-      "dependencies_darwin": [
-        "credential:keychain@2.0"
-      ],
-      "dependencies_linux": [
-        "credential:secret_service@2.0"
-      ],
       "description": "Comet browser provider",
       "display_name": "Comet",
       "runtime": "browser",
@@ -156,7 +150,31 @@
       ],
       "surfaces": [
         "web"
+      ],
+      "share_dependencies": [
+        "credential:keychain",
+        "credential:secret_service"
       ]
     }
-  }
+  },
+  "requires": [
+    {
+      "provider": "keychain",
+      "contract": {
+        "name": "ext.adapter",
+        "version": "2.0"
+      },
+      "operation": "share",
+      "os": "darwin"
+    },
+    {
+      "provider": "secret_service",
+      "contract": {
+        "name": "ext.adapter",
+        "version": "2.0"
+      },
+      "operation": "share",
+      "os": "linux"
+    }
+  ]
 }

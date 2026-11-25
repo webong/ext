@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/webong/ext/cmd/ext/internal/packagelock"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
@@ -33,30 +34,58 @@ func LoadTrust(home string) (*Trust, error) {
 		return nil, err
 	}
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
-		legacyPath := filepath.Join(home, TrustFile)
-		data, readErr := os.ReadFile(legacyPath)
-		if readErr != nil && !errors.Is(readErr, fs.ErrNotExist) {
-			return nil, readErr
-		}
-		if readErr == nil {
-			var old struct {
-				Packages map[string]string `json:"packages"`
-			}
-			if err := plugin.Decode(data, &old); err != nil {
-				return nil, err
-			}
-			if len(old.Packages) > 0 {
-				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-					return nil, err
-				}
-				if err := file.ImportLegacy(scope, old.Packages); err != nil {
-					return nil, err
-				}
-			}
+		if err := importLegacyTrust(home, path, file); err != nil {
+			return nil, err
 		}
 	} else if err != nil {
 		return nil, err
 	}
+	return readTrust(file)
+}
+
+func importLegacyTrust(home, path string, file *hosttrust.File) error {
+	// Only legacy import writes during discovery. Recheck under the same lock
+	// used by migration, explicit management and bundle publication.
+	if _, err := os.Stat(filepath.Join(home, TrustFile)); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	release, err := packagelock.Acquire(home)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	legacyPath := filepath.Join(home, TrustFile)
+	data, readErr := os.ReadFile(legacyPath)
+	if readErr != nil && !errors.Is(readErr, fs.ErrNotExist) {
+		return readErr
+	}
+	if readErr == nil {
+		var old struct {
+			Packages map[string]string `json:"packages"`
+		}
+		if err := plugin.Decode(data, &old); err != nil {
+			return err
+		}
+		if len(old.Packages) > 0 {
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				return err
+			}
+			if err := file.ImportLegacy(scope, old.Packages); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func readTrust(file *hosttrust.File) (*Trust, error) {
 	records, err := file.Records(scope)
 	if err != nil {
 		return nil, err

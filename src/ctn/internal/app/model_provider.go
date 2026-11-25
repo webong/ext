@@ -27,6 +27,15 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctn: model provider needs package, install, list, trust, or untrust")
 		return 2
 	}
+	if len(args) == 2 && (args[0] == "install" || args[0] == "trust" || args[0] == "untrust") {
+		release, err := acquirePackageWriter()
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		defer release()
+	}
+
 	switch args[0] {
 	case "list":
 		if len(args) != 1 {
@@ -212,6 +221,15 @@ func resolveModelProvider(id string) (store.Entrypoint, string, error) {
 }
 
 func runTensorProvider(ctx context.Context, id, root string, ref ml.Reference, inputs []ml.Tensor) ([]ml.Tensor, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	release, err := acquirePackageWriter()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
 	selected, digest, err := resolveModelProvider(id)
 	if err != nil {
 		return nil, err
@@ -250,7 +268,9 @@ func runTensorProvider(ctx context.Context, id, root string, ref ml.Reference, i
 	if err != nil {
 		return nil, err
 	}
-	defer session.Close(ctx)
+	// This invocation owns the session. Abort also joins its backend when the
+	// request context is canceled, before the package writer is released.
+	defer session.Abort()
 	response, err := mlplugin.NewClient(session).Infer(ctx, mlplugin.InferRequest{Root: root, Reference: ref.String(), Inputs: inputs})
 	if err != nil {
 		var remote *plugin.RemoteError

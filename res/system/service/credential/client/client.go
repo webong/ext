@@ -16,6 +16,7 @@ import (
 const maxValueBytes = 1024 * 1024
 
 var validName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+var validCommandPrefix = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 var validEnvironment = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
 type boundedOutput struct{ bytes.Buffer }
@@ -55,11 +56,18 @@ func GetDeclaredWithEnv(ctx context.Context, space, item string, extra map[strin
 			return nil, errors.New("ctx executable is unavailable for credential lookup")
 		}
 	}
-	command := exec.CommandContext(ctx, executable, "credential", "get", name+":"+item, "--stdout")
+	args := []string{"credential", "get", name + ":" + item, "--stdout"}
+	if prefix := os.Getenv("EXT_PRODUCT_PREFIX"); prefix != "" {
+		if !validCommandPrefix.MatchString(prefix) {
+			return nil, errors.New("invalid credential host command prefix")
+		}
+		args = append([]string{prefix}, args...)
+	}
+	command := exec.CommandContext(ctx, executable, args...)
 	if len(extra) > 0 {
 		command.Env = os.Environ()
 		for key, value := range extra {
-			if !validEnvironment.MatchString(key) || key == "EXT_EXECUTABLE" ||
+			if !validEnvironment.MatchString(key) || key == "EXT_EXECUTABLE" || key == "EXT_PRODUCT_PREFIX" ||
 				strings.HasPrefix(key, "EXT_DEPENDENCY_") || strings.ContainsRune(value, 0) {
 				return nil, errors.New("invalid credential lookup environment")
 			}

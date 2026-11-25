@@ -7,8 +7,14 @@ commands except the first increment below.
 Implemented first increment: `ext package` installs and trusts packages without
 command declarations. `ext bundle fetch` and `ext bundle bind` replace the
 former top-level library command directly. Command and adapter packages now share
-`EXT_HOME/packages`; `ext package migrate` combines their old stores. Sources,
-grouped bundle planning and generic resource discovery remain proposed.
+`EXT_HOME/packages`; `ext package migrate` combines their old stores. Named source index registration, refresh and pinned installation are implemented
+through the C engine catalog services. Pinned package bundle planning and
+installation are implemented. `ext resource providers` discovers verified
+manifest declarations without invocation; explicit live list/inspect use the C
+host with host approval and bounded calls. Explicit `ext resource call` inspects
+and invokes a declared operation in one host session, passes a `{resource,input}`
+envelope and checks input/output schemas. Provider-side domain authorization
+remains mandatory; real consumer integration remains unfinished.
 
 ## Context
 
@@ -20,8 +26,9 @@ of software users should have to manage through `ext adapter`.
 Previously `ext package` managed command packages, while `ext adapter` managed a
 separate adapter store with catalog, build, archive and diagnostic operations.
 The top-level adapter command is now removed; its operations are reached through
-package management. Catalog operations remain `package available|add|refresh`
-until source management is implemented.
+package management. Directory catalogs migrate through `source import-catalog`
+to pinned sources; top-level `package available|add|refresh` now return migration
+guidance. Installation and approval are separate explicit operations.
 The new interface should organize operations by what the user is managing.
 
 ## Proposed command model
@@ -30,7 +37,7 @@ The new interface should organize operations by what the user is managing.
 | --- | --- | --- |
 | `ext package` | An installable plugin package | Install, inspect, verify, trust, upgrade and remove packages, including adapters and command providers |
 | `ext source` | A configured package catalog or repository | Add, list, inspect, refresh and remove places from which packages can be discovered |
-| `ext bundle` | Distributable artifacts and their composition | Fetch verified native library artifacts and generate bindings now; grouped package planning remains proposed |
+| `ext bundle` | Distributable artifacts and their composition | Plan/install pinned package groups; fetch verified native library artifacts and generate bindings |
 | `ext resource` | A resource exposed through a plugin contract | Discover and inspect resources available from installed providers; invoke only explicitly declared operations |
 
 These are distinct concepts: a source locates packages, a package provides
@@ -96,10 +103,13 @@ manifest metadata from live observations that require an authorized invocation.
    manages packages. `build|pack|index|test|doctor` retains adapter-specific
    operations through existing handlers. Archive installs use `--sha256` and
    preserve receipts. There is no top-level adapter compatibility alias.
-3. Define source identity, provenance, update and authentication rules. Review
-   whether the existing catalog/index format supplies them before adding one.
-4. Define bundle composition, pinning, dependency conflicts and partial failure
-   behavior. Reuse existing package dependency data where sufficient.
+3. Implemented: named source snapshots reuse the existing artifact index, with
+   C-engine validation/target selection, explicit refresh, identity continuity,
+   and pinned archive installation. See [source management](source-management.md).
+   Authentication and multi-package catalog aggregation remain future work.
+4. Implemented package composition: full manifests and archive pins, C dependency
+   resolution, staged verification, non-atomic publication and reconciled retries.
+   See [bundles](bundles.md). Native citation job composition remains separate.
 5. Validate the resource meaning with real consumers, then specify enumeration,
    pagination, authorization, operation schemas and errors. Do not present a
    universal resource API as already available.
@@ -174,15 +184,18 @@ future source and resource APIs.
   CTX/CTN can consume the adapter and still reject tampered content.
 
 Run migration with other package writers stopped. An interrupted process may
-leave `.package-migration.lock` in `EXT_HOME`: after confirming no migration is
+leave `.package-write.lock` in `EXT_HOME`: after confirming no package writer is
 running, remove that lock and rerun `ext package migrate`. Unpublished
 `.packages-*` staging directories are never treated as installed state. Retained
 legacy stores are backups, not fallbacks. Migration intentionally fails on an
 unsealed legacy template; reinstall it from reviewed source rather than granting
 trust to newly sealed bytes.
 
-The next architecture increments remain source catalogs, bundle composition and
-resource-provider contracts. Existing catalog commands are temporarily exposed
-under `ext package`; they retain their existing explicit activation/trust behavior.
-The existing store and trust APIs are reused here; no C ABI, manifest or wire
-contract changed and no new pure-Go host engine feature was added.
+Follow-on increments now provide named sources, pinned package bundles and
+resource discovery through the described C engine interface. The remaining work
+is tracked in [the implementation checklist](package-management-next.md).
+Product-owned adapter compatibility commands still use their legacy catalog
+activation semantics; they are not aliases for source refresh. The original
+store/trust consolidation reused existing APIs. Subsequent engine services are
+implemented in C and held to shared fixtures, with no new host mechanics added
+to the retiring pure-Go engine.

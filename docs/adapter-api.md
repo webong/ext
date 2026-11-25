@@ -141,7 +141,8 @@ ext ctx and is closed: an unknown key is an error, so a typo is not ignored. Its
 | `browser_query_priority` | integer | 0 to 1000 |
 | `computer_commands`, `computer_capabilities`, `computer_hook_events`, `computer_hook_default_events` | list | computer endpoint integrations |
 | `computer_hook_settings_file`, `computer_hook_template` | string | computer hook setup |
-| `dependencies_darwin`, `dependencies_linux`, `dependencies_windows` | list | `space:adapter@api` strings |
+| `share_dependencies` | list | `space:provider` links to named package `requires` |
+| `dependencies_darwin`, `dependencies_linux`, `dependencies_windows` | list | legacy `space:adapter@api` strings; cannot mix with `share_dependencies` |
 | `go_entry` | string | the Go package `ext package build` compiles, default `.` |
 
 To stay short, the rest of this page writes a field in the compact notation
@@ -166,9 +167,33 @@ without implementing URL launching.
 `selectable = "false"` omits the selector key and command shim for a share-only
 adapter. It defaults to `true` for existing adapters.
 
-`dependencies_darwin`, `dependencies_linux`, and `dependencies_windows` are
-comma-separated `space:adapter@api` declarations. The API version must match
-the dependency's adapter API exactly. Catalog installation installs and trusts
+New adapters declare dependencies in the package's `requires` list and map each
+share space to that required provider with `share_dependencies`. For example:
+
+```json
+"requires": [
+  {"provider":"keychain","contract":{"name":"ext.adapter","version":"2.0"},"operation":"share","os":"darwin"},
+  {"provider":"secret_service","contract":{"name":"ext.adapter","version":"2.0"},"operation":"share","os":"linux"}
+],
+"metadata": {"ctx.adapter/v1": {
+  "share_dependencies": ["credential:keychain", "credential:secret_service"]
+}}
+```
+
+The package requirement owns provider identity, API version and optional `os`
+and `arch` conditions. Adapter metadata only identifies the share space. Every
+mapping must refer to a named `ext.adapter` `share` requirement; overlapping
+providers for the same space, missing references and unsupported adapter API
+versions fail validation, including on inactive platforms. The selected provider
+must advertise that space. A full `identity` pin may replace `provider` in the
+requirement when an exact revision is intentional.
+
+Legacy `dependencies_darwin`, `dependencies_linux`, and `dependencies_windows`
+remain readable as `space:adapter@api` declarations. They cannot be mixed with
+nonempty `share_dependencies`. First-party source manifests use the new form;
+installed manifests are never silently rewritten or reapproved.
+
+The API version must match the dependency's adapter API exactly. Catalog installation installs and trusts
 missing dependencies; an already installed dependency must satisfy the declared
 share space and remain trusted. Manual package installation does not silently
 add dependencies. CTX passes a declared dependency to the child process as

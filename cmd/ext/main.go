@@ -12,10 +12,12 @@ import (
 	"path/filepath"
 
 	"github.com/webong/ext/cmd/ext/internal/app"
+	"github.com/webong/ext/cmd/ext/internal/bundlecmd"
 	"github.com/webong/ext/cmd/ext/internal/config"
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	"github.com/webong/ext/pkg/ext-go/cengine/libcmd"
+	"github.com/webong/ext/cmd/ext/internal/resourcecmd"
+	"github.com/webong/ext/cmd/ext/internal/sourcecmd"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
@@ -23,8 +25,11 @@ import (
 
 func main() {
 	reg := registry.New()
+	home := adapter.ConfigHome()
 	for _, c := range []registry.Command{
-		{Name: "bundle", Source: registry.Builtin, Version: app.Version, Run: libcmd.Run},
+		{Name: "resource", Source: registry.Builtin, Version: app.Version, Run: (resourcecmd.Manager{Home: home}).Run},
+		{Name: "source", Source: registry.Builtin, Version: app.Version, Run: (sourcecmd.Manager{Home: home}).Run},
+		{Name: "bundle", Source: registry.Builtin, Version: app.Version, Run: (bundlecmd.Manager{Home: home}).Run},
 	} {
 		if err := reg.Register(c); err != nil {
 			fmt.Fprintln(os.Stderr, "ext:", err)
@@ -34,7 +39,6 @@ func main() {
 	if executable, err := os.Executable(); err == nil {
 		pkgcmd.DiscoverBundled(reg, filepath.Join(filepath.Dir(executable), "ext-packages"))
 	}
-	home := adapter.ConfigHome()
 	manage := discoverPackages(reg, home)
 	cfg, err := config.Load(home)
 	if err != nil {
@@ -49,7 +53,7 @@ func main() {
 	}
 	if err := pkgcmd.RequireMigration(home); err != nil && len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "package", "bundle", "commands", "which", "version", "help", "--help", "-h":
+		case "package", "source", "bundle", "commands", "which", "version", "help", "--help", "-h":
 		default:
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

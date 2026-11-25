@@ -81,16 +81,12 @@ var packageClause = regexp.MustCompile(`(?m)^(\s*)package [A-Za-z_][A-Za-z0-9_]*
 // Fetch lays the library out in o.Dir for every target and driver, replacing what fetch wrote there
 // before. It writes nothing until every archive has been downloaded and verified.
 func Fetch(ctx context.Context, o Options) error {
-	if err := o.Citation.Validate(); err != nil {
+	selections, err := Plan(o.Citation, o.Drivers, o.Targets)
+	if err != nil {
 		return err
 	}
-	if len(o.Drivers) == 0 || len(o.Targets) == 0 || o.Dir == "" {
-		return errors.New("fetch: drivers, targets and a directory are required")
-	}
-	for _, d := range o.Drivers {
-		if d != CGo && d != C2Go && d != PureGo {
-			return fmt.Errorf("fetch: unknown driver %q (want cgo, c2go or purego)", d)
-		}
+	if o.Dir == "" {
+		return errors.New("fetch: a directory is required")
 	}
 	if o.Package == "" {
 		o.Package = strings.TrimPrefix(o.Citation.Library, "ext_")
@@ -106,26 +102,22 @@ func Fetch(ctx context.Context, o Options) error {
 		files  map[string][]byte
 	}
 	var plans []plan
-	archives := map[string]map[string][]byte{} // by sha256, so a universal archive is read once
-	for _, target := range o.Targets {
-		for _, d := range o.Drivers {
-			asset, err := o.Citation.Asset(target, d)
+	archives := map[string]map[string][]byte{} // extraction depends on both pin and archive root
+	for _, selection := range selections {
+		asset := selection.Asset
+		key := asset.SHA256 + "\x00" + asset.Root
+		files, ok := archives[key]
+		if !ok {
+			data, err := download(ctx, o, asset)
 			if err != nil {
-				return fmt.Errorf("fetch: %s %s publishes no %s build for %s: %w", o.Citation.Library, o.Citation.Version, d, target, err)
+				return err
 			}
-			files, ok := archives[asset.SHA256]
-			if !ok {
-				data, err := download(ctx, o, asset)
-				if err != nil {
-					return err
-				}
-				if files, err = extract(data, asset.Root, o.Limits); err != nil {
-					return fmt.Errorf("fetch: %s: %w", asset.URL, err)
-				}
-				archives[asset.SHA256] = files
+			if files, err = extract(data, asset.Root, o.Limits); err != nil {
+				return fmt.Errorf("fetch: %s: %w", asset.URL, err)
 			}
-			plans = append(plans, plan{target, d, asset, files})
+			archives[key] = files
 		}
+		plans = append(plans, plan{selection.Target, selection.Driver, asset, files})
 	}
 	out := map[string][]byte{}
 	for _, p := range plans {

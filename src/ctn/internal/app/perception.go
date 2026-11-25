@@ -25,6 +25,15 @@ func perceptionCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctn: perception needs package, install, trust, untrust, providers, capabilities, observe, or interpret")
 		return 2
 	}
+	if len(args) == 2 && (args[0] == "install" || args[0] == "trust" || args[0] == "untrust") {
+		release, err := acquirePackageWriter()
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		defer release()
+	}
+
 	switch args[0] {
 	case "package":
 		flags := flag.NewFlagSet("ctn perception package", flag.ContinueOnError)
@@ -180,6 +189,15 @@ func trustedPerceptionDigest(id string, s *store.Store) (string, error) {
 }
 
 func withPerceptionClient(ctx context.Context, id string, fn func(*bridge.Client) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	release, err := acquirePackageWriter()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if id == "" {
 		return fmt.Errorf("%w: provider ID is required", plugin.ErrInvalid)
 	}
@@ -229,7 +247,9 @@ func withPerceptionClient(ctx context.Context, id string, fn func(*bridge.Client
 	if err != nil {
 		return err
 	}
-	defer session.Close(ctx)
+	// This invocation owns the session. Abort also joins its backend when the
+	// request context is canceled, before the package writer is released.
+	defer session.Abort()
 	return fn(bridge.NewClient(session))
 }
 

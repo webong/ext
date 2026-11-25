@@ -17,7 +17,7 @@ import (
 	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 
-func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priority int, auto bool, query string, legacy bool) {
+func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priority int, auto bool, query string, legacy bool, dependencies ...string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("fixture uses a POSIX shell")
@@ -28,6 +28,9 @@ func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priorit
 		operations = "cookie.list,cookie.export"
 	}
 	manifest := fmt.Sprintf("api_version = \"2.0\"\nname = %q\nruntime = \"browser\"\nsurfaces = \"web\"\nexecutable = \"adapter\"\ncapabilities = \"list,share,validate,doctor\"\nselector_key = \"browser\"\nshare_spaces = \"browser\"\nbrowser_share = %q\nbrowser_query_priority = \"%d\"\nbrowser_query_auto = \"%t\"\n", name, operations, priority, auto)
+	if len(dependencies) > 0 {
+		manifest += fmt.Sprintf("dependencies_%s = %q\n", runtime.GOOS, strings.Join(dependencies, ","))
+	}
 	script := "#!/bin/sh\nroot=$(dirname \"$0\")\ncase \"$1\" in\nlist) printf '%s:default\\n' \"$EXT_ADAPTER_NAME\";;\nshare) " + query + ";;\nesac\n"
 	if err := modpkg.WriteKeyValueManifest(root, manifest); err != nil {
 		t.Fatal(err)

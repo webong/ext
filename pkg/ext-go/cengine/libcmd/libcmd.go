@@ -219,8 +219,14 @@ func runFetch(ctx context.Context, args []string, stdout io.Writer) error {
 	switch {
 	case len(o.Targets) == 1 && o.Targets[0] == "all":
 		o.Targets = nil
+		seen := map[string]bool{}
 		for _, a := range c.Assets {
-			o.Targets = append(o.Targets, a.Targets...)
+			for _, target := range a.Targets {
+				if !seen[target] {
+					o.Targets = append(o.Targets, target)
+					seen[target] = true
+				}
+			}
 		}
 	case len(o.Targets) == 0:
 		o.Targets = []string{goEnv("GOOS") + "/" + goEnv("GOARCH")}

@@ -3,6 +3,7 @@ package resourcecmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -91,6 +92,7 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 	}
 	graph, err := nativeplugin.OpenGraph(ctx, lib, s, nativeplugin.GraphOptions{
 		RootID: id, Contract: ref, OS: runtime.GOOS, Arch: runtime.GOARCH,
+		LedgerPath: filepath.Join(m.Home, "execution-ledger"),
 		Review: func(pm packagekit.Manifest) (string, error) {
 			var digest, state string
 			packageID := pm.Descriptor.Identity.ID
@@ -122,7 +124,7 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 		return nil, err
 	}
 	defer func() {
-		graph.Close()
+		resultErr = errors.Join(resultErr, graph.Close())
 		if err := ctx.Err(); err != nil {
 			result, resultErr = nil, err
 		}

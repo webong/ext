@@ -3,6 +3,7 @@ package nativeplugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -16,28 +17,49 @@ import (
 // Authorize decides each reverse call. The caller coordinates source review
 // with writers. C owns planning, private copies and all process lifetimes.
 type GraphOptions struct {
-	RootID    string
-	Contract  plugin.ContractRef
-	OS, Arch  string
-	MaxHosts  int
-	Review    func(packagekit.Manifest) (string, error)
-	Authorize func(context.Context, plugin.Identity, plugin.Identity, plugin.Request) error
+	RootID   string
+	Contract plugin.ContractRef
+	OS, Arch string
+	MaxHosts int
+	// LedgerPath enables durable observations in a caller-owned ledger.
+	LedgerPath string
+	Review     func(packagekit.Manifest) (string, error)
+	Authorize  func(context.Context, plugin.Identity, plugin.Identity, plugin.Request) error
 }
 
 // Graph exposes the C graph's root call interface. Closing it closes the whole
 // graph; no provider handle or snapshot ownership escapes into the application.
 type Graph struct {
-	Root *library.Object
-	once sync.Once
-	stop func() bool
+	Root        *library.Object
+	once        sync.Once
+	stop        func() bool
+	mu          sync.Mutex
+	closed      bool
+	closeErr    error
+	publication *publication
 }
 
-func (g *Graph) closeObject() { g.once.Do(func() { _ = g.Root.Close() }) }
-func (g *Graph) Close() {
+func (g *Graph) closeObject() {
+	g.once.Do(func() {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		g.closed = true
+		g.closeErr = g.Root.Close()
+		if g.publication != nil {
+			// Never clear observations until native shutdown has succeeded.
+			if g.closeErr == nil {
+				g.closeErr = g.publication.finish()
+			}
+			g.closeErr = errors.Join(g.closeErr, g.publication.store.Close())
+		}
+	})
+}
+func (g *Graph) Close() error {
 	if g.stop != nil {
 		g.stop()
 	}
 	g.closeObject()
+	return g.closeErr
 }
 
 func OpenGraph(ctx context.Context, lib *library.Described, store *library.Object, options GraphOptions) (_ *Graph, resultErr error) {
@@ -135,6 +157,18 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if options.LedgerPath != "" {
+		g.mu.Lock()
+		if g.closed {
+			err = context.Canceled
+		} else {
+			g.publication, err = publishGraph(ctx, owned, options.LedgerPath)
+		}
+		g.mu.Unlock()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return g, nil
 }

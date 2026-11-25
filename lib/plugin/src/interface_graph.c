@@ -259,7 +259,8 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
  * every live session before publishing; a failed/closing graph yields no partial
  * desired namespace that could accidentally erase another observation. */
 static void session_id(ext_interface_graph *g,size_t i,char out[80]) {
-  snprintf(out,80,"plugin-session/%s/%zu",g->instance,i);
+  /* Execution plans cap hosts at 1024; keep the formatted index bounded too. */
+  snprintf(out,80,"plugin-session/%s/%u",g->instance,(unsigned)i);
 }
 static ext_plugin_status observe(ext_interface_graph *g,yyjson_doc **out) {
   yyjson_mut_doc *d=yyjson_mut_doc_new(NULL);

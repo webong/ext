@@ -842,7 +842,7 @@ Ext-go ships reusable libraries; `cmd/ext` owns the public executable.
 
 `core/plugin` owns the shared plugin model and backend interfaces; the public
 `engine/plugin` names alias those types. `core/ledger` owns store records and
-validation, with observation types in `core/ledger/observation` and supervisor
+errors, with observation types in `core/ledger/observation` and supervisor
 records in `core/ledger/supervisor`. Existing Go ledger model names remain aliases.
 Native `Bind`, `Library`, `NativeStore`, `NativeWatch` and `Graph` now live in
 `cengine/ledger`; `OpenNative` and its supervisor binding live in
@@ -855,3 +855,24 @@ The former recorder module retains only `New(ctx, *cengineledger.NativeStore)`;
 this changes its API and requires callers to migrate. Prefer `cengine/ledger`
 directly. CTX imports old databases read-only; frozen SQL fixtures preserve the
 migration contract without a second Go storage implementation.
+
+The ledger retirement also removes `NewMemory`, `NewMemoryWithOptions`, the Go
+supervisor lifecycle API, and Go graph preparation/traversal/canonicalization
+helpers. Record aliases remain. Open C's memory backend through
+`cengine/ledger.Library.OpenStore`, use its supervisor binding, and obtain
+transaction canonical JSON and fingerprints through `Library.CanonicalTransaction`.
+Attribute validation also runs in C through `Library.ValidateAttributes`; callers
+must load a library that describes that operation.
+
+### Native Go host migration
+
+`engine/plugin/host` moves to `cengine/plugin/host`. The default
+`cgoengine/plugin` host now opens the C library through purego; a missing
+library is an error, including in no-cgo builds. Session admission and registry
+routing execute in C. Go guests do not load a native library.
+
+`bridge.Open` is removed: open a C session and pass it to `bridge.New`.
+`yaegi.OpenPackage` becomes `yaegi.PackageOptions`, which prepares verified
+source loading for a caller-selected host. The inference bridge's `Open`
+uses the native host too. Consumers must provision the native library and
+update these helpers before adopting the new module versions.

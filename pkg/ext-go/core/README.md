@@ -6,7 +6,7 @@ It never imports `engine` or `cengine`. Both implementations use the same types.
 | Package | Responsibility |
 | --- | --- |
 | `plugin` | Plugin identities, descriptors, requests, responses, validation and backend interfaces |
-| `ledger` | Graph records, store interfaces, error codes, validation and transaction preparation |
+| `ledger` | Graph records, store interfaces and error codes; graph algorithms execute in C |
 | `ledger/observation` | Ledger-owned observation wire records |
 | `ledger/supervisor` | Shared supervisor state and result types |
 | `ledger/ledgertest` | Implementation-independent store conformance fixtures |

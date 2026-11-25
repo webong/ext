@@ -167,21 +167,29 @@ func acceptanceEnv(home string) []string {
 func stageAcceptanceEngine(t *testing.T, bin, source string) {
 	t.Helper()
 	name := "libext_plugin_host.so"
+	ledgerName := "libext_ledger.so"
 	if runtime.GOOS == "darwin" {
 		name = "libext_plugin_host.dylib"
+		ledgerName = "libext_ledger.dylib"
 	}
 	if runtime.GOOS == "windows" {
 		name = "ext_plugin_host.dll"
+		ledgerName = "ext_ledger.dll"
 	}
 	dir := filepath.Join(bin, "ext-lib")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, name), data, 0700); err != nil {
-		t.Fatal(err)
+	for name, source := range map[string]string{name: source, ledgerName: os.Getenv("EXT_LEDGER_LIBRARY")} {
+		if source == "" {
+			t.Fatal("acceptance requires EXT_LEDGER_LIBRARY alongside EXT_ACCEPTANCE_LIBRARY")
+		}
+		data, err := os.ReadFile(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0700); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

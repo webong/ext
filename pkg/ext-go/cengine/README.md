@@ -12,6 +12,7 @@ imports it. See [the library opener decision record](../../../docs/adr-library-o
 | `cguest` | Loads C ABI guests (the `ext_plugin_guest_*` exports, with `cguest/abi` for the ABI's constants) once per canonical path, never unloads them, and exchanges frames with them as bytes, one call at a time. It knows nothing of the plugin protocol: [`cguest/backend`](cguest/README.md) makes it a plugin backend. |
 | `cguest/backend` | Adapts the loader to `core/plugin.Backend`, with Ext protocol validation, deadlines and errors. |
 | `cguest/guest` | Exports a Go plugin guest through the C ABI for `-buildmode=c-shared`. |
+| `plugin`, `plugin/host` | Go policies and transports over C-owned sessions and registry routes, including process and event backends. |
 | `ledger`, `ledger/supervisor` | Bind the canonical C ledger and its supervisor using shared core contracts. |
 
 The module requires purego and `core` for shared contracts.

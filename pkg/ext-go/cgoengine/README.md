@@ -9,10 +9,12 @@ Import `github.com/webong/ext/pkg/ext-go/cgoengine/plugin` (package `plugin`; im
 - **C engine.** With the `ext_cengine` build tag and cgo (Linux, macOS, and
   Windows with MinGW-w64) the engine functions run in the shared C engine in
   `lib/plugin`.
-- **Pure Go.** In any other build (no cgo, no tag, an unsupported platform) the
-  same API is served by the pure-Go implementation over `pkg/ext-go/engine`, so
-  `CGO_ENABLED=0` programs keep working. `cgoengine.CEngine` reports which build
-  you have.
+- **Shared-library driver.** Other builds open the canonical C host through
+  `cengine/plugin`, using `EXT_PLUGIN_LIBRARY`, an embedded copy, or `ext-lib`
+  beside the executable. `CGO_ENABLED=0` needs no compiler but still needs that
+  library. A missing library fails explicitly. Guests remain language-native.
+
+`CEngine` is true for both host drivers.
 
 The data model (`Descriptor`, `Request`, `Response`, `Identity`, the `Err*`
 classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/ext-go/engine`'s,
@@ -23,22 +25,21 @@ re-exported so a program imports this package alone. The common API is `Open`,
 
 - [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
 - [`host`](host): open an installed package as a running plugin; the same API as
-  [`engine/plugin/host`](../engine/host), over the engine's process runtime and sessions.
+  [`cengine/plugin/host`](../cengine/plugin/host), over the engine's process runtime and sessions.
 - [`host/store`](host/store): the installed package store, with layered roots, `Verify` and
   `ListUnverified` (a manifest-only listing that hashes nothing; the result is unverified, see the
   [`engine` README](../engine/README.md#listing-installed-packages)); the same
   API as [`engine/plugin/host/store`](../engine/host/store), routed through the engine's digests and validation.
 
-An application that needs only the store and host takes the `engine` module and uses its pure-Go
-`host` and `host/store`; take these when you want the engine's behavior. Swapping one import for the
-other never needs a code change (an architecture test enforces the identical API, and
-`TestContractStoreMatchesEngineStore` compares their behavior).
+The old `engine/plugin/host` package has moved to `cengine/plugin/host`.
+Both package-host entry points run C-owned sessions and registry routes.
+The store APIs remain separately importable.
 
 Manifest validation and plan resolution in the C engine are bounded by the manifest size: they sort
 instead of comparing every pair, and a directory digest stops at 250,000 files or 64 MiB of path text
 (`EXT_PLUGIN_INVALID`). Earlier versions took minutes on a 4 MB manifest; see `lib/plugin/services.md`.
 
-The module depends on `pkg/ext-go/engine` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
+The module depends on `core`, `engine` and `cengine`. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.
 
 ## Packages

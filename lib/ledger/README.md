@@ -17,7 +17,7 @@ depending on plugin or owning plugin execution.
 | Reader | Done: `ext_ledger_store_open_reader`, which never locks or writes, and the `ext-ledger` command |
 | Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_recorder_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
 | Collectors | Done: `ext_ledger_collect` and `ext_ledger_recorder_scan`, through each kernel's own interface, so the recorder reads the machine itself |
-| Supervisor | Done: `ext_ledger_supervisor_*`, held to the Go supervisor's tests |
+| Supervisor | Done: `ext_ledger_supervisor_*`, checked by the native supervisor suite |
 | Library interface | Done: `ext_ledger_open`, `ext_ledger_call`, `ext_ledger_close` and `ext_ledger_abi_version`, every object behind four functions, described by `interface.json` (`describe`) |
 
 ## Platforms
@@ -25,7 +25,7 @@ depending on plugin or owning plugin execution.
 | OS | Tested |
 | --- | --- |
 | macOS (arm64) | locally, with the address, undefined-behaviour and thread sanitizers, with and without SQLite |
-| Linux | CI (`ledger/posix`, `ledger/sqlite`): GCC with the sanitizers, and the Go and C SQLite cross-check |
+| Linux | CI (`ledger/posix`, `ledger/sqlite`): GCC with the sanitizers, and the frozen legacy SQLite compatibility check |
 | Windows | CI (`ledger/windows`, `ledger/windows-msvc`): MinGW-w64 and MSVC |
 | iOS | built for devices and the simulator (`-DCMAKE_SYSTEM_NAME=iOS`); every test passes in the iOS 18 simulator (`xcrun simctl spawn`) |
 | Android | built with the NDK (arm64-v8a, API 24); every test and `ext-ledger` pass on an Android 11 emulator |
@@ -205,7 +205,7 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 | `src/collect*.c` | The collectors, one file per kind and kernel |
 | `src/supervisor.c` | The supervisor: specs, the lifecycle, projection, leases and recovery |
 | `src/process_posix.c`, `src/process_win32.c` | Starting, waiting for and ending process trees; threads and random IDs |
-| `tests/supervisor.c` | `pkg/ext-go/engine/ledger/supervisor`'s tests, with the test binary as its own child |
+| `tests/supervisor.c` | Native lifecycle, recovery and containment tests, with the test binary as its own child |
 
 Like `lib/plugin`, the tree holds no Go code.
 
@@ -219,3 +219,11 @@ same atomic write. Empty arrays clear the namespace. Stale revisions return
 untouched. `process_identity` on handle zero exposes the recorder's canonical
 process reference from a collected host ID, PID and nonempty birth token.
 See [Ext graph](../../docs/adr-ext-graph.md) for cross-library correlation.
+
+## Portable translation profile
+
+`-DEXT_LEDGER_PORTABLE=ON` builds the canonical store and recorder without native
+collectors or process supervision. It supports POSIX store primitives; those
+omitted operations return `EXT_LEDGER_UNSUPPORTED`. This source set is also
+translated by `pkg/ext-go/c2goengine/tools -library ledger`. The portable C
+suite and translated binding both run in `scripts/ledger-c2go.sh`.

@@ -7,8 +7,8 @@ module of its own and a program that wants less takes less:
 
 | Module | For |
 | --- | --- |
-| [`core`](core) | shared plugin and ledger contracts, observation types, validation and driver selection |
-| [`engine`](engine) | Go plugin sessions, guests and packages; compatibility Go ledger |
+| [`core`](core) | shared plugin and ledger contracts, observation types, plugin validation and driver selection |
+| [`engine`](engine) | Go plugin sessions, guests and packages; ledger record aliases |
 | [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |

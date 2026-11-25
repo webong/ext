@@ -18,7 +18,7 @@ fi
 
 # Required package acceptance: builds the canonical engine; no optional module skips.
 (
-bash scripts/package-acceptance.sh
+EXT_ACCEPTANCE_BUILD_DIR="$RUNNER_TEMP/ext-native-engines" EXT_ACCEPTANCE_ENV_FILE="$GITHUB_ENV" bash scripts/package-acceptance.sh
 python3 -m unittest discover -s scripts -p 'test_stage_cli_engine.py'
 )
 ci_import_env
@@ -53,13 +53,7 @@ go test -race -v ./service/process -run '^(TestNativeProcess|TestProcess)' -coun
 )
 ci_import_env
 
-# Validate native process projection in the graph
-(
-export EXT_GRAPH_PROCESS_NATIVE_TESTS="1"
-cd pkg/ext-go/engine/ledger/recorder
-go test -race -v . -run '^(TestLiveProcess|TestProcess)' -count=3 -timeout=5m
-)
-ci_import_env
+# Native ledger collection and process projection are required by package-acceptance.sh.
 
 # Validate native ONNX guest through CTN
 if [ "$RUNNER_OS" = Windows ]; then

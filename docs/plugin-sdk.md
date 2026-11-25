@@ -1,7 +1,7 @@
 # Ext plugin SDK
 
 Ext owns the reusable plugin library alongside `res/web` and `res/system`
-(and the ledger supervisor, `pkg/ext-go/engine/ledger/supervisor`). `res/web/host/engine/wasm` owns the protocol-neutral
+(and the ledger supervisor, `pkg/ext-go/cengine/ledger/supervisor`). `res/web/host/engine/wasm` owns the protocol-neutral
 wazero runtime; `pkg/ext-go/wasm` binds it to the plugin engine.
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,

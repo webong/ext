@@ -68,7 +68,7 @@ never imports another product module. The standalone `src/cto/sandbox` contract
 is available to its consumers. Shared implementation code goes in `pkg/` or `res/`.
 `examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
 consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
-`pkg/ext-go/examples` for plugins (the umbrella requires every backend), `pkg/ext-go/engine/ledger/examples` and
+`pkg/ext-go/examples` for plugins (the umbrella requires every backend), `pkg/ext-go/cengine/ledger/examples` and
 `res/web/host/examples` for those libraries. The product modules export `ctx.Run`,
 `ctn.Run` and `cto.Run` for Go consumers; the private guests in each product's
 `plugin/` directory adapt those functions to `ext.command/v1`. Ext does not import
@@ -139,8 +139,7 @@ implementations, and the conformance checks compare the two.
 module: the store now (memory and file backends, the optional SQLite backend on `tables.json`), the
 reader and the recorder with its per-kernel collectors next. It has no third-party code at all (its
 JSON, SHA-256 and CRC-32 are its own) and shares nothing with `lib/plugin`. It is held to the
-`lib/ledger/testdata` fixtures. It is the main ledger implementation; `pkg/ext-go/engine/ledger` is the
-pure-Go fallback that follows it, as `engine/plugin` follows `lib/plugin` (see
+`lib/ledger/testdata` fixtures. Go binds it through `cengine/ledger`; `engine/ledger` retains record aliases only (see
 [the architecture ADR](docs/adr-architecture.md#resgraph-storage-and-libledger)).
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
@@ -197,10 +196,10 @@ The reusable libraries are:
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
-- `pkg/ext-go/engine` for Go plugin sessions and compatibility ledger implementations. Shared plugin and ledger contracts are aliases of `core/plugin` and `core/ledger`. It depends on `core`, never `cengine`. The Go memory store and supervisor remain for unmigrated consumers. The nested recorder is a native entry point; its Go implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library location and read-only SQLite migration; ledger mechanics execute in C.
+- `pkg/ext-go/engine` for Go plugin sessions and compatibility ledger record aliases. Shared plugin and ledger contracts are aliases of `core/plugin` and `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; compatibility record aliases remain. The nested recorder is a native entry point; its Go implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library location and read-only SQLite migration; ledger mechanics execute in C.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is not committed: the `tools` module generates it on each platform, the binding beside it (`internal/ccgo`) builds only with `-tags ext_c2go`, the ext-plugin release translates, tests against the pure-Go engine (`engine/plugin/plugintest/enginetest`) and publishes each platform's as the c2go driver's archive, and a project fetches it (`go tool ext bundle fetch -lib ext_plugin -driver c2go`); it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go bindings of the C libraries in `lib/`: `cgoengine/plugin` binds lib/plugin, with a pure-Go build of the same API. It carries no C: a cgo build points `CGO_CFLAGS` at the engine's headers and `CGO_LDFLAGS` at its library, the ones `go tool ext bundle fetch -lib ext_plugin -driver cgo` brings into a project (in this repository, `lib/plugin/include` and a CMake build).
-- `pkg/ext-go/core` for the switcher: `core/driver` picks how a program runs each library of `lib/`, go (the pure-Go `engine`) or one of the C drivers `cengine` serves (purego, cgo, ccgo), by name, by `EXT_ENGINE` or as the best available one ([the library opener ADR](docs/adr-library-opener.md)). `core/plugin` owns shared plugin types, validation and backend interfaces; `core/ledger` owns graph contracts and validation, with wire observation types in `core/ledger/observation`. Core uses only the standard library; host selection belongs to consumers. Core never imports either engine and has no root package, because the umbrella published the selection package at `pkg/ext-go/core` up to v0.12.0 (that package is gone: Go reaches lib/plugin through its description, `cengine/library.Describe` or a binding `ext bundle bind` generates).
+- `pkg/ext-go/core` for the switcher: `core/driver` picks how a program runs each library of `lib/`, go (the pure-Go `engine`) or one of the C drivers `cengine` serves (purego, cgo, ccgo), by name, by `EXT_ENGINE` or as the best available one ([the library opener ADR](docs/adr-library-opener.md)). `core/plugin` owns shared plugin types, validation and backend interfaces; `core/ledger` owns graph records and error vocabulary, with wire observation types in `core/ledger/observation`. Core uses only the standard library; host selection belongs to consumers. Core never imports either engine and has no root package, because the umbrella published the selection package at `pkg/ext-go/core` up to v0.12.0 (that package is gone: Go reaches lib/plugin through its description, `cengine/library.Describe` or a binding `ext bundle bind` generates).
 - `pkg/ext-go/cengine/cguest/backend`, a package within the `cengine` module, for the plugin backend that runs plugin guests built as C shared libraries, like `yaegi`, `hashicorp` and `wasm`: `cguest` speaks `ext.plugin/v1` over `cengine/cguest` (the frames, the frame limit, the default deadline, the descriptor and response checks, the engine's errors) and `cguest/guest` is the Go guest export (`-buildmode=c-shared`). It imports `core/plugin` and the local loader, never `cgoengine`. Running such a guest is not loading a library of `lib/`: the plugin contract plays no part in how the drivers reach `lib/plugin` or `lib/ledger`.
 - `pkg/ext-go/cengine` for the C side of every library of `lib/`, with generic loading packages that know none of them; the module requires purego, `core` for shared plugin and ledger contracts: it serves the C drivers (purego, cgo and ccgo), and `cgoengine` and `c2goengine` stay their own modules and register with it, so a program downloads the ccgo translation only when it imports it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens the built copy of the C library once per canonical path and binds its exports. `cengine/fetch` is how a Go project that uses ext-go brings a C library in before it builds: from the library's citation it downloads and verifies each target's archive and writes a Go package the project imports, for cgo (headers and a static library linked through `${SRCDIR}`), c2go (the translation) or purego (an embedded shared library); ext-go itself carries no C ([the library opener ADR](docs/adr-library-opener.md)). `cengine/bind` generates a typed Go binding of a library from the description of its interface (lib/plugin's `interface.json`). ext-go is a program SDK and has no command: `cengine/libcmd` is the shared command package behind ext's builtin `ext bundle fetch` and `ext bundle bind`, which a project runs as `go tool ext bundle ...` from `go generate` after `go get -tool github.com/webong/ext/cmd/ext`. `cengine/cguest` loads C ABI guests (the `ext_plugin_guest_*` exports) and exchanges frames with them as bytes, with `cguest/abi` for the ABI's constants; what the frames mean is `pkg/ext-go/cengine/cguest/backend`'s. The module path is new; the `ext_cengine` build tag and the old `pkg/plugin-go/cengine` module name the C plugin engine binding, now `cgoengine`.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
@@ -319,7 +318,7 @@ implement, and the shared library never selects a driver by name.
 through the installed CTO package. Each product's private `plugin/` entrypoint serves its command through the Ext guest SDK; Ext's host dispatch lives in `cmd/ext/internal/pkgcmd`. Product dispatch is not part of `pkg/ext-go`.
 `res/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, and volume snapshot/restore; process
-supervision is `pkg/ext-go/engine/ledger/supervisor` (and `ext_ledger_supervisor_*` in `lib/ledger`). Remote clients, service discovery, routing services, authorization,
+supervision is `pkg/ext-go/cengine/ledger/supervisor` (and `ext_ledger_supervisor_*` in `lib/ledger`). Remote clients, service discovery, routing services, authorization,
 approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
@@ -360,5 +359,23 @@ The allowed layering is `core -> engine -> cengine`: higher layers may consume
 lower ones. Core defines contracts and never imports an engine. Engine must not
 import cengine; cengine may use core directly or consume engine functionality.
 Native bindings stay in cengine. Mixed-implementation C guest conformance tests
-live in `pkg/ext-go/conformance/cguest`, so test dependencies do not create a
+live in `tests/crosslang/cguest`, so test dependencies do not create a
 module cycle. `src/ctx/internal/arch` checks the direction.
+
+## Native host migration (2026-11-25)
+
+Production Go sessions use the C host. `cengine/plugin` binds its described
+session and registry interfaces; the default `cgoengine/plugin` host delegates
+to it, including in no-cgo builds. Provision the native library explicitly or
+through the executable's bundle. There is no production Go-host fallback.
+`engine/plugin/host` moved to `cengine/plugin/host`; the old Go session is kept
+only as a differential-test oracle. Runtime backends supply transports and do
+not choose that oracle. `yaegi.PackageOptions` prepares source loading for a
+caller-owned host; `bridge.New` wraps a caller-owned session.
+
+`c2goengine/ledger` binds the C portable ledger profile on 64-bit Linux/macOS.
+Memory/file storage, watches and recorder projections execute translated C.
+Native collection and supervision return unsupported, and unavailable targets
+fail explicitly. Regenerate and validate with `scripts/ledger-c2go.sh`.
+The generic `cengine/library` remains library-neutral; the `cengine/plugin` and
+`cengine/ledger` bindings own their respective contracts.

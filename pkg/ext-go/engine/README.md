@@ -1,18 +1,20 @@
 # Go library APIs
 
-`github.com/webong/ext/pkg/ext-go/engine` holds Go plugin sessions and compatibility
-ledger implementations, with no root package. It builds on `core` and never
+`github.com/webong/ext/pkg/ext-go/engine` holds guest authoring, plugin contracts and compatibility
+ledger record aliases, with no root package. It builds on `core` and never
 imports `cengine`. The module requires Go 1.25.
 
 `engine/plugin` retains its public contract names as aliases of `core/plugin`.
-Sessions, guests, package management, transports and authoring stay here.
-`engine/ledger` retains the Go memory store and supervisor; its
+Guests, package management, transports and authoring stay here. Production
+hosts use `cengine/plugin` or `cgoengine/plugin`; the Go session remains only as
+the differential-test oracle.
+`engine/ledger` retains compatibility record aliases only; its
 shared types alias `core/ledger` and `core/ledger/observation`.
 
 The native ledger binding moved to `cengine/ledger`. CTX uses that binding's
 `Bind`, `Library.OpenStore` and `NewGraph`; no C loader remains in this module.
 
-`host.OpenRuntime` starts a source plugin under a separately installed runtime
+`cengine/plugin/host.OpenRuntime` starts a source plugin under a separately installed runtime
 package. The caller supplies the reviewed runtime digest and explicit runtime
 and script artifacts; both packages are reverified immediately before launch.
 `cgoengine/plugin/host.OpenRuntime` exposes the same API. A runtime tree can include
@@ -28,8 +30,7 @@ four groups:
   `transport/inprocess` (no IPC) and `transport/bridge` (relaying one transport to another).
 - `validate`: how values are checked. `validate/schema` (the contract's bounded schema vocabulary)
   and `validate/jsonschema` (an offline JSON Schema subset).
-- `host`: everything that runs plugins on a machine. `host` opens an installed package as a running
-  plugin; `host/store` installs, verifies and lists packages under a root you choose;
+- `host`: everything that runs plugins on a machine. the installed-package host moved to `cengine/plugin/host`; `host/store` installs, verifies and lists packages under a root you choose;
   `host/process` starts the child process; `host/adapter` manages host-side adapters;
   `host/interop` resolves which backend serves a request; `host/nativego` loads a Go plugin built
   as a shared library.

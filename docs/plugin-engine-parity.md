@@ -1,24 +1,28 @@
 # Shared plugin engine parity
 
-The C engine in `lib/plugin` is the main plugin engine. Every binding outside Go (Rust, Zig,
-TypeScript, Swift, Java, Python, Ruby, Lua, PHP and .NET) hosts on it, so a new engine or host
-feature is built there first, with its fixtures in `lib/plugin/testdata`. It then reaches the Go
-side: `cgoengine` binds it, `c2goengine` is regenerated from it, and the pure-Go engine
-(`pkg/ext-go/engine`) is brought level so that `CGO_ENABLED=0` programs keep the same behavior. When
-the engines disagree, the C engine and the shared fixtures decide which one is wrong.
+The C engine in `lib/plugin` is the main plugin engine for every language's production
+host. Go's default host now reaches its described library interface through
+`cengine/plugin`, including `CGO_ENABLED=0` builds. A new host feature starts in C
+and its shared fixtures. The remaining pure-Go session is a differential-test
+reference, not a production fallback.
 
-## One Go API, two builds
+## Go host bindings
 
-`pkg/ext-go` is the single Go entry point. With the `ext_cengine` tag and cgo
-it runs on the C engine; in any other build (no cgo, no tag, an unsupported
-platform) the same API is served by the pure-Go implementation in the same module (`engine`, `author`, `process` and the packages around them),
-so `CGO_ENABLED=0` programs keep building. `cgoengine.CEngine` reports which one
-a build is. The data model (descriptors, requests, responses, errors, backends)
-is defined in `pkg/ext-go/engine` and re-exported by the `pkg/ext-go` root. The common API is `Open`,
-`OpenProcess`, `Session`, `NewGuest`, `Guest`, `NewRegistry`, `GuestFromRegistry`,
-the manifest, route and schema functions, the digests, and the `store` and
-`host` packages. Engine-only APIs (`Host`, `Streams`, `Instances`, `NewProcess`)
-need the C engine build. Both builds are tested in CI.
+`cgoengine/plugin` preserves the public Go session API. With `ext_cengine` and cgo
+it uses the linked C binding; otherwise it delegates to `cengine/plugin`, which
+loads the C shared library. A missing native library is an explicit error.
+`cgoengine.CEngine` is true in both builds. The data model and guest SDK remain
+Go code. Installed-package consumers use `cengine/plugin/host`; the old
+`engine/plugin/host` root package has been removed, while its store, transport
+and adapter subpackages remain.
+
+Go transports can supply an `engine.Backend`. The described C host's event
+backend calls it for I/O while C owns admission, sessions, reverse routing and
+lifecycle. Call-scoped event tags preserve Go caller context for policies,
+observers and transport callbacks. `TestNativeSession` compares error and
+observer behavior against the reference session, and
+`TestNativeSessionPreservesCallerContextAndTransportError` protects context and
+transport error propagation.
 
 The C ABI loader (`pkg/ext-go/cengine/cguest/backend` over `pkg/ext-go/cengine/cguest`, which opens a C ABI library or a Go
 `-buildmode=c-shared` guest as a backend) has two builds as well: cgo
@@ -112,7 +116,7 @@ full parity achieved.
 | Interoperability (`pkg/ext-go/engine/plugin/host/interop`, `pkg/ext-go/engine/plugin/transport/bridge`) | C route resolver and production JSON-line/HashiCorp frontends in both directions, tested with C-owned sessions | Windows bridge supervisor and release packaging |
 | JSON-line process | C absolute-path launch, copied argument/environment configuration, direct-child cleanup; a launch backend (kind 5) with a working directory, bounded stderr capture and a scrubbed `PATH` base environment, compared with `pkg/ext-go/engine/plugin/host/process` by `TestLaunchMatchesGoProcess` and covered by the native tests under the address, UB and thread sanitizers; `pkg/ext-go/cgoengine/plugin/host` opens an installed package over it | the Windows launch-path rule: the C engine refuses `.bat`/`.cmd` (they run through `cmd.exe`, whose argument parsing is an injection hazard) and accepts only `.exe` and `.com`, which is stricter than Go's `process` package and pinned by `TestBatchFilesAreNotLaunched`; `TestDestroyIgnoresGrandchildHoldingStderr` shows destroy does not wait for a grandchild that holds stderr open (like Go's `process`, only the direct child is killed) |
 | In-process, HashiCorp, WASI, native Go, C ABI | C-session conformance with Rust/Zig C ABI and WASI guests, native Go guest, and both HashiCorp transports; direct process engine; the C ABI loader with cgo and, without cgo, on purego (Linux, macOS, Windows; amd64, arm64), both held to the cshared tests and the shared host cases | Remaining platform combinations; portable runtime modules |
-| Go source (`pkg/ext-go/yaegi`, runtime `go-source`) | A Go integration, as native Go is: yaegi interprets a guest written against the engine's guest API in the host's process, and the guest is served through `engine/plugin/transport/inprocess`. Its imports are checked against a host-chosen allow-list before evaluation, the source is read once and held to its tree digest, and a canceled call stops the interpreter through `EvalWithContext`, failing the session. Evidence: `plugintest.Run` and the nine shared host cases (`host-cases.json`) against the reference conformance guest interpreted from source, through the pure-Go session; refusal of each forbidden import (`os/exec`, `unsafe`, `syscall`, `reflect`, `plugin`, `os`, ...), digest, timeout, panic and package-variable isolation tests; `OpenPackage` over an installed package whose entrypoint is a tree. The manifest change it needed (an entrypoint may name a tree unless its runtime is `process`) lands in Go and C and is compared by `TestManifestExtensionsDifferential` | Not run through a C-owned session (`cgoengine.Open`) yet; carries no frames (progress, reverse calls), like the other in-process backends; a guest's generic APIs (`author.Register`, `instance.New`) are not exported to interpreted code; a guest is one package at the root of its tree, with no local subpackages; an interpreted goroutine blocked in compiled code cannot be stopped |
+| Go source (`pkg/ext-go/yaegi`, runtime `go-source`) | A Go integration, as native Go is: yaegi interprets a guest written against the engine's guest API in the host's process, and the guest is served through `engine/plugin/transport/inprocess`. Its imports are checked against a host-chosen allow-list before evaluation, the source is read once and held to its tree digest, and a canceled call stops the interpreter through `EvalWithContext`, failing the session. Evidence: `plugintest.Run` and the nine shared host cases (`host-cases.json`) against the reference conformance guest interpreted from source, through the pure-Go session; refusal of each forbidden import (`os/exec`, `unsafe`, `syscall`, `reflect`, `plugin`, `os`, ...), digest, timeout, panic and package-variable isolation tests; `PackageOptions` over an installed package whose entrypoint is a tree, followed by the caller's chosen host. The manifest change it needed (an entrypoint may name a tree unless its runtime is `process`) lands in Go and C and is compared by `TestManifestExtensionsDifferential` | The transport can be supplied to the C-owned session; the standalone yaegi fixture suite still uses the reference session; carries no frames (progress, reverse calls), like the other in-process backends; a guest's generic APIs (`author.Register`, `instance.New`) are not exported to interpreted code; a guest is one package at the root of its tree, with no local subpackages; an interpreted goroutine blocked in compiled code cannot be stopped |
 | Static/shared distribution | Static/shared host and guest libraries, exact CMake package version, external install-consumer checks and macOS sanitizers | Execute CI on all platforms; reproducible release packages |
 | Go/Rust/Zig/JS bindings | Go session/resources; Rust host/guest/lease/stream ownership; Zig resource wrappers and generated FFI; async Node host/guest/integrity/observation and instance/stream managers | replace independent SDK implementations (scoped, with the options and what each costs, in [plugin-sdk-switch.md](plugin-sdk-switch.md)). Archive install (`ext_plugin_store_install_archive`, `ext_plugin_store_receipt`) is bound in Rust, Node and the Swift SDK (`pkg/ext-darwin`), each with an HTTPS download helper held to `download-cases.json`; the Zig binding does not bind it yet. Package validation, resolution, selection and route resolution in the Rust, Zig and Node bindings all call the C engine (`ext_plugin_services_call`), so they already accept the manifest's `license`, `metadata` and tree artifacts; the Python guest reads only a package's `descriptor` key and ignores other fields on purpose, since a guest needs nothing else. |
 | Platforms | Native C host runs on Linux, macOS and Windows (MinGW-w64: `channel_win32.c` with CreateProcess, pipes and a Job Object, `fs_win32.c` refusing symbolic links and junctions and reading handle-relative (each component is opened from the handle of the directory above it with `NtCreateFile`, and a directory is listed through its own handle), `random_win32.c`); the Plugin engine workflow builds it and runs the native tests and the C-backed Go suites on all three, and experimental jobs do the same on Windows ARM64 with clang and build the engine with MSVC (`src/sync.h` supplies the pthread subset over Win32; native tests only, since cgo links the MinGW build), including the host, store and tree integrity over the Windows implementation; portable C and Rust guest-only builds execute in WASI | Windows: the read side of the file layer (hashing, reading and the walk) is handle-relative, so a directory swapped for a junction after it was listed is opened and refused instead of followed (`tests/fs_read.c`, which makes that swap during a walk and also covers a directory larger than one directory read, links and junctions, and Windows name rules); the write side and the source of `ext_fs_copy_file` are still path-based (every directory is checked to be a plain one and a copied file is checked by its final path, so a swap between a check and a use is the application's to prevent, as the contract says); no toolchain CI uses offers a thread sanitizer for Windows (the test script says so for MinGW), so the thread tests are the evidence there (`TestLargeFrameRoundTrip` moves an 8 MiB frame both ways on every platform and `TestDestroyIgnoresGrandchildHoldingStderr` runs on Windows too); all supported Go-backend/platform combinations |

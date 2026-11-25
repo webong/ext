@@ -5,14 +5,19 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo"
 python3 scripts/test_check_go_test_results.py
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/ext-package-acceptance.XXXXXX")
+if [[ -n "${EXT_ACCEPTANCE_BUILD_DIR:-}" ]]; then
+  build_dir="$EXT_ACCEPTANCE_BUILD_DIR"
+  mkdir -p "$build_dir"
+else
+  build_dir=$(mktemp -d "${TMPDIR:-/tmp}/ext-package-acceptance.XXXXXX")
+  trap 'rm -rf "$build_dir"' EXIT
+fi
 build_dir=$(cd "$build_dir" && pwd -P)
 # Native Go/C programs on Windows need Windows paths, not MSYS /tmp paths.
 if command -v cygpath >/dev/null 2>&1; then
   build_dir=$(cygpath -m "$build_dir")
   repo=$(cygpath -m "$repo")
 fi
-trap 'rm -rf "$build_dir"' EXIT
 cmake -S lib/plugin -B "$build_dir/engine" -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
 cmake --build "$build_dir/engine" --target ext_plugin_host_shared ext_store_resolve_test ext_fixtures_test ext_interface_test ext_registry_test ext_fs_write_test --config Release -j 4
 library_path=""
@@ -21,14 +26,25 @@ for candidate in libext_plugin_host.dylib libext_plugin_host.so libext_plugin_ho
 done
 [[ -n "$library_path" ]] || { echo "Required C engine library missing" >&2; exit 1; }
 export EXT_ACCEPTANCE_LIBRARY="$library_path"
-cmake -S lib/ledger -B "$build_dir/ledger" -DCMAKE_BUILD_TYPE=Release -DEXT_LEDGER_SHARED=ON -DEXT_LEDGER_TESTS=OFF
-cmake --build "$build_dir/ledger" --target ext_ledger_shared --config Release -j 4
+export EXT_PLUGIN_LIBRARY="$library_path"
+cmake -S lib/ledger -B "$build_dir/ledger" -DCMAKE_BUILD_TYPE=Release -DEXT_LEDGER_SHARED=ON -DEXT_LEDGER_TESTS=ON
+cmake --build "$build_dir/ledger" --config Release -j 4
+ctest --test-dir "$build_dir/ledger" -C Release --output-on-failure
 ledger_path=""
 for candidate in libext_ledger.dylib libext_ledger.so libext_ledger.dll ext_ledger.dll Release/ext_ledger.dll; do
   if [[ -f "$build_dir/ledger/$candidate" ]]; then ledger_path="$build_dir/ledger/$candidate"; break; fi
 done
 [[ -n "$ledger_path" ]] || { echo "Required C ledger library missing" >&2; exit 1; }
 export EXT_LEDGER_LIBRARY="$ledger_path"
+if [[ -n "${EXT_ACCEPTANCE_ENV_FILE:-}" ]]; then
+  printf 'EXT_PLUGIN_LIBRARY=%s\nEXT_ACCEPTANCE_LIBRARY=%s\nEXT_LEDGER_LIBRARY=%s\n' "$library_path" "$library_path" "$ledger_path" >> "$EXT_ACCEPTANCE_ENV_FILE"
+fi
+go test ./pkg/ext-go/cengine/plugin -count=1 -json | python3 scripts/check-go-test-results.py TestNativeSession TestNativeSessionPreservesCallerContextAndTransportError TestNativeRegistryReleasesClosedTargets
+go test ./pkg/ext-go/cgoengine/plugin -run '^TestSharedLibrarySessionServesReverseCallsAndProgress$' -count=1 -json | python3 scripts/check-go-test-results.py TestSharedLibrarySessionServesReverseCallsAndProgress
+go test ./pkg/ext-go/cengine/plugin/host -count=1 -json | python3 scripts/check-go-test-results.py TestRegistryCases
+
+EXT_PLUGIN_BUILD="$build_dir/engine" go test ./pkg/ext-go/cengine/library -run "^TestCommandScopeDescription$" -count=1 -json | python3 scripts/check-go-test-results.py TestCommandScopeDescription
+EXT_PLUGIN_LIBRARY="$library_path" go test ./pkg/ext-go/cgoengine/plugin/host/commandscope -count=1 -json | python3 scripts/check-go-test-results.py TestNativeCommandScope
 go test ./pkg/ext-go/cengine/ledger/supervisor -run '^TestNativeSupervisor$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeSupervisor
 # Test the same described ledger through a linked C driver. No fallback allowed.
 ledger_link="$ledger_path"
@@ -37,7 +53,7 @@ case "$(go env GOOS)" in
 esac
 CGO_ENABLED=1 CGO_CFLAGS="-I$repo/lib/ledger/include" CGO_LDFLAGS="$ledger_link" go test -tags ext_ledger_cgo ./pkg/ext-go/cgoengine/ledger -run '^TestLinkedLedgerConformance$' -count=1 -json | python3 scripts/check-go-test-results.py TestLinkedLedgerConformance
 EXT_PLUGIN_LIBRARY="$library_path" go test ./cmd/ext/internal/nativeplugin -run '^TestGraphPublicationOwnership$' -count=1 -json | python3 scripts/check-go-test-results.py TestGraphPublicationOwnership
-go test ./pkg/ext-go/cengine/ledger -run '^(TestNativeShellSearchPath|TestNativeRecorderAndInventory|TestNativeProcessAndCancellation|TestNativeClose|TestNativeStoreConformance)$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeShellSearchPath TestNativeRecorderAndInventory TestNativeProcessAndCancellation TestNativeClose TestNativeStoreConformance TestNativeStoreConformance/memory TestNativeStoreConformance/file
+go test ./pkg/ext-go/cengine/ledger -run '^(TestNativeTransactionFingerprints|TestNativeAttributeValidation|TestNativeShellSearchPath|TestNativeRecorderAndInventory|TestNativeProcessAndCancellation|TestNativeClose|TestNativeStoreConformance)$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeTransactionFingerprints TestNativeAttributeValidation TestNativeShellSearchPath TestNativeRecorderAndInventory TestNativeProcessAndCancellation TestNativeClose TestNativeStoreConformance TestNativeStoreConformance/memory TestNativeStoreConformance/file
 go test ./src/ctx/internal/graphapi -count=1 -json | python3 scripts/check-go-test-results.py TestLegacyGraphMigration TestMigrationFailurePreservesLegacy
 EXT_PLUGIN_LIBRARY="$library_path" go test ./src/ctx/internal/app -run '^(TestCTXRecordsSystemContextAndGraphCommandReadsIt|TestGraphProcessCLIValidation)$' -count=1 -json | python3 scripts/check-go-test-results.py TestCTXRecordsSystemContextAndGraphCommandReadsIt TestGraphProcessCLIValidation
 EXT_PLUGIN_LIBRARY="$library_path" EXT_LEDGER_LIBRARY="$ledger_path" go test ./tests/crosslang -run '^TestExtGraph(AcrossLibraries|Reconciliation|LiveProcess|ProcessIdentity)$' -count=1 -json | python3 scripts/check-go-test-results.py TestExtGraphAcrossLibraries TestExtGraphReconciliation TestExtGraphReconciliation/memory TestExtGraphReconciliation/file TestExtGraphLiveProcess TestExtGraphProcessIdentity
@@ -87,7 +103,7 @@ fi
 # Browser fixtures execute POSIX shell guests; require every selected case there.
 if [[ "$(go env GOOS)" != windows ]]; then
   EXT_PLUGIN_LIBRARY="$library_path" go test ./src/ctx/internal/app/browserhost -count=1 -json | python3 scripts/check-go-test-results.py \
-    TestBrowserInvocationSnapshotAndReadmission TestBrowserSnapshotCancellationCleanup TestBrowserInvocationUsesDeclaredDependencies \
+    TestBrowserInvocationSnapshotAndReadmission TestBrowserSnapshotCancellationCleanup TestBrowserInvocationUsesDeclaredDependencies TestBrowserSnapshotRejectsUnexpectedFile \
     TestQuerySourceOrderFallbackAndTrust TestQueryCancellationAndMalformedSources \
     TestNormalizeDispatchAndPortableRoundTrip TestNormalizeRejectsInvalidOptionsResponsesAndTimeout
 fi

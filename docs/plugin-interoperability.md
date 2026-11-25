@@ -72,7 +72,7 @@ confined through `ext sandbox exec` will.
 
 ## Generic relay
 
-`bridge.Open(ctx, descriptor, plugin.Options{...})` creates a verified upstream
+`bridge.New(session)` takes a verified upstream
 Session and returns an Endpoint. It can be exposed through `jsonline.ServeGuest`,
 `bridge.ServeJSONLine`, or `hashicorp.Plugin{Guest: relay}`. The latter now accepts
 any `plugin.Endpoint`; existing `*plugin.Guest` callers continue to work.
@@ -186,14 +186,16 @@ process. The frontend uses Ext's HashiCorp handshake and plugin binding. Its
 worker owns the JSON-line guest; launcher death closes the private lifetime pipe
 so the worker can close and reap that guest even if go-plugin kills the frontend.
 
-Build with `-tags ext_cengine` and the C library linker flags to make the relay
-use C-owned sessions. Add `ext_cengine_shared` for shared linkage. The bridge's
+The relay uses C-owned sessions by default. Supply the shared C engine, or
+build with `-tags ext_cengine` and the C library linker flags for linked C. The bridge's
 HashiCorp runtime code stays Go in its separate process.
 
 A Go HashiCorp server can expose a relay backed by a Rust/Zig JSON-line guest:
 
 ```go
-relay, err := bridge.Open(ctx, selected, optionsForJSONLineGuest)
+session, err := host.Open(ctx, selected, optionsForJSONLineGuest)
+if err != nil { return err }
+relay, err := bridge.New(session)
 if err != nil { return err }
 // Server owner arranges relay.Close during its lifecycle.
 binding := &hashicorp.Plugin{Guest: relay}

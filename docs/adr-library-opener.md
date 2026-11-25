@@ -131,8 +131,7 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
   among what the build holds.
 - iOS loads no code fetched at run time: there a program uses cgo with a statically linked library, c2go
   or pure Go, or a path to a library the app bundles.
-- The pure-Go implementations stay as the fallback on every platform; the C library leads and they
-  follow it, as [engine parity](plugin-engine-parity.md) says.
+- The pure-Go plugin host remains only while its consumers migrate. The ledger has no Go implementation fallback; unsupported native drivers fail explicitly.
 
 ## Steps
 
@@ -185,8 +184,8 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
 6. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
    build-time drivers.
 7. The native ledger binding lives in `pkg/ext-go/cengine/ledger`; CTX uses
-   `Bind`, `Library.OpenStore` and `NewGraph` there. Shared records and validation
-   live in `core/ledger`. Engine holds the compatibility Go implementation and
+   `Bind`, `Library.OpenStore` and `NewGraph` there. Shared records
+   live in `core/ledger`. Engine holds compatibility record aliases and
    never depends back on cengine. Cengine may consume core or engine.
 
 ### CTX ledger adoption
@@ -197,7 +196,7 @@ CTX now reaches `lib/ledger` through `pkg/ext-go/cengine/ledger.Bind`,
 `Library.Objects` exposes the remaining described C operations. Additional driver
 implementations remain a separate migration step.
 
-Ledger-owned wire records live in `core/ledger/observation`; CTX owns host-selection policy. The Go recorder and SQLite store implementations were removed. The former recorder module now requires an explicitly opened native store. `NewMemory` and the Go supervisor remain for existing users.
+Ledger-owned wire records live in `core/ledger/observation`; CTX owns host-selection policy. The Go recorder and SQLite store implementations were removed. The former recorder module now requires an explicitly opened native store. The Go `NewMemory` implementation and Go supervisor have also been removed; use the native memory backend and `cengine/ledger/supervisor.OpenNative`.
 CTX's `graphapi` owns location and upgrade policy, while collection, recording,
 resolution of stored inventory, storage and reconciliation execute in C.
 
@@ -214,3 +213,42 @@ The CLI bundle carries both C libraries. Ext gives private product guests the
 ledger's library path, and standalone Go consumers explicitly load or provide
 the library before calling `Bind`. Installation verifies a CTX graph operation
 using the bundled ledger outside the source workspace.
+
+### Authenticated nested shell calls
+
+A C `command_scope` owns the reviewed dependency closure and its private package
+copies. Its description exposes it as an object, including a result-bearing
+`dispatch` event. The Go broker supplies a loopback transport; C authenticates
+the per-consumer token before the owning product applies command policy.
+
+CTX permits reads from a directly declared credential dependency and `real`
+lookups for the consumer's declared native commands. Explicit credential selector
+settings travel with the request, restricted to the selected provider's own
+`EXT_<PROVIDER>_` namespace; routing tokens and process-loader settings cannot be
+replaced. Provider-specific meanings remain in the provider adapter.
+
+Closing the scope cancels and joins dispatch before removing snapshots. Admission
+checks the entire closure under the package writer. Legacy adapter homes may
+retain their configured regular trust file beside packages; all other unexpected
+entries are rejected. The package acceptance gate requires authentication,
+cancellation, snapshot cleanup, cross-product nested calls and the canonical C
+ledger fixture suite. Go ledger canonicalization now uses C's
+`canonical_transaction`; Go transaction preparation, traversal and fingerprint
+implementations have been removed with its memory store and supervisor.
+
+### Go host and translated ledger adoption
+
+Go's default host now uses `cengine/plugin`: process backends and external Go
+transports share the C session. The described `events` backend carries
+connect/invoke/close, progress and reverse frames; Go retains transport work and
+application policy. A described registry owns routing and cycle detection in C.
+`engine/plugin/host` is removed and its consumers use `cengine/plugin/host`.
+The old Go session remains as a differential-test oracle, not a production
+fallback. Backend packages prepare transports; the caller selects the host.
+
+The translated ledger uses the C portable profile on 64-bit Linux and macOS.
+It implements memory/file stores, watches, recorder projections and canonical
+transaction fingerprints. Collection and supervision fail as unsupported;
+unsupported translation targets return `driver.ErrUnavailable`. Native and
+translated portable profiles run the same fixtures through
+`scripts/ledger-c2go.sh`; no optional check substitutes a Go implementation.

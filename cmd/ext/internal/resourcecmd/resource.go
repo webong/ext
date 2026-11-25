@@ -15,6 +15,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -108,7 +109,7 @@ func (m Manager) providers() ([]Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := lib.Open("store", map[string]any{"root": filepath.Join(m.Home, "packages")}, nil)
+	s, err := lib.Open("store", map[string]any{"root": filepath.Join(m.Home, "packages"), "layout": storelayout.Ext()}, nil)
 	if err != nil {
 		return nil, err
 	}

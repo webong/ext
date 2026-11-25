@@ -18,6 +18,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -44,6 +45,7 @@ type Row struct {
 type Options struct {
 	Root     plugin.Identity
 	Rows     []Row
+	Layout   storelayout.Layout
 	Review   func(packagekit.Manifest) (string, error)
 	Dispatch func(context.Context, *Scope, plugin.Identity, Request) (Result, error)
 }
@@ -103,7 +105,11 @@ func Open(ctx context.Context, lib *library.Described, options Options) (*Scope,
 	}
 	child, cancel := context.WithCancel(ctx)
 	s := &Scope{ctx: child, cancel: cancel, tokens: map[plugin.Identity]string{}, Plan: plan}
-	object, err := lib.Open("command_scope", map[string]any{"root": options.Root, "packages": rows, "os": runtime.GOOS, "arch": runtime.GOARCH, "temp_root": os.TempDir()}, library.Handlers{"dispatch": func(raw json.RawMessage) (any, error) {
+	config := map[string]any{"root": options.Root, "packages": rows, "os": runtime.GOOS, "arch": runtime.GOARCH, "temp_root": os.TempDir()}
+	if options.Layout != (storelayout.Layout{}) {
+		config["layout"] = options.Layout
+	}
+	object, err := lib.Open("command_scope", config, library.Handlers{"dispatch": func(raw json.RawMessage) (any, error) {
 		s.mu.Lock()
 		if s.closed {
 			s.mu.Unlock()
@@ -147,7 +153,7 @@ func Open(ctx context.Context, lib *library.Described, options Options) (*Scope,
 	for _, p := range view.Packages {
 		s.tokens[p.Identity] = p.Token
 	}
-	s.packages, err = store.New(view.Directory, store.Limits{})
+	s.packages, err = store.NewWithLayout(view.Directory, store.Limits{}, options.Layout)
 	if err != nil {
 		return fail(err)
 	}

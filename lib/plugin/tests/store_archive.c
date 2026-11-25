@@ -91,7 +91,9 @@ static void run_case(const char *fixtures, ext_fs *work, const char *work_path,
                              (uint32_t)limit(l, "maxTreeFiles"),
                              limit(l, "maxTreeBytes")};
   ext_plugin_store *store = NULL;
-  if (ext_plugin_store_open(root, &limits, &store)) {
+  yyjson_val *config = yyjson_obj_get(c, "layout");
+  ext_plugin_store_layout layout = {text(config, "manifest_path"), text(config, "fallback_path")};
+  if (ext_plugin_store_open_with_layout(root, &limits, config ? &layout : NULL, &store)) {
     FAIL("%s: cannot open the store", name);
     free(base);
     free(root);
@@ -119,6 +121,14 @@ static void run_case(const char *fixtures, ext_fs *work, const char *work_path,
             yyjson_obj_get(yyjson_obj_get(yyjson_doc_get_root(doc), "descriptor"),
                            "identity"),
             "revision"));
+      }
+    } else if (text(step, "load")) {
+      s = ext_plugin_store_load(store, text(step, "load"), &out);
+      if (!s) {
+        doc = ext_parse(out.data, out.len);
+        revision = yyjson_get_str(yyjson_obj_get(
+            yyjson_obj_get(yyjson_obj_get(yyjson_doc_get_root(doc), "descriptor"),
+                           "identity"), "revision"));
       }
     } else if (text(step, "receipt")) {
       s = ext_plugin_store_receipt(store, text(step, "receipt"), &out);
@@ -216,19 +226,28 @@ int main(int argc, char **argv) {
     fprintf(stderr, "usage: %s <testdata/v1 directory> <work directory>\n", argv[0]);
     return 2;
   }
-  char *cases = join(argv[1], "archive-cases.json");
-  yyjson_doc *doc = read_json(cases);
-  free(cases);
   ext_fs *work = NULL;
-  if (!doc || ext_fs_make_root(argv[2]) || ext_fs_open(argv[2], &work)) {
-    fprintf(stderr, "cannot read the fixtures or make the work directory\n");
+  if (ext_fs_make_root(argv[2]) || ext_fs_open(argv[2], &work)) {
+    fprintf(stderr, "cannot make the work directory\n");
     return 2;
   }
-  size_t i, n, ran = 0;
-  yyjson_val *c;
-  yyjson_arr_foreach(yyjson_obj_get(yyjson_doc_get_root(doc), "cases"), i, n, c) {
-    run_case(argv[1], work, argv[2], i, c);
-    ran++;
+  size_t ran = 0;
+  const char *files[] = {"archive-cases.json", "manifest-layout-cases.json"};
+  for (size_t file = 0; file < sizeof files / sizeof files[0]; file++) {
+    char *cases = join(argv[1], files[file]);
+    yyjson_doc *doc = read_json(cases);
+    free(cases);
+    if (!doc) {
+      FAIL("cannot read %s", files[file]);
+      continue;
+    }
+    size_t i, n;
+    yyjson_val *c;
+    yyjson_arr_foreach(yyjson_obj_get(yyjson_doc_get_root(doc), "cases"), i, n, c) {
+      run_case(argv[1], work, argv[2], ran, c);
+      ran++;
+    }
+    yyjson_doc_free(doc);
   }
   if (!ran)
     FAIL("no cases");
@@ -236,7 +255,6 @@ int main(int argc, char **argv) {
   arguments(argv[1], argv[2]);
   ext_fs_remove_all(work, "arguments");
   ext_fs_close(work);
-  yyjson_doc_free(doc);
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);
     return 1;

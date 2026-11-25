@@ -80,12 +80,12 @@ func TestTheLGPLAdapterShipsItsNotice(t *testing.T) {
 			t.Errorf("adapters/evm is missing %s: %v", name, err)
 		}
 	}
-	manifest, err := os.ReadFile(filepath.Join(root, "adapters", "evm", "plugin.json"))
+	manifest, err := os.ReadFile(filepath.Join(root, "adapters", "evm", "ext.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(manifest), "NOTICE.md") || !strings.Contains(string(manifest), "third_party") {
-		t.Error("plugin.json must list NOTICE.md and third_party as artifacts so the notice travels with the binary")
+		t.Error("ext.json must list NOTICE.md and third_party as artifacts so the notice travels with the binary")
 	}
 }
 

@@ -25,6 +25,7 @@ type Manager struct {
 }
 
 const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sha256 digest] | trust <id> | untrust <id> | remove <id> [--force] | list | inspect <id> | verify <id>
+       ext package install|upgrade <directory> --manifest <package-relative-path>
        ext package plan [--without <id> | --with <sealed-package-dir>]
        ext package install|upgrade --source <name>
        ext package build|pack|index|test|doctor ...`
@@ -78,6 +79,13 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return m.list(stdout, stderr)
+	}
+	if (sub == "install" || sub == "upgrade") && len(rest) == 3 && rest[1] == "--manifest" {
+		if err := m.installWithManifest(sub == "upgrade", rest[0], rest[2], stdout); err != nil {
+			fmt.Fprintf(stderr, "ext: package %s: %v\n", sub, err)
+			return 1
+		}
+		return 0
 	}
 	if (sub == "install" || sub == "upgrade") && len(rest) == 2 && rest[0] == "--source" {
 		archive, err := (sourcecmd.Manager{Home: filepath.Dir(m.Store.Root())}).Resolve(rest[1])

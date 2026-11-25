@@ -37,7 +37,7 @@ description = "Test adapter"
 capabilities = "` + capabilities + `"
 selector_key = "` + selector + `"
 ` + commands
-	if err := writeText(filepath.Join(directory, "plugin.json"), []byte(manifest), 0o644); err != nil {
+	if err := writeText(filepath.Join(directory, "ext.json"), []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	executable := []byte("#!/bin/sh\nexit 0\n")
@@ -88,7 +88,7 @@ share_spaces = "credential"
 selectable = "false"
 self_contained = "true"
 `
-	if err := writeText(filepath.Join(path, "plugin.json"), []byte(manifest), 0o600); err != nil {
+	if err := writeText(filepath.Join(path, "ext.json"), []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(path, "ctx-vault"), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
@@ -102,7 +102,7 @@ self_contained = "true"
 
 func TestAdapterDisplayName(t *testing.T) {
 	directory := fixtureAdapter(t, t.TempDir(), "example", "browser")
-	path := filepath.Join(directory, "plugin.json")
+	path := filepath.Join(directory, "ext.json")
 	original, err := readText(path)
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestAdapterDisplayName(t *testing.T) {
 
 func TestPlatformDependencyDeclaration(t *testing.T) {
 	directory := fixtureAdapter(t, t.TempDir(), "chrome", "browser")
-	path := filepath.Join(directory, "plugin.json")
+	path := filepath.Join(directory, "ext.json")
 	original, err := readText(path)
 	if err != nil {
 		t.Fatal(err)
@@ -217,7 +217,7 @@ func TestManifestRuntimeAndSurface(t *testing.T) {
 
 func TestBrowserManagementManifestOperations(t *testing.T) {
 	directory := fixtureAdapter(t, t.TempDir(), "browser_mgr", "browser")
-	path := filepath.Join(directory, "plugin.json")
+	path := filepath.Join(directory, "ext.json")
 	contents, err := readText(path)
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestBrowserManagementManifestOperations(t *testing.T) {
 func TestSelfContainedAdapterOptInPreservesDefaultCommands(t *testing.T) {
 	root := t.TempDir()
 	directory := fixtureAdapter(t, root, "desktop", "manager")
-	path := filepath.Join(directory, "plugin.json")
+	path := filepath.Join(directory, "ext.json")
 	data, err := readText(path)
 	if err != nil {
 		t.Fatal(err)
@@ -280,7 +280,7 @@ func TestSelfContainedAdapterOptInPreservesDefaultCommands(t *testing.T) {
 
 func TestManifestRejectsUnknownKeys(t *testing.T) {
 	directory := fixtureAdapter(t, t.TempDir(), "echo", "computer")
-	path := filepath.Join(directory, "plugin.json")
+	path := filepath.Join(directory, "ext.json")
 	original, err := readText(path)
 	if err != nil {
 		t.Fatal(err)
@@ -318,7 +318,7 @@ func TestManagerProviderCommandProtocol(t *testing.T) {
 
 func TestManifestSelectsPlatformExecutable(t *testing.T) {
 	directory := fixtureAdapter(t, t.TempDir(), "echo", "computer")
-	manifestPath := filepath.Join(directory, "plugin.json")
+	manifestPath := filepath.Join(directory, "ext.json")
 	manifest, err := readText(manifestPath)
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +372,7 @@ func TestRejectsSymlinks(t *testing.T) {
 		t.Skip("creating symlinks may require elevated Windows privileges")
 	}
 	directory := fixtureAdapter(t, t.TempDir(), "echo", "computer")
-	if err := os.Symlink("plugin.json", filepath.Join(directory, "linked")); err != nil {
+	if err := os.Symlink("ext.json", filepath.Join(directory, "linked")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LoadDirectory(directory); err == nil {
@@ -383,7 +383,7 @@ func TestRejectsSymlinks(t *testing.T) {
 func TestUnknownRuntimeIsAcceptedButInert(t *testing.T) {
 	root := t.TempDir()
 	directory := fixtureAdapter(t, root, "notes", "content")
-	manifestPath := filepath.Join(directory, "plugin.json")
+	manifestPath := filepath.Join(directory, "ext.json")
 	original, err := readText(manifestPath)
 	if err != nil {
 		t.Fatal(err)
@@ -418,7 +418,7 @@ func TestUnknownRuntimeIsAcceptedButInert(t *testing.T) {
 func TestSelfContainedComputerAdapterMayNameItsCommands(t *testing.T) {
 	root := t.TempDir()
 	directory := fixtureAdapter(t, root, "engine_tool", "computer")
-	manifestPath := filepath.Join(directory, "plugin.json")
+	manifestPath := filepath.Join(directory, "ext.json")
 	original, err := readText(manifestPath)
 	if err != nil {
 		t.Fatal(err)
@@ -446,7 +446,7 @@ func TestSelfContainedComputerAdapterMayNameItsCommands(t *testing.T) {
 	}
 }
 
-// readText renders the plugin.json at path in the compact key = "value" notation,
+// readText renders the ext.json at path in the compact key = "value" notation,
 // so a test can change a field as text.
 func readText(path string) ([]byte, error) {
 	pm, err := readPackage(filepath.Dir(path))
@@ -469,7 +469,7 @@ func readText(path string) ([]byte, error) {
 	return []byte(text.String()), nil
 }
 
-// writeText replaces the plugin.json beside path with the template of text.
+// writeText replaces the ext.json beside path with the template of text.
 func writeText(path string, text []byte, _ os.FileMode) error {
 	return WriteKeyValueManifest(filepath.Dir(path), string(text))
 }

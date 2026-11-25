@@ -5,6 +5,7 @@ import (
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/packages"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -20,7 +21,7 @@ func packageLimits(l Limits) cgoengine.PackageStoreLimits {
 
 // open returns the engine's package store on the root. The caller holds s.mu and closes it.
 func (s *Store) open() (*cgoengine.PackageStore, error) {
-	return cgoengine.OpenPackageStore(s.root, packageLimits(s.limits))
+	return cgoengine.OpenPackageStoreWithLayout(s.root, packageLimits(s.limits), s.layout)
 }
 
 // engine runs call on the engine's package store. The caller holds s.mu.
@@ -61,21 +62,30 @@ func (s *Store) installed(manifest []byte) (Installed, error) {
 	if err != nil {
 		return Installed{}, err
 	}
-	return Installed{Manifest: m, Directory: s.dir(m.Descriptor.Identity.ID), limits: s.limits}, nil
+	dir := s.dir(m.Descriptor.Identity.ID)
+	path, err := s.layout.Locate(dir)
+	if err != nil {
+		return Installed{}, err
+	}
+	return Installed{Manifest: m, Directory: dir, limits: s.limits, manifestPath: path}, nil
 }
 
 func (s *Store) installedAll(records []cgoengine.PackageRecord) ([]Installed, error) {
-	return installedRecords(records, s.limits)
+	return installedRecords(records, s.limits, s.layout)
 }
 
-func installedRecords(records []cgoengine.PackageRecord, limits Limits) ([]Installed, error) {
+func installedRecords(records []cgoengine.PackageRecord, limits Limits, layout storelayout.Layout) ([]Installed, error) {
 	out := make([]Installed, 0, len(records))
 	for _, r := range records {
 		m, err := decodeManifest(r.Manifest)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, Installed{Manifest: m, Directory: r.Directory, limits: limits})
+		path, err := layout.Locate(r.Directory)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, Installed{Manifest: m, Directory: r.Directory, limits: limits, manifestPath: path})
 	}
 	return out, nil
 }

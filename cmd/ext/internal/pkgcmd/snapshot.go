@@ -82,7 +82,7 @@ func prepareCommandSnapshot(installed store.Installed, options host.Options, s *
 		return fail(err)
 	}
 	cleanup := func() { _ = os.RemoveAll(root) }
-	destination, err := lib.Open("store", map[string]any{"root": root}, nil)
+	destination, err := lib.Open("store", map[string]any{"root": root, "layout": s.Layout()}, nil)
 	if err != nil {
 		cleanup()
 		return fail(err)
@@ -92,7 +92,7 @@ func prepareCommandSnapshot(installed store.Installed, options host.Options, s *
 		cleanup()
 		return fail(err)
 	}
-	snapshot, err := store.New(root, store.Limits{})
+	snapshot, err := store.NewWithLayout(root, store.Limits{}, s.Layout())
 	if err != nil {
 		cleanup()
 		return fail(err)

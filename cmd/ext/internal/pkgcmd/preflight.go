@@ -17,7 +17,11 @@ import (
 // New unresolved packages may still be staged; trust and invocation enforce
 // their requirements separately.
 func (m Manager) checkReplacement(dir string) error {
-	path := filepath.Join(dir, store.ManifestName)
+	manifestPath, err := m.Store.Layout().Locate(dir)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, filepath.FromSlash(manifestPath))
 	info, err := os.Lstat(path)
 	if err != nil {
 		return err
@@ -85,7 +89,7 @@ func (m Manager) installArchive(ctx context.Context, archive store.Archive) (sto
 	} else if strings.Contains(path, "://") {
 		return store.Installed{}, fmt.Errorf("a remote archive requires an HTTPS URL")
 	}
-	root, err := store.ExtractArchive(path, archive.SHA256, filepath.Join(work, "package"), store.Limits{})
+	root, err := store.ExtractArchiveWithLayout(path, archive.SHA256, filepath.Join(work, "package"), store.Limits{}, m.Store.Layout())
 	if err != nil {
 		return store.Installed{}, err
 	}

@@ -27,7 +27,7 @@ type Layered struct {
 
 // NewLayered returns a view over stores in priority order, highest first. It
 // needs at least one store and rejects nil entries, repeated roots and stores
-// whose limits differ: the view applies one set of limits to all its roots.
+// whose limits or layouts differ: the view uses one configuration across its roots.
 func NewLayered(stores ...*Store) (*Layered, error) {
 	if len(stores) == 0 {
 		return nil, plugin.ErrInvalid
@@ -42,8 +42,8 @@ func NewLayered(stores ...*Store) (*Layered, error) {
 			return nil, fmt.Errorf("%w: store root %q repeated", plugin.ErrInvalid, s.root)
 		}
 		seen[root] = true
-		if s.limits != stores[0].limits {
-			return nil, fmt.Errorf("%w: store %q has other limits than the first", plugin.ErrInvalid, s.root)
+		if s.limits != stores[0].limits || s.layout != stores[0].layout {
+			return nil, fmt.Errorf("%w: store %q has different limits or layout than the first", plugin.ErrInvalid, s.root)
 		}
 	}
 	return &Layered{stores: append([]*Store(nil), stores...)}, nil
@@ -69,7 +69,7 @@ func (l *Layered) view(call func(*cgoengine.LayeredPackageStore) error) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 	}
-	v, err := cgoengine.OpenLayeredPackageStore(l.Roots(), packageLimits(l.stores[0].limits))
+	v, err := cgoengine.OpenLayeredPackageStoreWithLayout(l.Roots(), packageLimits(l.stores[0].limits), l.stores[0].layout)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (l *Layered) Load(id string) (Installed, error) {
 		if err != nil {
 			return storeError(err)
 		}
-		installed, err := installedRecords([]cgoengine.PackageRecord{record}, l.stores[0].limits)
+		installed, err := installedRecords([]cgoengine.PackageRecord{record}, l.stores[0].limits, l.stores[0].layout)
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func (l *Layered) List() ([]Installed, error) {
 		if err != nil {
 			return storeError(err)
 		}
-		out, err = installedRecords(records, l.stores[0].limits)
+		out, err = installedRecords(records, l.stores[0].limits, l.stores[0].layout)
 		return err
 	})
 	return out, err
@@ -153,7 +153,7 @@ func (l *Layered) ListUnverified() ([]Installed, []Check, error) {
 		if err != nil {
 			return storeError(err)
 		}
-		installed, err = installedRecords(records, l.stores[0].limits)
+		installed, err = installedRecords(records, l.stores[0].limits, l.stores[0].layout)
 		problems = packageChecks(checks)
 		return err
 	})

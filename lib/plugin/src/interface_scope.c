@@ -3,6 +3,7 @@
  * supplies approval: only this in-memory object holds the private copies and
  * consumer tokens. The application maps command arguments to product policy. */
 #include "interface_scope.h"
+#include "interface_store.h"
 #include "services.h"
 #include "fs.h"
 #include "platform.h"
@@ -38,7 +39,8 @@ void ext_interface_scope_free(ext_interface_scope *s) {
 }
 ext_plugin_status ext_interface_scope_open(yyjson_val *in,ext_interface_scope **out) {
  *out=NULL;
- if(!EXT_FIELDS(in,"object","packages","root","os","arch","temp_root")||!ext_identity(get(in,"root"))||
+ ext_plugin_store_layout layout;
+ if(!EXT_FIELDS(in,"object","packages","root","os","arch","temp_root","layout")||ext_interface_store_layout(in,&layout)||!ext_identity(get(in,"root"))||
     !path_ok(get(in,"temp_root"))||!yyjson_is_arr(get(in,"packages"))||yyjson_arr_size(get(in,"packages"))>1024) return EXT_PLUGIN_INVALID;
  ext_interface_scope *s=calloc(1,sizeof *s); if(!s) return EXT_PLUGIN_NOMEM;
  size_t n=0; char *json=yyjson_val_write(in,0,&n);
@@ -89,7 +91,7 @@ ext_plugin_status ext_interface_scope_open(yyjson_val *in,ext_interface_scope **
   if(!s->directory) rc=EXT_PLUGIN_NOMEM; else snprintf(s->directory,len,"%s/%s",text(in,"temp_root"),s->relative);
  }
  ext_plugin_store *store=NULL;
- if(!rc) rc=ext_plugin_store_open(s->directory,NULL,&store);
+ if(!rc) rc=ext_plugin_store_open_with_layout(s->directory,NULL,layout.manifest_path?&layout:NULL,&store);
  yyjson_arr_foreach(rows(s),i,k,row) {
   if(rc)break;
   if(!s->needed[i])continue;

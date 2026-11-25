@@ -18,7 +18,7 @@ adapter can serve both products. See [adapter management](adr-adapter-management
 
 | Piece | What an author supplies |
 | --- | --- |
-| `plugin.json` | The ext package manifest: unique name, the `ext.adapter` contract with the capabilities you implement, the executable as an artifact, and a `ctx.adapter/v1` metadata object with runtime, surfaces and the rest (see [the manifest](adapter-api.md#manifest)). |
+| `ext.json` | The ext package manifest: unique name, the `ext.adapter` contract with the capabilities you implement, the executable as an artifact, and a `ctx.adapter/v1` metadata object with runtime, surfaces and the rest (see [the manifest](adapter-api.md#manifest)). |
 | Executable | Handlers for `validate`, `doctor`, and at least one of `run`, `open`, or `share`. Add `list` to discover selections. |
 | Native integration | Product-specific discovery, selection validation, command routing, protocols, paths, and diagnostics. |
 | Runtime dependencies | A native tool, script interpreter, or runtime assets where required. Document these requirements and diagnose missing dependencies; installation does not provision them. |
@@ -50,7 +50,7 @@ operation by itself.
 
 ## 2. Write the manifest
 
-An adapter's manifest is `plugin.json`, an ext package document. A small
+An adapter's manifest is `ext.json`, an ext package document. A small
 selectable Go CLI adapter can start with:
 
 ```json
@@ -169,7 +169,7 @@ behavior with your native integration.
 
 ```text
 my-adapter/
-  plugin.json
+  ext.json
   go.mod
   main.go
   templates/       # optional runtime assets
@@ -215,7 +215,7 @@ Prepare a directory with only the manifest, target executable, and runtime files
 
 ```text
 ready-package/
-  plugin.json
+  ext.json
   ctx-my-tool
   templates/
 ```

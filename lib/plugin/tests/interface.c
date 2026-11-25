@@ -360,6 +360,13 @@ int main(int argc, char **argv) {
   ext_plugin_free(call(0, "trust_state", "{\"path\":\"x\",\"scope\":\"s\",\"id\":\"i\",\"digest\":\"zz\"}", EXT_PLUGIN_INVALID));
 
   /* A store and a layered view over an empty root. */
+  open_json("{\"object\":\"store\",\"root\":\"root\",\"layout\":{\"manifest_path\":\"../peer.json\"}}", EXT_PLUGIN_INVALID);
+  open_json("{\"object\":\"store\",\"root\":\"root\",\"layout\":{\"manifest_path\":\"peer.json\\u0000ignored\"}}", EXT_PLUGIN_INVALID);
+  snprintf(config, sizeof config,
+           "{\"object\":\"store\",\"root\":\"%s\",\"layout\":{\"manifest_path\":\"config/peer.json\"}}", root);
+  uint64_t custom = open_json(config, EXT_PLUGIN_OK);
+  expect(custom, "ids", NULL, "[]");
+  CHECK(ext_plugin_close(custom) == EXT_PLUGIN_OK, "close the custom layout store");
   snprintf(config, sizeof config, "{\"object\":\"store\",\"root\":\"%s\"}", root);
   uint64_t store = open_json(config, EXT_PLUGIN_OK);
   expect(store, "ids", NULL, "[]");

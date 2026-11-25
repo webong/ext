@@ -10,6 +10,7 @@ import (
 
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -21,6 +22,7 @@ type GraphOptions struct {
 	Contract plugin.ContractRef
 	OS, Arch string
 	MaxHosts int
+	Layout   storelayout.Layout
 	// LedgerPath enables durable observations in a caller-owned ledger.
 	LedgerPath string
 	Review     func(packagekit.Manifest) (string, error)
@@ -91,10 +93,14 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 	if !ok {
 		return nil, fmt.Errorf("provider %s not found", options.RootID)
 	}
-	owned, err := lib.Open("execution_graph", map[string]any{
+	config := map[string]any{
 		"packages": rows, "os": options.OS, "arch": options.Arch, "max_hosts": limit, "temp_root": os.TempDir(),
 		"root": map[string]any{"identity": selected.Descriptor.Identity, "contract": options.Contract},
-	}, library.Handlers{"reverse_authorize": func(data json.RawMessage) (any, error) {
+	}
+	if options.Layout != (storelayout.Layout{}) {
+		config["layout"] = options.Layout
+	}
+	owned, err := lib.Open("execution_graph", config, library.Handlers{"reverse_authorize": func(data json.RawMessage) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

@@ -16,10 +16,11 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	sharedstore "github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
-// An adapter is an ext package: a plugin.json template in a source directory,
+// An adapter is an ext package: a ext.json template in a source directory,
 // sealed (digests, platform, revision) when it is installed or packaged.
 
 // scriptSource writes a shell-style adapter source with a unix launcher, a
@@ -156,7 +157,7 @@ func TestInstallSealsForThisPlatformAndKeepsHelpers(t *testing.T) {
 	if err := verifyPackage(installed.Directory, installed.Package); err != nil {
 		t.Fatal(err)
 	}
-	packages, err := sharedstore.New(store.Home, sharedstore.Limits{})
+	packages, err := sharedstore.NewWithLayout(store.Home, sharedstore.Limits{}, storelayout.Ext())
 	if err != nil {
 		t.Fatal(err)
 	}

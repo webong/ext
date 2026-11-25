@@ -15,6 +15,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	ml "github.com/webong/ext/res/int/model"
 	mlplugin "github.com/webong/ext/src/ctn/model"
@@ -42,7 +43,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: model provider list takes no arguments")
 			return 2
 		}
-		s, err := store.New(home.Intelligence(), store.Limits{})
+		s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -108,7 +109,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: model provider install needs one sealed package directory")
 			return 2
 		}
-		s, err := store.New(home.Intelligence(), store.Limits{})
+		s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -135,7 +136,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: model provider trust needs one installed package ID")
 			return 2
 		}
-		s, err := store.New(home.Intelligence(), store.Limits{})
+		s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -193,7 +194,7 @@ func modelTrustFile() (*hosttrust.File, error) {
 }
 
 func resolveModelProvider(id string) (store.Entrypoint, string, error) {
-	s, err := store.New(home.Intelligence(), store.Limits{})
+	s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return store.Entrypoint{}, "", err
 	}

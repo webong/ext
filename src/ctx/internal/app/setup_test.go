@@ -68,7 +68,7 @@ func testCatalogDependency(t *testing.T, modern bool) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(directory, "plugin.json"), raw, 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(directory, "ext.json"), raw, 0600); err != nil {
 				t.Fatal(err)
 			}
 		}

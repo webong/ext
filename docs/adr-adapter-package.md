@@ -5,15 +5,15 @@ lines with no schema, parsed by hand, beside a package manifest, `plugin.json`
 (`ext.package/v1`), that every other ext package has. Two manifests meant two
 parsers, two trust anchors, two archive formats and a file name (`adapter.toml`,
 later `plugin.toml` in a draft of this change) that suggested a different kind of
-thing. An adapter is now an ext package whose manifest is `plugin.json`. This page
-records the decisions; [the adapter API](adapter-api.md) has the reference.
+thing. The migration put adapters in the same package format as every other
+Ext package. Ext now names that document `ext.json` and accepts the historical
+`plugin.json` when the primary path is absent. See the [adapter API](adapter-api.md).
 
 ## Decisions
 
-**One manifest, no fallback.** The loader reads `plugin.json` and nothing else.
-There is no `adapter.toml` reader and no migration path: ext is in development, so
-an adapter installed before this change fails to load (its error says that
-`adapter.toml` is no longer read) and has to be reinstalled and trusted again.
+**One manifest format.** Both filenames carry the same `ext.package/v1`
+document. The loader selects the filename before parsing it. The retired
+`adapter.toml` format requires repackaging and explicit trust.
 
 **The adapter API stays 2.0.** The invocation protocol (argv and streams per
 operation) and the capabilities did not change; only where they are declared did.
@@ -33,7 +33,7 @@ ext.package/v1 did not need to grow: per-OS dependencies, the one thing it canno
 express, live in the metadata.
 
 **Template and seal.** An adapter's executable is built, so its digest does not
-exist in the repository. The checked-in `plugin.json` is a template with empty
+exist in the repository. The checked-in `ext.json` is a template with empty
 digests and revision. Sealing (`adapter.Seal`, run by install, build and pack)
 fills them in, records the platform on the launchers, and lists every other file in
 the directory as an artifact, so first-party helper binaries built beside a
@@ -45,7 +45,7 @@ the other kind is dropped: an installed Windows adapter has `main.windows`, any
 other has `main`.
 
 **Trust is unchanged.** The trust record is still the digest of the whole adapter
-directory (which now includes the sealed `plugin.json`), keyed by name, and an
+directory (which now includes the sealed manifest), keyed by name, and an
 adapter is still installed untrusted. Every adapter therefore shows as changed
 once, when it is reinstalled in the new form.
 
@@ -74,7 +74,7 @@ made ext interpret product vocabulary, which the ownership rules forbid.
 The 42 manifests in the repository (40 adapters and 2 examples) were converted by
 a program, each checked by reading the new document back and comparing every field
 with the old one. An arch test loads every adapter source with the real loader on
-all three platforms and fails if an adapter has no `plugin.json` or still has an
+all three platforms and fails if an adapter has no `ext.json` or still has an
 old manifest. Tests cover the mapping of every field, sealing for each platform,
 install, pack, build, archives (another platform, a changed file, an unlisted file)
 and the platform index.

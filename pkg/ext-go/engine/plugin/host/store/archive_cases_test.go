@@ -15,6 +15,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 )
 
 // The archive and download fixtures every store runs, in every language:
@@ -29,9 +30,10 @@ type archiveCases struct {
 }
 
 type archiveCase struct {
-	Name   string        `json:"name"`
-	Limits *caseLimits   `json:"limits,omitempty"`
-	Steps  []archiveStep `json:"steps"`
+	Name   string             `json:"name"`
+	Limits *caseLimits        `json:"limits,omitempty"`
+	Layout storelayout.Layout `json:"layout,omitempty"`
+	Steps  []archiveStep      `json:"steps"`
 }
 
 type caseLimits struct {
@@ -44,6 +46,7 @@ type caseLimits struct {
 type archiveStep struct {
 	Install  string  `json:"install,omitempty"`
 	Receipt  string  `json:"receipt,omitempty"`
+	Load     string  `json:"load,omitempty"`
 	Remove   string  `json:"remove,omitempty"`
 	Damage   string  `json:"damage,omitempty"`
 	Path     string  `json:"path,omitempty"`
@@ -86,8 +89,17 @@ func readFixture(t *testing.T, name string, into any) {
 }
 
 func TestArchiveCases(t *testing.T) {
+	testArchiveCases(t, "archive-cases.json")
+}
+
+func TestManifestLayoutArchiveCases(t *testing.T) {
+	testArchiveCases(t, "manifest-layout-cases.json")
+}
+
+func testArchiveCases(t *testing.T, file string) {
+	t.Helper()
 	var fixture archiveCases
-	readFixture(t, "archive-cases.json", &fixture)
+	readFixture(t, file, &fixture)
 	if len(fixture.Cases) == 0 {
 		t.Fatal("no cases")
 	}
@@ -98,7 +110,7 @@ func TestArchiveCases(t *testing.T) {
 				limits = store.Limits{MaxArchiveBytes: c.Limits.MaxArchiveBytes, MaxTreeFiles: c.Limits.MaxTreeFiles,
 					MaxTreeBytes: c.Limits.MaxTreeBytes, MaxArtifactBytes: c.Limits.MaxArtifactBytes}
 			}
-			s, err := store.New(filepath.Join(t.TempDir(), "plugins"), limits)
+			s, err := store.NewWithLayout(filepath.Join(t.TempDir(), "plugins"), limits, c.Layout)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,6 +123,9 @@ func TestArchiveCases(t *testing.T) {
 						archive.SHA256 = *step.SHA256
 					}
 					installed, err := s.InstallArchive(context.Background(), archive, store.ArchiveOptions{})
+					got, revision = fixtureStatus(err), installed.Manifest.Descriptor.Identity.Revision
+				case step.Load != "":
+					installed, err := s.Load(step.Load)
 					got, revision = fixtureStatus(err), installed.Manifest.Descriptor.Identity.Revision
 				case step.Receipt != "":
 					receipt, err := s.Receipt(step.Receipt)

@@ -1,6 +1,6 @@
 # ext adapter API v2.0
 
-An external adapter is a directory containing `plugin.json` and an executable
+An external adapter is a directory containing `ext.json` and an executable
 for the current operating system. It can be distributed as a platform-specific
 `.ctxadapter` archive or through a platform index.
 The adapter management commands install ext adapters under `$EXT_HOME/packages`; hosts never discover or source
@@ -56,19 +56,16 @@ provider switch in core code.
 
 ## Manifest
 
-An adapter is an ext package. Its manifest is `plugin.json`, the same
-`ext.package/v1` document every ext package has (see the
-[plugin contract](adr-plugin-contract.md)), and there is no other manifest file.
-`plugin.json` is also the only manifest a package directory has, so one tool reads
-adapters and other packages alike. (It is not `plugin.toml`: that name does not
-exist. A `plugin.json` is told apart from any other file of that name by its
-`apiVersion`, `ext.package/v1`.)
+An adapter is an Ext package. Ext looks for the `ext.package/v1` document in
+`ext.json`. It also supports historical packages whose manifest is
+`plugin.json` when the primary file is absent. A package has one manifest.
+See the [plugin contract](adr-plugin-contract.md#package-store).
 
-The `plugin.json` in an adapter's source directory is a **template**: it lists
+The `ext.json` in an adapter's source directory is a **template**: it lists
 the files the adapter needs but not their digests, which do not exist until the
 executable is built. `ext package install`, `build` and `pack` seal it: they add
 the digest of every file, the platform of the launcher, and a revision, then write
-the sealed `plugin.json` that an installed adapter carries and that the adapter trust
+the sealed `ext.json` that an installed adapter carries and that the adapter trust
 digest covers. The shared Ext package store performs the final install,
 replacement, removal, and verification. A sealed manifest lists exactly the
 files in the directory. A directory copied into the adapter home by hand keeps
@@ -109,7 +106,7 @@ other adapter.
 
 Where each adapter field lives:
 
-| Field | In plugin.json |
+| Field | In ext.json |
 | --- | --- |
 | `name` | `descriptor.identity.id` |
 | API version `2.0` | the version of the `ext.adapter` contract. It is the version of the invocation protocol below, which this change did not alter, so it stays `2.0`. |
@@ -148,7 +145,7 @@ To stay short, the rest of this page writes a field in the compact notation
 `key = "value"`, where a list is comma separated: `capabilities = "list,run"` means
 the operations `list` and `run` of the `ext.adapter` contract, and
 `selector_key = "browser"` means that key in the metadata object. The compact
-notation is only a way to write about fields; the loader reads `plugin.json`.
+notation is only a way to write about fields; the loader reads `ext.json`.
 
 Names use lowercase letters, numbers, and underscores, and cannot collide with a
 runtime, surface, or ctx command.
@@ -790,7 +787,7 @@ ext package remove example
 `ext package install` accepts a ready-to-run directory, a local `.ctxadapter`
 archive, or an HTTPS archive with `--sha256 <digest>`. Installation never runs
 Go or executes the adapter. The archive has the sealed
-`plugin.json`, the platform's executable, and optional runtime assets: exactly the files the
+`ext.json`, the platform's executable, and optional runtime assets: exactly the files the
 manifest lists, with the platform recorded on the launcher. ctx rejects archives for another
 platform, unsafe paths, links, oversized contents, files that do not match their
 digests or are not listed, and checksum mismatches.
@@ -802,7 +799,7 @@ the versioned process invocation. Browser authors can also import
 `github.com/webong/ext/res/web/host/contract` for the cookie and policy bridge
 types, and `github.com/webong/ext/res/web/host/manage/guest` for serving helpers, while
 keeping their own browser-specific storage code. A source
-directory needs a `plugin.json` template and
+directory needs a `ext.json` template and
 a Go `main` package. `go_entry` names that package (default `.`), and optional
 `package_files` lists runtime files or directories to ship. Source code and
 `go.mod` are not copied into the archive unless deliberately listed. In the compact

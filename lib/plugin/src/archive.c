@@ -36,7 +36,6 @@
 #pragma GCC diagnostic pop
 #endif
 
-#define MANIFEST "plugin.json"
 #define BLOCK 512u
 #define PAX_MAX (1u << 20) /* one extended header, as Go's archive/tar allows */
 
@@ -877,35 +876,48 @@ static format_reader detect(const uint8_t *head, size_t len) {
   return NULL;
 }
 
-/* The package directory in what was extracted: where the manifest is. */
-static ext_plugin_status find_root(ext_fs *fs, const char *dest, char **root) {
-  char *path = join2(dest, MANIFEST), *inner = NULL, *only = NULL;
-  ext_fs_kind kind = EXT_FS_NONE;
-  ext_plugin_status s = path ? ext_fs_kind_of(fs, path, &kind) : EXT_PLUGIN_NOMEM;
-  free(path);
-  if (s)
-    return s;
-  if (kind == EXT_FS_FILE) {
-    *root = join2(dest, "");
-    if (!*root)
-      return EXT_PLUGIN_NOMEM;
-    (*root)[strlen(dest)] = 0;
+ext_plugin_status ext_store_find_manifest(ext_fs *fs, const char *dir,
+    const ext_plugin_store_layout *layout, const char **selected) {
+  const char *paths[] = {layout->manifest_path, layout->fallback_path};
+  for (size_t i = 0; i < 2 && paths[i]; i++) {
+    char *path = *dir ? join2(dir, paths[i]) : strdup(paths[i]);
+    ext_fs_kind kind = EXT_FS_NONE;
+    ext_plugin_status s = path ? ext_fs_kind_of(fs, path, &kind) : EXT_PLUGIN_NOMEM;
+    free(path);
+    if (s)
+      return s;
+    if (kind == EXT_FS_NONE)
+      continue;
+    if (kind != EXT_FS_FILE)
+      return EXT_PLUGIN_INVALID;
+    *selected = paths[i];
     return EXT_PLUGIN_OK;
   }
+  return EXT_PLUGIN_MISSING;
+}
+
+/* The package directory in what was extracted: where the manifest is. */
+static ext_plugin_status find_root(ext_fs *fs, const char *dest,
+    const ext_plugin_store_layout *layout, char **root) {
+  const char *selected = NULL;
+  ext_plugin_status s = ext_store_find_manifest(fs, dest, layout, &selected);
+  if (s == EXT_PLUGIN_OK) {
+    *root = strdup(dest);
+    return *root ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
+  }
+  if (s != EXT_PLUGIN_MISSING)
+    return s;
   ext_fs_entry *entries = NULL;
   size_t count = 0;
   s = ext_fs_list(fs, dest, &entries, &count);
   if (!s && (count != 1 || entries[0].kind != EXT_FS_DIR))
     s = EXT_PLUGIN_INVALID;
+  char *only = NULL;
   if (!s) {
     only = join2(dest, entries[0].name);
-    inner = only ? join2(only, MANIFEST) : NULL;
-    s = inner ? ext_fs_kind_of(fs, inner, &kind) : EXT_PLUGIN_NOMEM;
-    if (!s && kind != EXT_FS_FILE)
-      s = EXT_PLUGIN_INVALID;
+    s = only ? ext_store_find_manifest(fs, only, layout, &selected) : EXT_PLUGIN_NOMEM;
   }
   ext_fs_list_free(entries, count);
-  free(inner);
   if (s) {
     free(only);
     return s;
@@ -916,7 +928,8 @@ static ext_plugin_status find_root(ext_fs *fs, const char *dest, char **root) {
 
 ext_plugin_status ext_archive_extract(const char *archive, const char *digest,
                                ext_fs *fs, const char *dest,
-                               const ext_archive_limits *limits, char **root) {
+                               const ext_archive_limits *limits,
+                               const ext_plugin_store_layout *layout, char **root) {
   if (!archive || !*archive || !fs || !dest || !limits || !root)
     return EXT_PLUGIN_INVALID;
   *root = NULL;
@@ -976,7 +989,7 @@ ext_plugin_status ext_archive_extract(const char *archive, const char *digest,
   }
   ext_fs_in_close(in);
   if (!s)
-    s = find_root(fs, dest, root);
+    s = find_root(fs, dest, layout, root);
   /* A file that could not be read as an archive, or written where the archive
    * said, is the archive's fault, not a missing package. */
   if (s == EXT_PLUGIN_MISSING)

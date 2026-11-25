@@ -7,6 +7,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	cstore "github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 )
 
 // Archive extraction and download do not go through the engine: they are the
@@ -69,10 +70,15 @@ func SafeArchivePath(name string) bool { return cstore.SafeArchivePath(name) }
 // has already authenticated. Nothing is validated beyond finding the manifest:
 // Install verifies the package. On failure destination may hold a partial tree.
 func ExtractArchive(archive, sha256Hex, destination string, limits Limits) (string, error) {
-	return cstore.ExtractArchive(archive, sha256Hex, destination, cstore.Limits{
+	return ExtractArchiveWithLayout(archive, sha256Hex, destination, limits, storelayout.Layout{})
+}
+
+// ExtractArchiveWithLayout locates a package inside an archive using the caller's layout.
+func ExtractArchiveWithLayout(archive, sha256Hex, destination string, limits Limits, layout storelayout.Layout) (string, error) {
+	return cstore.ExtractArchiveWithLayout(archive, sha256Hex, destination, cstore.Limits{
 		MaxArtifactBytes: limits.MaxArtifactBytes, MaxTreeFiles: limits.MaxTreeFiles,
 		MaxTreeBytes: limits.MaxTreeBytes, MaxArchiveBytes: limits.MaxArchiveBytes,
-	})
+	}, layout)
 }
 
 func normalizeSHA256(value string) (string, error) {

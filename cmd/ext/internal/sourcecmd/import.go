@@ -15,6 +15,7 @@ import (
 
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -29,7 +30,7 @@ func (m Manager) importCatalog(root string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	catalog, err := lib.Open("store", map[string]any{"root": root}, nil)
+	catalog, err := lib.Open("store", map[string]any{"root": root, "layout": storelayout.Ext()}, nil)
 	if err != nil {
 		return err
 	}
@@ -96,7 +97,7 @@ func (m Manager) importCatalog(root string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		staged, verifyErr := lib.Open("store", map[string]any{"root": filepath.Join(verify, "packages")}, nil)
+		staged, verifyErr := lib.Open("store", map[string]any{"root": filepath.Join(verify, "packages"), "layout": storelayout.Ext()}, nil)
 		if verifyErr == nil {
 			verifyErr = staged.Call("install_archive", map[string]any{"archive": archive, "sha256": pin, "id": id, "preserve_executable": true}, nil)
 			_ = staged.Close()

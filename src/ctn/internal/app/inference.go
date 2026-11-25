@@ -19,6 +19,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	inference "github.com/webong/ext/res/int/inference"
 	ginference "github.com/webong/ext/src/ctn/inference"
@@ -98,7 +99,7 @@ func inferenceInstallCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	defer release()
 
-	s, err := store.New(inferencePackageRoot(), store.Limits{})
+	s, err := store.NewWithLayout(inferencePackageRoot(), store.Limits{}, storelayout.Ext())
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -154,7 +155,7 @@ func inferenceTrustCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	defer release()
 
-	s, err := store.New(inferencePackageRoot(), store.Limits{})
+	s, err := store.NewWithLayout(inferencePackageRoot(), store.Limits{}, storelayout.Ext())
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -257,7 +258,7 @@ func resolveProvider(id string) (providerConfig, error) {
 		return providerConfig{}, fmt.Errorf("%w: provider ID is required", inference.ErrInvalidRequest)
 	}
 	root := inferencePackageRoot()
-	s, err := store.New(root, store.Limits{})
+	s, err := store.NewWithLayout(root, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return providerConfig{}, err
 	}
@@ -283,7 +284,7 @@ func openProviderSession(ctx context.Context, cfg providerConfig) (*ginference.S
 	descriptor := ginference.Descriptor(ginference.Identity{ID: cfg.ID, Revision: digest, Version: cfg.Version})
 	session, err := ginference.Open(ctx, descriptor, ginference.Options{
 		Verify: func(ctx context.Context, d ginference.DescriptorType) error {
-			s, err := store.New(cfg.Root, store.Limits{})
+			s, err := store.NewWithLayout(cfg.Root, store.Limits{}, storelayout.Ext())
 			if err != nil {
 				return err
 			}
@@ -368,7 +369,7 @@ func inferenceProvidersCommand(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	root := inferencePackageRoot()
-	s, err := store.New(root, store.Limits{})
+	s, err := store.NewWithLayout(root, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

@@ -13,6 +13,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -49,7 +50,8 @@ func TestEndToEnd(t *testing.T) {
 	}
 	m.Descriptor.Identity.Revision = "child" // the guest serves a fixed identity
 	m.Metadata = map[string]json.RawMessage{pkgcmd.MetadataKey: json.RawMessage(`{"commands":[{"name":"hi"},{"name":"bye"}]}`)}
-	if err := store.WriteManifest(pkg, m); err != nil {
+	manifestPath := "config/peer.json"
+	if err := store.WriteManifestAt(pkg, manifestPath, m); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,8 +80,29 @@ func TestEndToEnd(t *testing.T) {
 	if code, _, errOut := run("lib", "help"); code != 2 || !strings.Contains(errOut, "unknown command") {
 		t.Fatalf("removed lib command = %d %q", code, errOut)
 	}
-	if code, out, errOut := run("package", "install", pkg); code != 0 || !strings.Contains(out, "ext package trust example/hello") {
+	if code, _, errOut := run("package", "install", pkg, "--manifest", "../peer.json"); code != 1 || !strings.Contains(errOut, "invalid package manifest layout") {
+		t.Fatalf("outside manifest path = %d %q", code, errOut)
+	}
+	conflict := filepath.Join(pkg, storelayout.ExtManifest)
+	if err := os.WriteFile(conflict, []byte("occupied"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := run("package", "install", pkg, "--manifest", manifestPath); code != 1 || !strings.Contains(errOut, "managed manifest path") {
+		t.Fatalf("manifest collision = %d %q", code, errOut)
+	}
+	if err := os.Remove(conflict); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := run("package", "install", pkg, "--manifest", manifestPath); code != 0 || !strings.Contains(out, "ext package trust example/hello") {
 		t.Fatalf("install = %d %q %q", code, out, errOut)
+	}
+	for _, path := range []string{
+		filepath.Join(pkg, filepath.FromSlash(manifestPath)),
+		filepath.Join(home, "packages", "example%2fhello", storelayout.ExtManifest),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if code, _, errOut := run("hi", "x"); code != 2 || !strings.Contains(errOut, "unknown command") {
 		t.Fatalf("untrusted hi = %d %q", code, errOut)
@@ -114,10 +137,10 @@ func TestEndToEnd(t *testing.T) {
 	m.Descriptor.Identity.Revision = "child2"
 	m.Metadata = make(map[string]json.RawMessage)
 	m.Metadata[pkgcmd.MetadataKey] = json.RawMessage(`{"commands":[{"name":"hi","summary":"Updated greeting"},{"name":"bye"}]}`)
-	if err := store.WriteManifest(pkg, m); err != nil {
+	if err := store.WriteManifestAt(pkg, manifestPath, m); err != nil {
 		t.Fatal(err)
 	}
-	if code, _, errOut := run("package", "upgrade", pkg); code != 0 {
+	if code, _, errOut := run("package", "upgrade", pkg, "--manifest", manifestPath); code != 0 {
 		t.Fatalf("upgrade = %d %q", code, errOut)
 	}
 	if code, _, _ := run("hi", "unapproved-upgrade"); code != 2 {

@@ -12,6 +12,7 @@ import (
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/packages"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"os"
 	"path/filepath"
@@ -19,12 +20,8 @@ import (
 	"sync"
 )
 
-// ManifestName is the manifest file at the top of every package directory: the
-// ext.package/v1 document. A package.json at the top level is an ordinary file,
-// which a package may ship as an artifact (an npm package, say) like any other;
-// only this name is read as the manifest. An artifact may not use this path,
-// whatever its case, and a tree may hold a file of this name of its own.
-const ManifestName = "plugin.json"
+// ManifestName is the legacy filename used by New and WriteManifest.
+const ManifestName = storelayout.LegacyManifest
 
 // DefaultMaxArtifactBytes bounds one artifact when Limits does not.
 const DefaultMaxArtifactBytes int64 = 4 << 30
@@ -81,6 +78,7 @@ func (l Limits) normalize() Limits {
 type Store struct {
 	root   string
 	limits Limits
+	layout storelayout.Layout
 	mu     sync.Mutex
 	// archives serializes InstallArchive, which spans several locked steps.
 	archives sync.Mutex
@@ -89,19 +87,32 @@ type Store struct {
 // New returns a store rooted at root. The directory is created on first
 // install. root must be supplied by the consumer.
 func New(root string, limits Limits) (*Store, error) {
+	return NewWithLayout(root, limits, storelayout.Layout{})
+}
+
+// NewWithLayout opens a store using an application-supplied package layout.
+func NewWithLayout(root string, limits Limits, layout storelayout.Layout) (*Store, error) {
 	if root == "" || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 || limits.MaxArchiveBytes < 0 {
 		return nil, plugin.ErrInvalid
 	}
-	return &Store{root: root, limits: limits.normalize()}, nil
+	layout, err := layout.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	return &Store{root: root, limits: limits.normalize(), layout: layout}, nil
 }
 
 func (s *Store) Root() string { return s.root }
 
+// Layout returns the package layout used by this store.
+func (s *Store) Layout() storelayout.Layout { return s.layout }
+
 // Installed is one package directory. Methods re-verify content on use.
 type Installed struct {
-	Manifest  packagekit.Manifest
-	Directory string
-	limits    Limits
+	Manifest     packagekit.Manifest
+	Directory    string
+	limits       Limits
+	manifestPath string
 }
 
 // dirName maps a package ID to one directory name. IDs permit "/" but not "%",
@@ -278,9 +289,16 @@ func (p Installed) Verify() error {
 		return err
 	}
 	limits := p.limits.normalize()
-	listed := map[string]bool{ManifestName: true}
+	manifestPath := p.manifestPath
+	if manifestPath == "" {
+		manifestPath = ManifestName
+	}
+	listed := map[string]bool{strings.ToLower(manifestPath): true}
 	trees := map[string]bool{}
 	for _, a := range p.Manifest.Artifacts {
+		if storelayout.Reserves(manifestPath, a.Path, a.Kind == packagekit.ArtifactTree) {
+			return fmt.Errorf("%w: artifact overlaps manifest path %q", plugin.ErrInvalid, manifestPath)
+		}
 		if a.Kind == packagekit.ArtifactTree {
 			path, err := secureDirectory(p.Directory, a.Path)
 			if err == nil {
@@ -301,7 +319,7 @@ func (p Installed) Verify() error {
 		}
 		listed[strings.ToLower(a.Path)] = true
 	}
-	if _, err := securePath(p.Directory, ManifestName); err != nil {
+	if _, err := securePath(p.Directory, manifestPath); err != nil {
 		return err
 	}
 	return filepathWalkExtra(p.Directory, listed, trees)
@@ -415,6 +433,14 @@ func (p Installed) Executable() (string, error) {
 // WriteManifest validates m and writes it as ManifestName in dir, for authors
 // assembling a package directory that Install will copy.
 func WriteManifest(dir string, m packagekit.Manifest) error {
+	return WriteManifestAt(dir, ManifestName, m)
+}
+
+// WriteManifestAt writes the validated document at a package-relative path.
+func WriteManifestAt(dir, manifestPath string, m packagekit.Manifest) error {
+	if !plugin.PortablePath(manifestPath) {
+		return plugin.ErrInvalid
+	}
 	if err := packages.ValidateManifest(m); err != nil {
 		return err
 	}
@@ -422,7 +448,11 @@ func WriteManifest(dir string, m packagekit.Manifest) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, ManifestName), append(encoded, '\n'), 0o600)
+	path := filepath.Join(dir, filepath.FromSlash(manifestPath))
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(encoded, '\n'), 0o600)
 }
 
 // secureDirectory resolves a slash path under root to a directory, refusing

@@ -11,6 +11,7 @@ import (
 
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -58,7 +59,7 @@ func writeIndex(output string, archives []string) (string, error) {
 		// Each target gets a fresh store. Identical package revisions can have
 		// different manifest bytes across targets.
 		root := filepath.Join(work, fmt.Sprint(i))
-		staged, err := lib.Open("store", map[string]any{"root": root}, nil)
+		staged, err := lib.Open("store", map[string]any{"root": root, "layout": storelayout.Ext()}, nil)
 		if err != nil {
 			return "", err
 		}

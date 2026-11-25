@@ -17,6 +17,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/resourcecmd"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -94,7 +95,7 @@ func TestResourceDependencyGraph(t *testing.T) {
 		m.Descriptor.Identity.Revision = f.revision
 		m.Descriptor.Reverse = f.reverse
 		m.Requires = f.requires
-		if err := store.WriteManifest(dir, m); err != nil {
+		if err := store.WriteManifestAt(dir, storelayout.ExtManifest, m); err != nil {
 			t.Fatal(err)
 		}
 		run(0, "package", "install", dir)
@@ -189,7 +190,7 @@ func TestResourceDependencyGraph(t *testing.T) {
 		}
 		changed := middleManifest
 		changed.Descriptor.Identity.Revision = "mismatched-revision"
-		if err := store.WriteManifest(middleDir, changed); err != nil {
+		if err := store.WriteManifestAt(middleDir, storelayout.ExtManifest, changed); err != nil {
 			t.Fatal(err)
 		}
 		run(0, "package", "upgrade", middleDir)
@@ -208,7 +209,7 @@ func TestResourceDependencyGraph(t *testing.T) {
 		}
 		assertStopped(markers[:2]...)
 		// Restoration must acquire the writer lock and a fresh graph must work.
-		if err := store.WriteManifest(middleDir, middleManifest); err != nil {
+		if err := store.WriteManifestAt(middleDir, storelayout.ExtManifest, middleManifest); err != nil {
 			t.Fatal(err)
 		}
 		run(0, "package", "upgrade", middleDir)

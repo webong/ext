@@ -13,10 +13,11 @@ import (
 	"strings"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
-// An adapter is an ext package. Its manifest is plugin.json, the same
+// An adapter is an ext package. Its manifest is ext.json, the same
 // ext.package/v1 document every package has, and nothing else: this file turns
 // that document into the fields hosts use (Manifest) and back.
 //
@@ -31,7 +32,7 @@ import (
 //     library validates it for all consumers (see docs/adapter-api.md).
 const (
 	// ManifestFileName is the manifest at the top of an adapter directory.
-	ManifestFileName = "plugin.json"
+	ManifestFileName = storelayout.ExtManifest
 
 	// MetadataKey retains the published name of the adapter metadata object.
 	MetadataKey = "ctx.adapter/v1"
@@ -102,17 +103,17 @@ type Target struct{ OS, Arch string }
 // installed or packaged one holds the sealed manifest. Both are returned as read.
 func readPackage(directory string) (packagekit.Manifest, error) {
 	var pm packagekit.Manifest
-	path := filepath.Join(directory, ManifestFileName)
-	info, err := os.Lstat(path)
+	selected, err := storelayout.Ext().Locate(directory)
 	if err != nil {
-		if _, old := os.Lstat(filepath.Join(directory, "adapter.toml")); old == nil {
-			return pm, fmt.Errorf("adapter manifest not found: %s (adapter.toml is no longer read; an adapter is described by %s)", path, ManifestFileName)
+		path := filepath.Join(directory, ManifestFileName)
+		if errors.Is(err, os.ErrNotExist) {
+			if _, old := os.Lstat(filepath.Join(directory, "adapter.toml")); old == nil {
+				return pm, fmt.Errorf("adapter manifest not found: %s (adapter.toml is no longer read; an adapter is described by %s)", path, ManifestFileName)
+			}
 		}
-		return pm, fmt.Errorf("adapter manifest not found: %s", path)
+		return pm, fmt.Errorf("adapter manifest %s: %w", path, err)
 	}
-	if !info.Mode().IsRegular() {
-		return pm, fmt.Errorf("adapter manifest %s is not a regular file", path)
-	}
+	path := filepath.Join(directory, selected)
 	file, err := os.Open(path)
 	if err != nil {
 		return pm, err
@@ -367,7 +368,7 @@ func templateFromValues(values map[string]string) (packagekit.Manifest, error) {
 
 // TemplateFromKeyValues converts the compact key = "value" notation of earlier
 // ext versions into a package template. It exists for tooling and for tests that
-// write adapters; the loader reads plugin.json only.
+// write adapters.
 func TemplateFromKeyValues(text string) (packagekit.Manifest, error) {
 	values, err := parseKeyValues(strings.NewReader(text))
 	if err != nil {
@@ -376,7 +377,7 @@ func TemplateFromKeyValues(text string) (packagekit.Manifest, error) {
 	return templateFromValues(values)
 }
 
-// WriteKeyValueManifest writes the plugin.json template of an adapter given in
+// WriteKeyValueManifest writes the ext.json template of an adapter given in
 // the compact key = "value" notation to directory.
 func WriteKeyValueManifest(directory, text string) error {
 	pm, err := TemplateFromKeyValues(text)
@@ -386,8 +387,12 @@ func WriteKeyValueManifest(directory, text string) error {
 	return WriteManifest(directory, pm)
 }
 
-// WriteManifest writes pm as the plugin.json of directory.
+// WriteManifest writes pm as the ext.json of directory.
 func WriteManifest(directory string, pm packagekit.Manifest) error {
+	return writeManifest(directory, ManifestFileName, pm)
+}
+
+func writeManifest(directory, manifestPath string, pm packagekit.Manifest) error {
 	if err := validateTemplate(pm); err != nil {
 		return err
 	}
@@ -395,7 +400,7 @@ func WriteManifest(directory string, pm packagekit.Manifest) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(directory, ManifestFileName), append(encoded, '\n'), 0o644)
+	return os.WriteFile(filepath.Join(directory, manifestPath), append(encoded, '\n'), 0o644)
 }
 
 func parseKeyValues(input io.Reader) (map[string]string, error) {
@@ -420,7 +425,7 @@ func parseKeyValues(input io.Reader) (map[string]string, error) {
 }
 
 // Seal turns the template in directory into a sealed manifest and writes it
-// as plugin.json. The artifacts the template declares must exist; every other
+// in the same file. The artifacts the template declares must exist; every other
 // regular file in the directory is added as an artifact too, in path order, so the
 // sealed manifest lists exactly the files the directory holds and a first-party
 // adapter keeps shipping the helper binaries built beside its launcher. Seal
@@ -429,6 +434,10 @@ func parseKeyValues(input io.Reader) (map[string]string, error) {
 // digest of the first launcher. For a target it first drops the launcher of the
 // other kind (see pruneToTarget); the dropped launcher's file is not listed.
 func Seal(directory string, target Target) (packagekit.Manifest, error) {
+	manifestPath, err := storelayout.Ext().Locate(directory)
+	if err != nil {
+		return packagekit.Manifest{}, err
+	}
 	pm, err := readPackage(directory)
 	if err != nil {
 		return pm, err
@@ -445,7 +454,7 @@ func Seal(directory string, target Target) (packagekit.Manifest, error) {
 	if len(pm.Entrypoints) == 0 {
 		roots = metadataProgramRoots(pm)
 	}
-	declared := map[string]bool{strings.ToLower(ManifestFileName): true}
+	declared := map[string]bool{strings.ToLower(manifestPath): true}
 	var trees []string
 	for i := range pm.Artifacts {
 		artifact := &pm.Artifacts[i]
@@ -531,7 +540,7 @@ func Seal(directory string, target Target) (packagekit.Manifest, error) {
 	if err := pm.Validate(); err != nil {
 		return pm, err
 	}
-	return pm, WriteManifest(directory, pm)
+	return pm, writeManifest(directory, manifestPath, pm)
 }
 
 // pruneToTarget drops the launcher that does not apply to target and returns the
@@ -587,7 +596,11 @@ func verifyPackage(directory string, pm packagekit.Manifest) error {
 	if !sealed(pm) {
 		return errors.New("adapter manifest is not sealed")
 	}
-	listed := map[string]bool{ManifestFileName: true}
+	manifestPath, err := storelayout.Ext().Locate(directory)
+	if err != nil {
+		return err
+	}
+	listed := map[string]bool{strings.ToLower(manifestPath): true}
 	trees := map[string]bool{}
 	for _, artifact := range pm.Artifacts {
 		if artifact.Kind == packagekit.ArtifactTree {
@@ -600,7 +613,7 @@ func verifyPackage(directory string, pm packagekit.Manifest) error {
 		return err
 	}
 	var extra []string
-	err := filepath.WalkDir(directory, func(path string, entry os.DirEntry, walkErr error) error {
+	err = filepath.WalkDir(directory, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() {
 			return walkErr
 		}

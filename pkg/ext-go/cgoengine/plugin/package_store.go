@@ -10,6 +10,7 @@ import "C"
 import (
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	"math"
 	"path/filepath"
 	"runtime"
@@ -32,6 +33,11 @@ type PackageStore struct {
 
 // OpenPackageStore returns a store rooted at root.
 func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, error) {
+	return OpenPackageStoreWithLayout(root, limits, storelayout.Layout{})
+}
+
+// OpenPackageStoreWithLayout opens the native store with a caller-selected layout.
+func OpenPackageStoreWithLayout(root string, limits PackageStoreLimits, layout storelayout.Layout) (*PackageStore, error) {
 	if root == "" || strings.IndexByte(root, 0) >= 0 || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 ||
 		limits.MaxTreeBytes < 0 || limits.MaxArchiveBytes < 0 || int64(limits.MaxTreeFiles) > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
@@ -43,11 +49,32 @@ func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, er
 		max_tree_files:     C.uint32_t(limits.MaxTreeFiles),
 		max_tree_bytes:     C.uint64_t(limits.MaxTreeBytes),
 	}
+	nativeLayout, releaseLayout, err := nativeStoreLayout(layout)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseLayout()
 	var ptr *C.ext_plugin_store
-	if err := status(C.ext_plugin_store_open(croot, &cl, &ptr)); err != nil {
+	if err := status(C.ext_plugin_store_open_with_layout(croot, &cl, &nativeLayout, &ptr)); err != nil {
 		return nil, err
 	}
 	return &PackageStore{ptr: ptr, maxArchiveBytes: limits.MaxArchiveBytes}, nil
+}
+
+func nativeStoreLayout(layout storelayout.Layout) (C.ext_plugin_store_layout, func(), error) {
+	layout, err := layout.Normalize()
+	if err != nil {
+		return C.ext_plugin_store_layout{}, nil, err
+	}
+	primary := C.CString(layout.ManifestPath)
+	var fallback *C.char
+	if layout.FallbackPath != "" {
+		fallback = C.CString(layout.FallbackPath)
+	}
+	return C.ext_plugin_store_layout{manifest_path: primary, fallback_path: fallback}, func() {
+		C.free(unsafe.Pointer(primary))
+		C.free(unsafe.Pointer(fallback))
+	}, nil
 }
 
 // Close releases the store. A closed store refuses every call with plugin.ErrClosed.
@@ -329,6 +356,11 @@ type LayeredPackageStore struct {
 // OpenLayeredPackageStore returns a view over roots, highest priority first. It needs at least one
 // root and rejects an empty root and a repeated one.
 func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*LayeredPackageStore, error) {
+	return OpenLayeredPackageStoreWithLayout(roots, limits, storelayout.Layout{})
+}
+
+// OpenLayeredPackageStoreWithLayout opens a layered view using the supplied layout.
+func OpenLayeredPackageStoreWithLayout(roots []string, limits PackageStoreLimits, layout storelayout.Layout) (*LayeredPackageStore, error) {
 	if len(roots) == 0 || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 ||
 		int64(limits.MaxTreeFiles) > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
@@ -357,8 +389,13 @@ func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*Layere
 		max_tree_files:     C.uint32_t(limits.MaxTreeFiles),
 		max_tree_bytes:     C.uint64_t(limits.MaxTreeBytes),
 	}
+	nativeLayout, releaseLayout, err := nativeStoreLayout(layout)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseLayout()
 	var ptr *C.ext_plugin_layered
-	if err := status(C.ext_plugin_layered_open((**C.char)(array), C.size_t(len(roots)), &cl, &ptr)); err != nil {
+	if err := status(C.ext_plugin_layered_open_with_layout((**C.char)(array), C.size_t(len(roots)), &cl, &nativeLayout, &ptr)); err != nil {
 		return nil, err
 	}
 	return &LayeredPackageStore{ptr: ptr, roots: append([]string(nil), roots...)}, nil

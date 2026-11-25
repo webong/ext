@@ -7,6 +7,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/registry"
 	"github.com/webong/ext/pkg/ext-go/cengine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 )
 
 // Discover registers the commands of every installed, verified, trusted package as
@@ -69,7 +70,7 @@ func Discover(reg *registry.Registry, s *store.Store, trust *Trust, options host
 // This directory is part of the same release and trust boundary as that binary.
 // User installed packages remain in EXT_HOME and require explicit trust.
 func DiscoverBundled(reg *registry.Registry, root string) {
-	s, err := store.New(root, store.Limits{})
+	s, err := store.NewWithLayout(root, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		reg.Note(fmt.Sprintf("bundled packages: %v", err))
 		return

@@ -7,6 +7,7 @@
 #include "interface_host.h"
 #include "interface_graph.h"
 #include "interface_scope.h"
+#include "interface_store.h"
 #include "fs.h"
 #include "sync.h"
 #include "wire.h"
@@ -236,6 +237,26 @@ static ext_plugin_status digest_out(ext_plugin_status s, const uint8_t d[32], ch
   return text(json, out, out_len);
 }
 
+ext_plugin_status ext_interface_store_layout(yyjson_val *input, ext_plugin_store_layout *layout) {
+  *layout = (ext_plugin_store_layout){0};
+  yyjson_val *config = yyjson_obj_get(input, "layout");
+  if (!config)
+    return EXT_PLUGIN_OK;
+  if (!EXT_FIELDS(config, "manifest_path", "fallback_path"))
+    return EXT_PLUGIN_INVALID;
+  yyjson_val *primary = yyjson_obj_get(config, "manifest_path");
+  yyjson_val *fallback = yyjson_obj_get(config, "fallback_path");
+  layout->manifest_path = yyjson_get_str(primary);
+  layout->fallback_path = yyjson_get_str(fallback);
+  if (!layout->manifest_path || strlen(layout->manifest_path) != yyjson_get_len(primary) ||
+      !ext_portable_path(layout->manifest_path, yyjson_get_len(primary)) ||
+      (fallback && (!layout->fallback_path || strlen(layout->fallback_path) != yyjson_get_len(fallback) ||
+        !ext_portable_path(layout->fallback_path, yyjson_get_len(fallback)) ||
+        ext_path_fold_equal(layout->manifest_path, layout->fallback_path))))
+    return EXT_PLUGIN_INVALID;
+  return EXT_PLUGIN_OK;
+}
+
 static ext_plugin_status limits_of(yyjson_val *config, ext_plugin_store_limits *l) {
   memset(l, 0, sizeof *l);
   yyjson_val *v = yyjson_obj_get(config, "limits");
@@ -294,8 +315,10 @@ ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *hand
       ext_plugin_store_writer_free(writer);
   } else if (object && !strcmp(object, "store")) {
     const char *root = str(c, "root");
+    ext_plugin_store_layout layout;
     ext_plugin_store *store = NULL;
-    if (root && !(s = limits_of(c, &limits)) && !(s = ext_plugin_store_open(root, &limits, &store)) &&
+    if (root && !(s = limits_of(c, &limits)) && !(s = ext_interface_store_layout(c, &layout)) &&
+        !(s = ext_plugin_store_open_with_layout(root, &limits, layout.manifest_path ? &layout : NULL, &store)) &&
         (s = add(K_STORE, store, handle)))
       ext_plugin_store_close(store);
   } else if (object && !strcmp(object, "layered")) {
@@ -309,7 +332,9 @@ ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *hand
         if (!(list[i] = yyjson_get_str(yyjson_arr_get(roots, i))))
           s = EXT_PLUGIN_INVALID;
       ext_plugin_layered *layered = NULL;
-      if (!s && !(s = ext_plugin_layered_open(list, n, &limits, &layered)) &&
+      ext_plugin_store_layout layout;
+      if (!s && !(s = ext_interface_store_layout(c, &layout)) &&
+          !(s = ext_plugin_layered_open_with_layout(list, n, &limits, layout.manifest_path ? &layout : NULL, &layered)) &&
           (s = add(K_LAYERED, layered, handle)))
         ext_plugin_layered_close(layered);
     }
@@ -394,7 +419,11 @@ static ext_plugin_status call_library(const char *op, yyjson_val *in, const char
   }
   if (!strcmp(op, "store_digest")) {
     const char *root = str(in, "root"), *id = str(in, "id");
-    return root && id ? digest_out(ext_plugin_store_digest(root, id, d), d, out, out_len) : EXT_PLUGIN_INVALID;
+    ext_plugin_store_layout layout;
+    ext_plugin_status s = ext_interface_store_layout(in, &layout);
+    if (s || !root || !id)
+      return EXT_PLUGIN_INVALID;
+    return digest_out(ext_plugin_store_digest_with_layout(root, id, layout.manifest_path ? &layout : NULL, d), d, out, out_len);
   }
   if (!strcmp(op, "package_verify")) {
     const char *root = str(in, "root");

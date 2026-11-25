@@ -14,7 +14,6 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -75,7 +74,7 @@ func (m Manager) resolvePlan(without, with string) (packagePlan, error) {
 	if err != nil {
 		return report, err
 	}
-	native, err := lib.Open("store", map[string]any{"root": m.Store.Root()}, nil)
+	native, err := lib.Open("store", map[string]any{"root": m.Store.Root(), "layout": m.Store.Layout()}, nil)
 	if err != nil {
 		return report, err
 	}
@@ -100,7 +99,11 @@ func (m Manager) resolvePlan(without, with string) (packagePlan, error) {
 	}
 	candidateID := ""
 	if with != "" {
-		path := filepath.Join(with, store.ManifestName)
+		manifestPath, err := m.Store.Layout().Locate(with)
+		if err != nil {
+			return report, err
+		}
+		path := filepath.Join(with, filepath.FromSlash(manifestPath))
 		info, err := os.Lstat(path)
 		if err != nil {
 			return report, err
@@ -188,7 +191,7 @@ func (m Manager) resolvePlan(without, with string) (packagePlan, error) {
 		if candidateID != "" && id.ID == candidateID {
 			err = lib.Library().Call("directory_digest", map[string]any{"root": with}, &digest)
 		} else {
-			err = lib.Library().Call("store_digest", map[string]any{"root": m.Store.Root(), "id": id.ID}, &digest)
+			err = lib.Library().Call("store_digest", map[string]any{"root": m.Store.Root(), "id": id.ID, "layout": m.Store.Layout()}, &digest)
 		}
 		if err != nil {
 			return report, err

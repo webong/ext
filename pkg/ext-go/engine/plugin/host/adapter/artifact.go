@@ -20,6 +20,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -35,7 +36,7 @@ var archiveLimits = store.Limits{MaxArchiveBytes: maxArtifactBytes, MaxTreeBytes
 var validTarget = regexp.MustCompile(`^[a-z0-9][a-z0-9_]*$`)
 
 // artifactMetadata is what an index needs to know about a platform archive; it
-// is read from the archive's own plugin.json, not from a second record.
+// is read from the archive's own ext.json, not from a second record.
 type artifactMetadata struct {
 	Name string
 	OS   string
@@ -54,9 +55,9 @@ type artifactLocation struct {
 }
 
 // PackageDirectory writes a platform-specific adapter archive from a
-// ready-to-run directory: a source directory with a plugin.json template and the
+// ready-to-run directory: a source directory with a ext.json template and the
 // files it lists, or an already sealed package. The archive holds the sealed
-// plugin.json and exactly the artifacts it lists, so unlisted files in the
+// ext.json and exactly the artifacts it lists, so unlisted files in the
 // directory are not shipped. A template is sealed for the target: the launcher
 // that does not apply is dropped and the platform is recorded on the one that
 // does.
@@ -339,10 +340,18 @@ func inspectArtifact(path string) (artifactMetadata, string, error) {
 	if err != nil {
 		return artifactMetadata{}, "", err
 	}
+	var selected *zip.File
 	for _, entry := range archive.File {
-		if entry.Name != ManifestFileName {
-			continue
+		if entry.Name == ManifestFileName {
+			selected = entry
+			break
 		}
+		if entry.Name == storelayout.LegacyManifest {
+			selected = entry
+		}
+	}
+	if selected != nil {
+		entry := selected
 		if entry.UncompressedSize64 > uint64(maxIndexBytes) {
 			return artifactMetadata{}, "", errors.New("adapter package manifest is oversized")
 		}
@@ -521,7 +530,7 @@ func (s *Store) installArchive(path, expectedSHA256, expectedName string) (*Adap
 		return nil, err
 	}
 	defer os.RemoveAll(staging)
-	root, err := store.ExtractArchive(path, expectedSHA256, filepath.Join(staging, "package"), archiveLimits)
+	root, err := store.ExtractArchiveWithLayout(path, expectedSHA256, filepath.Join(staging, "package"), archiveLimits, storelayout.Ext())
 	if err != nil {
 		return nil, fmt.Errorf("adapter archive: %w", err)
 	}

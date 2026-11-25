@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 )
 
 // DefaultMaxArchiveBytes bounds a package archive, as downloaded or as a local
@@ -172,6 +173,15 @@ func normalizeSHA256(value string) (string, error) {
 // has already authenticated. Nothing is validated beyond finding the manifest:
 // Install verifies the package. On failure destination may hold a partial tree.
 func ExtractArchive(archive, sha256Hex, destination string, limits Limits) (string, error) {
+	return ExtractArchiveWithLayout(archive, sha256Hex, destination, limits, storelayout.Layout{})
+}
+
+// ExtractArchiveWithLayout locates a package inside an archive using the caller's layout.
+func ExtractArchiveWithLayout(archive, sha256Hex, destination string, limits Limits, layout storelayout.Layout) (string, error) {
+	layout, err := layout.Normalize()
+	if err != nil {
+		return "", err
+	}
 	if limits.MaxArchiveBytes < 0 || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 || destination == "" {
 		return "", plugin.ErrInvalid
 	}
@@ -230,7 +240,7 @@ func ExtractArchive(archive, sha256Hex, destination string, limits Limits) (stri
 	if err := format.read(file, size, x.entry); err != nil {
 		return "", err
 	}
-	return archiveRoot(destination)
+	return archiveRoot(destination, layout)
 }
 
 // extraction writes validated entries under root and keeps the running bounds.
@@ -366,20 +376,23 @@ func (x *extraction) entry(e archiveEntry) error {
 }
 
 // archiveRoot finds the package directory in an extracted archive.
-func archiveRoot(extracted string) (string, error) {
-	if info, err := os.Lstat(filepath.Join(extracted, ManifestName)); err == nil && info.Mode().IsRegular() {
+func archiveRoot(extracted string, layout storelayout.Layout) (string, error) {
+	if _, err := layout.Locate(extracted); err == nil {
 		return extracted, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
 	}
 	entries, err := os.ReadDir(extracted)
 	if err != nil {
 		return "", err
 	}
-	if len(entries) != 1 || !entries[0].IsDir() {
-		return "", fmt.Errorf("%w: archive must hold %s at its top or in one top-level directory", plugin.ErrInvalid, ManifestName)
+	if len(entries) == 1 && entries[0].IsDir() {
+		root := filepath.Join(extracted, entries[0].Name())
+		if _, err := layout.Locate(root); err == nil {
+			return root, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
 	}
-	root := filepath.Join(extracted, entries[0].Name())
-	if info, err := os.Lstat(filepath.Join(root, ManifestName)); err != nil || !info.Mode().IsRegular() {
-		return "", fmt.Errorf("%w: archive must hold %s at its top or in one top-level directory", plugin.ErrInvalid, ManifestName)
-	}
-	return root, nil
+	return "", fmt.Errorf("%w: archive must hold %s at its root or in one top-level directory", plugin.ErrInvalid, layout.ManifestPath)
 }

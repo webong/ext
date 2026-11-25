@@ -121,12 +121,18 @@ Go store replaces `/` with `%2f`) and must not join it into a path as written.
   using the existing CTX trust-record format.
 - `ext_plugin_store_digest`: verify one installed package under a caller-supplied store
   root, reject unlisted files, and return its directory digest.
+- `ext_plugin_store_open_with_layout`, `ext_plugin_layered_open_with_layout` and
+  `ext_plugin_store_digest_with_layout` accept a package-relative manifest path
+  and an optional fallback. The described API takes the same settings as
+  `"layout": {"manifest_path": "config/peer.json"}`. The fallback applies only
+  when the primary file is absent. Legacy entry points select `plugin.json`.
 - `ext_plugin_store_open`, `ext_plugin_store_close`, `ext_plugin_store_install`, `ext_plugin_store_upgrade`,
   `ext_plugin_store_replace`, `ext_plugin_store_remove`, `ext_plugin_store_load`, `ext_plugin_store_ids`: the
   package store. A package is verified at its source, copied into a staging
   directory below the root, verified again, and renamed into place; an upgrade
   moves the installed directory aside first and puts it back if the new one
-  cannot take its place. `plugin.json` is copied byte for byte. `EXT_PLUGIN_EXISTS` is
+  cannot take its place. The selected manifest is copied byte for byte at its
+  original path. `EXT_PLUGIN_EXISTS` is
   an install over an installed id, `EXT_PLUGIN_NOT_FOUND` an id that is not installed,
   `EXT_PLUGIN_MISSING` a source, manifest or artifact that is not there (the file layer's
   reads give it for a name that does not exist and `EXT_PLUGIN_IO` for anything else),

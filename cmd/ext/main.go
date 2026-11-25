@@ -25,6 +25,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cengine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 )
 
 func main() {
@@ -91,7 +92,7 @@ func discoverPackages(reg *registry.Registry, home string) func([]string, io.Wri
 	if err != nil {
 		return fail(err)
 	}
-	packages, err := store.New(dir, store.Limits{})
+	packages, err := store.NewWithLayout(dir, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return fail(err)
 	}

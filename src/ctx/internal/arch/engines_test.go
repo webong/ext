@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// manifestValues reads an adapter's plugin.json and returns the fields the
+// manifestValues reads an adapter's ext.json and returns the fields the
 // policy tests look at: the name, the operations of the ext.adapter contracts and
 // the ctx.adapter/v1 metadata, with lists joined by commas.
 func manifestValues(t *testing.T, path string) map[string]string {
@@ -87,7 +87,7 @@ var (
 // the old flat declaration is gone from "supports".
 func TestEngineAndRoleFields(t *testing.T) {
 	root := repoRoot(t)
-	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
+	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "ext.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestEngineAndRoleFields(t *testing.T) {
 // that a manifest can show: the declaration and the required operations.
 func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
 	root := repoRoot(t)
-	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
+	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "ext.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	domain "github.com/webong/ext/res/int/perception"
 	bridge "github.com/webong/ext/src/ctn/perception"
@@ -60,7 +61,7 @@ func perceptionCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: perception install needs PACKAGE_DIR")
 			return 2
 		}
-		s, err := store.New(home.Intelligence(), store.Limits{})
+		s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -100,7 +101,7 @@ func perceptionCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stdout, args[1])
 			return 0
 		}
-		s, err := store.New(home.Intelligence(), store.Limits{})
+		s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -128,7 +129,7 @@ func perceptionCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: perception providers takes no arguments")
 			return 2
 		}
-		s, err := store.New(home.Intelligence(), store.Limits{})
+		s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -201,7 +202,7 @@ func withPerceptionClient(ctx context.Context, id string, fn func(*bridge.Client
 	if id == "" {
 		return fmt.Errorf("%w: provider ID is required", plugin.ErrInvalid)
 	}
-	s, err := store.New(home.Intelligence(), store.Limits{})
+	s, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return err
 	}
@@ -220,7 +221,7 @@ func withPerceptionClient(ctx context.Context, id string, fn func(*bridge.Client
 	descriptor := bridge.Descriptor(plugin.Identity{ID: id, Revision: executable, Version: selected.Package.Version()})
 	session, err := plugin.Open(ctx, descriptor, plugin.Options{
 		Verify: func(_ context.Context, d plugin.Descriptor) error {
-			fresh, err := store.New(home.Intelligence(), store.Limits{})
+			fresh, err := store.NewWithLayout(home.Intelligence(), store.Limits{}, storelayout.Ext())
 			if err != nil {
 				return err
 			}

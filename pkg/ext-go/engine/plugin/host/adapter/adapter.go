@@ -6,6 +6,7 @@ import (
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"io"
@@ -140,7 +141,7 @@ func LoadDirectoryForOS(directory, goos string) (*Adapter, error) {
 	return LoadDirectoryForTarget(directory, Target{OS: goos, Arch: runtime.GOARCH})
 }
 
-// LoadSource validates the plugin.json template of an adapter source directory
+// LoadSource validates the ext.json template of an adapter source directory
 // without requiring its executable to exist yet: a Go adapter is built before it
 // can run. Everything else is checked as LoadDirectoryForOS does.
 func LoadSource(directory, goos string) (*Adapter, error) {
@@ -293,7 +294,7 @@ func (s *Store) Load(name string) (*Adapter, error) {
 	// Installed adapters and other executable packages use the same sealed
 	// package verifier. Adapter-specific manifest and trust rules remain here.
 	if sealed(loaded.Package) {
-		packages, err := store.New(s.Home, store.Limits{})
+		packages, err := store.NewWithLayout(s.Home, store.Limits{}, storelayout.Ext())
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +476,7 @@ func (s *Store) verifySealedEntrypoint(a *Adapter) error {
 	if a.Declarative() || !sealed(a.Package) {
 		return nil
 	}
-	packages, err := store.New(s.Home, store.Limits{})
+	packages, err := store.NewWithLayout(s.Home, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return err
 	}
@@ -517,7 +518,7 @@ func (s *Store) Install(source string) (*Adapter, error) {
 	if err := stageForInstall(loaded, staging); err != nil {
 		return nil, err
 	}
-	packages, err := store.New(s.Home, store.Limits{})
+	packages, err := store.NewWithLayout(s.Home, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return nil, err
 	}
@@ -582,7 +583,7 @@ func (s *Store) Replace(source string) (*Adapter, error) {
 	if _, err := LoadDirectory(staging); err != nil {
 		return nil, err
 	}
-	packages, err := store.New(s.Home, store.Limits{})
+	packages, err := store.NewWithLayout(s.Home, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +602,7 @@ func (s *Store) Remove(name string) error {
 		return errors.New("refusing to remove adapter outside adapter home")
 	}
 	if sealed(loaded.Package) {
-		packages, err := store.New(s.Home, store.Limits{})
+		packages, err := store.NewWithLayout(s.Home, store.Limits{}, storelayout.Ext())
 		if err != nil {
 			return err
 		}

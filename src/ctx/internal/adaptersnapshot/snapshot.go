@@ -14,6 +14,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	"github.com/webong/ext/res/system/service/host/dirlock"
 )
 
@@ -60,7 +61,7 @@ func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapt
 		return fail(err)
 	}
 
-	packages, err := store.New(owner.Home, store.Limits{})
+	packages, err := store.NewWithLayout(owner.Home, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return fail(err)
 	}
@@ -95,7 +96,7 @@ func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapt
 	for i, p := range installed {
 		rows[i] = commandscope.Row{Manifest: projected[i], Directory: p.Directory}
 	}
-	scope, err := commandscope.Open(ctx, lib, commandscope.Options{Root: current.Package.Descriptor.Identity, Rows: rows, Review: func(m packagekit.Manifest) (string, error) {
+	scope, err := commandscope.Open(ctx, lib, commandscope.Options{Root: current.Package.Descriptor.Identity, Rows: rows, Layout: packages.Layout(), Review: func(m packagekit.Manifest) (string, error) {
 		a, err := owner.Load(m.Name())
 		if err != nil {
 			return "", err

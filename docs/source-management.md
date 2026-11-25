@@ -86,12 +86,27 @@ invalid catalog or changed package identity leaves the accepted snapshot intact.
 The package acceptance runner exercises these rules against controlled TLS
 servers and validates refreshes through the canonical C catalog interface.
 
+## Import a custom manifest
+
+For a local package directory, pass the manifest path relative to that directory.
+Artifact paths still resolve from the package root. Ext uses `ext.json` in the
+installed copy and leaves the source directory intact.
+
+```sh
+ext package install ./my-package --manifest config/peer.json
+ext package inspect example/my-package
+ext package trust example/my-package
+```
+
+Use the same option with `ext package upgrade` for a new revision.
+
 ## Publish an adapter release
 
 Build each supported target with the adapter's own toolchain. For the
 `ext.adapter/2.0` contract, use `ext package build` for Go or `ext package pack`
 on a prepared runtime directory. Other Ext contracts use the same sealed
-`ext.package/v1` manifest and can ship a ZIP or tar.gz. The manifest must declare
+`ext.package/v1` manifest in `ext.json` and can ship a ZIP or tar.gz. Packages
+republished with a renamed manifest need a new revision. The manifest must declare
 the target OS and architecture on its platform-specific artifacts. See
 [adapter authoring](adapter-authoring.md).
 

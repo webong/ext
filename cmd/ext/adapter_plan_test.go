@@ -58,7 +58,7 @@ func testAdapterDependencyPlan(t *testing.T, modern bool) {
 			t.Fatal(err)
 		}
 		if modern && dependencies != "" {
-			path := filepath.Join(dir, "plugin.json")
+			path := filepath.Join(dir, "ext.json")
 			raw, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -148,13 +148,13 @@ func testAdapterDependencyPlan(t *testing.T, modern bool) {
 	files := t.TempDir()
 	archive := func(dir, name string) map[string]any {
 		t.Helper()
-		manifest, err := os.ReadFile(filepath.Join(dir, "plugin.json"))
+		manifest, err := os.ReadFile(filepath.Join(dir, "ext.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		var buf bytes.Buffer
 		writer := zip.NewWriter(&buf)
-		for _, path := range []string{"plugin.json", "evaluator" + suffix} {
+		for _, path := range []string{"ext.json", "evaluator" + suffix} {
 			contents, err := os.ReadFile(filepath.Join(dir, path))
 			if err != nil {
 				t.Fatal(err)

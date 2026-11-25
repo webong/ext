@@ -1,0 +1,84 @@
+{
+  "about": "The pinned archives are opened using caller-selected relative manifest paths. A fallback only applies to an absent primary. A load reads the installed manifest and compares its revision.",
+  "cases": [
+    {
+      "name": "caller-selected nested manifest",
+      "layout": {
+        "manifest_path": "metadata/peer.json"
+      },
+      "steps": [
+        {
+          "install": "archives/tar-plain.bin",
+          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "status": "invalid"
+        },
+        {
+          "install": "archives/zip-manifest-path.bin",
+          "sha256": "e3398cf2b336be852273aa81980dca73ec9afd7f44aed0c234d716bba109d47f",
+          "revision": "r2"
+        },
+        {
+          "load": "example/archive",
+          "revision": "r2"
+        },
+        {
+          "install": "archives/zip-manifest-path.bin",
+          "sha256": "e3398cf2b336be852273aa81980dca73ec9afd7f44aed0c234d716bba109d47f",
+          "revision": "r2"
+        },
+        {
+          "remove": "example/archive"
+        }
+      ]
+    },
+    {
+      "name": "upgrade from configured fallback",
+      "layout": {
+        "manifest_path": "metadata/peer.json",
+        "fallback_path": "plugin.json"
+      },
+      "steps": [
+        {
+          "install": "archives/tar-plain.bin",
+          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "revision": "r1"
+        },
+        {
+          "load": "example/archive",
+          "revision": "r1"
+        },
+        {
+          "install": "archives/zip-manifest-path.bin",
+          "sha256": "e3398cf2b336be852273aa81980dca73ec9afd7f44aed0c234d716bba109d47f",
+          "revision": "r2"
+        },
+        {
+          "load": "example/archive",
+          "revision": "r2"
+        },
+        {
+          "remove": "example/archive"
+        }
+      ]
+    },
+    {
+      "name": "malformed primary never falls back",
+      "layout": {
+        "manifest_path": "metadata/peer.json",
+        "fallback_path": "plugin.json"
+      },
+      "steps": [
+        {
+          "install": "archives/zip-manifest-invalid-primary.bin",
+          "sha256": "ad3e07487a86d3898a64559f2affcce3974d6807a3d232719aa4fab5f5ea047d",
+          "status": "invalid"
+        },
+        {
+          "install": "archives/tar-plain.bin",
+          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "revision": "r1"
+        }
+      ]
+    }
+  ]
+}

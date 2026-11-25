@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
 // This file is the same in engine/plugin/host/store and cgoengine/plugin/host/store: it uses
@@ -96,17 +95,18 @@ func (s *Store) InstallArchive(ctx context.Context, archive Archive, options Arc
 	case strings.Contains(path, "://"):
 		return Installed{}, fmt.Errorf("%w: a remote archive requires an HTTPS URL", plugin.ErrInvalid)
 	}
-	root, err := ExtractArchive(path, sum, filepath.Join(work, "package"), s.limits)
+	root, err := ExtractArchiveWithLayout(path, sum, filepath.Join(work, "package"), s.limits, s.layout)
 	if err != nil {
 		return Installed{}, err
 	}
 	if err := ctx.Err(); err != nil {
 		return Installed{}, err
 	}
-	identity, err := archiveIdentity(root)
+	manifest, _, _, err := s.readManifest(root)
 	if err != nil {
 		return Installed{}, err
 	}
+	identity := manifest.Descriptor.Identity
 	if archive.ID != "" && identity.ID != archive.ID {
 		return Installed{}, fmt.Errorf("%w: archive holds another package", plugin.ErrMismatch)
 	}
@@ -216,29 +216,3 @@ func (s *Store) writeReceipt(receipt Receipt) error {
 
 // dropReceipt forgets the receipt of a removed package.
 func (s *Store) dropReceipt(id string) { _ = os.Remove(s.receiptPath(id)) }
-
-// archiveIdentity reads the identity an extracted package claims. The install
-// that follows validates the manifest in full.
-func archiveIdentity(root string) (plugin.Identity, error) {
-	file, err := os.Open(filepath.Join(root, ManifestName))
-	if err != nil {
-		return plugin.Identity{}, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, 16<<20+1))
-	if err != nil {
-		return plugin.Identity{}, err
-	}
-	if len(data) > 16<<20 {
-		return plugin.Identity{}, fmt.Errorf("%w: manifest exceeds 16 MiB", plugin.ErrInvalid)
-	}
-	var manifest packagekit.Manifest
-	if err := plugin.Decode(data, &manifest); err != nil {
-		return plugin.Identity{}, err
-	}
-	identity := manifest.Descriptor.Identity
-	if err := identity.Validate(); err != nil {
-		return plugin.Identity{}, err
-	}
-	return identity, nil
-}

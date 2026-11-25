@@ -11,6 +11,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -37,7 +38,7 @@ func main() {
 		data, err = json.Marshal(map[string]any{"commands": commands})
 		if err == nil {
 			m.Metadata = map[string]json.RawMessage{pkgcmd.MetadataKey: data}
-			err = store.WriteManifest(filepath.Dir(executable), m)
+			err = store.WriteManifestAt(filepath.Dir(executable), storelayout.ExtManifest, m)
 		}
 	}
 	if err != nil {

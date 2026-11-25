@@ -16,6 +16,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	native "github.com/webong/ext/pkg/ext-go/cengine/plugin"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 )
 
@@ -152,10 +153,19 @@ type PackageStore struct {
 }
 
 func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, error) {
+	return OpenPackageStoreWithLayout(root, limits, storelayout.Layout{})
+}
+
+// OpenPackageStoreWithLayout opens the native store with a caller-selected layout.
+func OpenPackageStoreWithLayout(root string, limits PackageStoreLimits, layout storelayout.Layout) (*PackageStore, error) {
 	if root == "" || strings.ContainsRune(root, 0) {
 		return nil, plugin.ErrInvalid
 	}
-	o, err := openStoreObject("store", map[string]any{"root": root}, limits)
+	config := map[string]any{"root": root}
+	if layout != (storelayout.Layout{}) {
+		config["layout"] = layout
+	}
+	o, err := openStoreObject("store", config, limits)
 	if err != nil {
 		return nil, err
 	}
@@ -233,12 +243,21 @@ type LayeredPackageStore struct {
 }
 
 func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*LayeredPackageStore, error) {
+	return OpenLayeredPackageStoreWithLayout(roots, limits, storelayout.Layout{})
+}
+
+// OpenLayeredPackageStoreWithLayout opens a layered view using the supplied layout.
+func OpenLayeredPackageStoreWithLayout(roots []string, limits PackageStoreLimits, layout storelayout.Layout) (*LayeredPackageStore, error) {
 	for _, root := range roots {
 		if root == "" || strings.ContainsRune(root, 0) {
 			return nil, plugin.ErrInvalid
 		}
 	}
-	o, err := openStoreObject("layered", map[string]any{"roots": roots}, limits)
+	config := map[string]any{"roots": roots}
+	if layout != (storelayout.Layout{}) {
+		config["layout"] = layout
+	}
+	o, err := openStoreObject("layered", config, limits)
 	if err != nil {
 		return nil, err
 	}

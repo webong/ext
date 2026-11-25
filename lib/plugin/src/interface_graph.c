@@ -2,6 +2,7 @@
 /* C-owned execution lifetime. Applications supply reviewed digests and answer
  * reverse policy events; neither those facts nor a plan are persistent grants. */
 #include "interface_graph.h"
+#include "interface_store.h"
 #include "fs.h"
 #include "services.h"
 #include "sync.h"
@@ -89,7 +90,9 @@ void ext_interface_graph_free(ext_interface_graph *g) {
 }
 ext_plugin_status ext_interface_graph_open(yyjson_val *config, ext_interface_graph **out) {
   *out = NULL;
-  if (!EXT_FIELDS(config,"object","packages","root","os","arch","max_hosts","temp_root") ||
+  ext_plugin_store_layout layout;
+  if (!EXT_FIELDS(config,"object","packages","root","os","arch","max_hosts","temp_root","layout") ||
+      ext_interface_store_layout(config,&layout) ||
       !path_ok(get(config,"temp_root")) || !yyjson_is_arr(get(config,"packages"))) return EXT_PLUGIN_INVALID;
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
   yyjson_mut_val *v = d ? yyjson_mut_obj(d) : NULL, *manifests = d ? yyjson_mut_arr(d) : NULL;
@@ -178,7 +181,9 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
     else snprintf(g->directory,len,"%s/%s",text(config,"temp_root"),g->relative);
   }
   ext_plugin_store *snapshot=NULL;
-  if(!s) s=ext_plugin_store_open(g->directory,NULL,&snapshot);
+  ext_plugin_store_layout layout;
+  if(!s) s=ext_interface_store_layout(config,&layout);
+  if(!s) s=ext_plugin_store_open_with_layout(g->directory,NULL,layout.manifest_path?&layout:NULL,&snapshot);
   yyjson_arr_foreach(nodes(g),i,n,node) {
     if(s) break;
     if(canceled(g)) { s=EXT_PLUGIN_CANCELED; break; }

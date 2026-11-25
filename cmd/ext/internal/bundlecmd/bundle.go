@@ -24,6 +24,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -235,7 +236,7 @@ func (m Manager) run(op, file string, out io.Writer) error {
 		return err
 	}
 	defer os.RemoveAll(stage)
-	staged, err := lib.Open("store", map[string]any{"root": filepath.Join(stage, "packages")}, nil)
+	staged, err := lib.Open("store", map[string]any{"root": filepath.Join(stage, "packages"), "layout": storelayout.Ext()}, nil)
 	if err != nil {
 		return err
 	}
@@ -272,7 +273,7 @@ func (m Manager) run(op, file string, out io.Writer) error {
 		}
 		archives[id] = local
 	}
-	installed, err := lib.Open("store", map[string]any{"root": filepath.Join(m.Home, "packages")}, nil)
+	installed, err := lib.Open("store", map[string]any{"root": filepath.Join(m.Home, "packages"), "layout": storelayout.Ext()}, nil)
 	if err != nil {
 		return err
 	}

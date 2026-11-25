@@ -13,6 +13,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -56,7 +57,7 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 	}
 	defer release()
 	root := filepath.Join(m.Home, "packages")
-	s, err := lib.Open("store", map[string]any{"root": root}, nil)
+	s, err := lib.Open("store", map[string]any{"root": root, "layout": storelayout.Ext()}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +81,7 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 			return nil, fmt.Errorf("resource provider identity does not match selected package")
 		}
 	}
-	local, err := store.New(root, store.Limits{})
+	local, err := store.NewWithLayout(root, store.Limits{}, storelayout.Ext())
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +89,12 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 		return nil, err
 	}
 	graph, err := nativeplugin.OpenGraph(ctx, lib, s, nativeplugin.GraphOptions{
-		RootID: id, Contract: ref, OS: runtime.GOOS, Arch: runtime.GOARCH,
+		RootID: id, Contract: ref, OS: runtime.GOOS, Arch: runtime.GOARCH, Layout: local.Layout(),
 		LedgerPath: filepath.Join(m.Home, "execution-ledger"),
 		Review: func(pm packagekit.Manifest) (string, error) {
 			var digest, state string
 			packageID := pm.Descriptor.Identity.ID
-			if err := lib.Library().Call("store_digest", map[string]any{"root": root, "id": packageID}, &digest); err != nil {
+			if err := lib.Library().Call("store_digest", map[string]any{"root": root, "id": packageID, "layout": local.Layout()}, &digest); err != nil {
 				return "", err
 			}
 			if err := lib.Library().Call("trust_state", map[string]any{"path": filepath.Join(root, ".package-trust.json"), "scope": "ext.command/v1", "id": packageID, "digest": digest}, &state); err != nil {

@@ -14,6 +14,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -46,11 +47,11 @@ func TestAdapterRegistryRelease(t *testing.T) {
 	if err := os.Mkdir(source, 0700); err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := os.ReadFile(filepath.Join(root, "adapters/nvm/plugin.json"))
+	manifest, err := os.ReadFile(filepath.Join(root, "adapters/nvm/ext.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(source, "plugin.json"), manifest, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(source, "ext.json"), manifest, 0600); err != nil {
 		t.Fatal(err)
 	}
 	registry := filepath.Join(work, "registry")
@@ -82,6 +83,9 @@ func TestAdapterRegistryRelease(t *testing.T) {
 	publish("2.0.0", index, false)
 	// A cached source must keep resolving its original release after publication.
 	run("installed nvm", false, ext, "package", "install", "--source", "nvm")
+	if _, err := os.Stat(filepath.Join(work, "home", "packages", "nvm", storelayout.ExtManifest)); err != nil {
+		t.Fatal(err)
+	}
 	run("trusted=false", false, ext, "package", "verify", "nvm")
 	run("trusted nvm", false, ext, "package", "trust", "nvm")
 	run("refresh source nvm", false, ext, "source", "refresh", "nvm")
@@ -122,7 +126,7 @@ func TestAdapterAcrossProducts(t *testing.T) {
 		manifest.Descriptor.Identity.Revision = "command-v1"
 		data, _ := json.Marshal(map[string]any{"commands": []pkgcmd.Declared{{Name: product, Transport: "socket"}}})
 		manifest.Metadata = map[string]json.RawMessage{pkgcmd.MetadataKey: data}
-		if err := store.WriteManifest(packageDir, manifest); err != nil {
+		if err := store.WriteManifestAt(packageDir, storelayout.ExtManifest, manifest); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -11,7 +11,7 @@
         "code_name": {"input": {"type": "object", "required": ["code"], "properties": {"code": {"type": "integer"}}}, "output": {"type": "string"}},
         "directory_digest": {"input": {"type": "object", "required": ["root"], "properties": {"root": {"type": "string"}}}, "output": {"type": "string"}},
         "artifact_digest": {"input": {"type": "object", "required": ["root", "path"], "properties": {"root": {"type": "string"}, "path": {"type": "string"}, "tree": {"type": "boolean"}}}, "output": {"type": "string"}},
-        "store_digest": {"input": {"type": "object", "required": ["root", "id"], "properties": {"root": {"type": "string"}, "id": {"type": "string"}}}, "output": {"type": "string"}},
+        "store_digest": {"input": {"type": "object", "required": ["root", "id"], "properties": {"root": {"type": "string"}, "id": {"type": "string"}, "layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}}}, "output": {"type": "string"}},
         "package_verify": {"input": {"type": "object", "required": ["manifest", "root"], "properties": {"manifest": {"type": "object"}, "root": {"type": "string"}}}, "output": {}},
         "trust_state": {"input": {"type": "object", "required": ["path", "scope", "id", "digest"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}, "digest": {"type": "string"}}}, "output": {"type": "string"}},
         "trust_record": {"input": {"type": "object", "required": ["path", "scope", "id", "digest"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}, "digest": {"type": "string"}}}, "output": {}},
@@ -58,7 +58,8 @@
           "os",
           "arch",
           "temp_root"
-        ]
+        ],
+        "properties": {"layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}}
       },
       "operations": {
         "observe": {"about": "Complete live session observations, with random instance-qualified session IDs, selected identity/contract/routes and child PID locators. Closed unless every host is ready.","input": {"type": "object"},"output": {"type": "array"}},
@@ -155,7 +156,7 @@
     },
     "store": {
       "about": "An installed package store at one root.",
-      "config": {"type": "object", "required": ["object", "root"], "properties": {"object": {"const": "store"}, "root": {"type": "string"}, "limits": {"type": "object", "properties": {"max_artifact_bytes": {"type": "integer"}, "max_tree_files": {"type": "integer"}, "max_tree_bytes": {"type": "integer"}}}}},
+      "config": {"type": "object", "required": ["object", "root"], "properties": {"layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}, "object": {"const": "store"}, "root": {"type": "string"}, "limits": {"type": "object", "properties": {"max_artifact_bytes": {"type": "integer"}, "max_tree_files": {"type": "integer"}, "max_tree_bytes": {"type": "integer"}}}}},
       "operations": {
         "install": {"input": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string"}, "preserve_executable": {"type": "boolean"}}}, "output": {"type": "object"}},
         "upgrade": {"input": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string"}, "preserve_executable": {"type": "boolean"}}}, "output": {"type": "object"}},
@@ -174,7 +175,7 @@
     },
     "layered": {
       "about": "Several store roots read as one, the first holding an id winning.",
-      "config": {"type": "object", "required": ["object", "roots"], "properties": {"object": {"const": "layered"}, "roots": {"type": "array", "items": {"type": "string"}}, "limits": {"type": "object"}}},
+      "config": {"type": "object", "required": ["object", "roots"], "properties": {"layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}, "object": {"const": "layered"}, "roots": {"type": "array", "items": {"type": "string"}}, "limits": {"type": "object"}}},
       "operations": {
         "load": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {"type": "object", "properties": {"layer": {"type": "integer"}, "manifest": {"type": "object"}}}},
         "list": {"input": {"type": "object"}, "output": {"type": "array"}},
@@ -241,7 +242,8 @@
           "os",
           "arch",
           "temp_root"
-        ]
+        ],
+        "properties": {"layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}}
       },
       "operations": {
         "view": {

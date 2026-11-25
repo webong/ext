@@ -17,7 +17,7 @@
  * upgrade moves the old directory aside first and puts it back if the new one
  * cannot take its place. */
 
-#define STORE_MANIFEST "plugin.json"
+static const ext_plugin_store_layout legacy_layout = {"plugin.json", NULL};
 #define STORE_MANIFEST_MAX (16u << 20)
 #define STORE_TREE_DEPTH 1024u
 #define STORE_ARTIFACT_BYTES (4ull << 30)
@@ -125,12 +125,13 @@ static int is_tree(yyjson_val *artifact) {
 
 typedef struct {
   yyjson_val *manifest;
+  const char *manifest_path;
 } extra_check;
 static ext_plugin_status listed(void *user, const char *path,
                          const uint8_t sum[32]) {
   (void)sum;
   extra_check *ctx = user;
-  if (ext_path_fold_equal(path, STORE_MANIFEST))
+  if (ext_path_fold_equal(path, ctx->manifest_path))
     return EXT_PLUGIN_OK;
   yyjson_val *artifacts = yyjson_obj_get(ctx->manifest, "artifacts");
   size_t i, n;
@@ -145,33 +146,55 @@ static ext_plugin_status listed(void *user, const char *path,
   }
   return EXT_PLUGIN_INVALID;
 }
+static int valid_layout(const ext_plugin_store_layout *layout) {
+  const char *path = layout->manifest_path, *fallback = layout->fallback_path;
+  return path && ext_portable_path(path, strlen(path)) &&
+      (!fallback || (ext_portable_path(fallback, strlen(fallback)) &&
+                     !ext_path_fold_equal(path, fallback)));
+}
+
+static ext_plugin_status read_manifest(ext_fs *fs, const char *dir,
+    const ext_plugin_store_layout *layout, ext_plugin_buffer *bytes, const char **selected) {
+  ext_plugin_status s = ext_store_find_manifest(fs, dir, layout, selected);
+  if (s)
+    return s;
+  if (!*dir)
+    return ext_fs_read_file(fs, *selected, STORE_MANIFEST_MAX, bytes);
+  char *path = join(dir, *selected);
+  s = path ? ext_fs_read_file(fs, path, STORE_MANIFEST_MAX, bytes) : EXT_PLUGIN_NOMEM;
+  free(path);
+  return s;
+}
+
 /* Verifies the package in the directory at dir: a valid manifest (whose id is
  * want_id when given, EXT_PLUGIN_MISMATCH otherwise), every listed artifact, and no
  * other file. With content clear only the manifest and its id are checked and
  * no artifact is read or hashed. A package being installed may not list the
  * manifest's own name as an artifact. On success the manifest bytes and
  * document are the caller's. */
-static ext_plugin_status check_directory(const char *dir, const char *want_id,
-                                  int source, int content, ext_plugin_buffer *manifest,
-                                  yyjson_doc **doc_out) {
+static ext_plugin_status check_directory(const ext_plugin_store_layout *layout,
+    const char *dir, const char *want_id, int content, ext_plugin_buffer *manifest,
+    yyjson_doc **doc_out, const char **manifest_path) {
   ext_fs *fs = NULL;
   ext_plugin_buffer bytes = {0};
   yyjson_doc *doc = NULL;
   yyjson_val *m = NULL;
+  const char *selected = NULL;
   ext_plugin_status s = ext_fs_open(dir, &fs);
   if (!s)
-    s = ext_fs_read_file(fs, STORE_MANIFEST, STORE_MANIFEST_MAX, &bytes);
+    s = read_manifest(fs, "", layout, &bytes, &selected);
   if (!s) {
     doc = ext_parse(bytes.data, bytes.len);
     m = doc ? yyjson_doc_get_root(doc) : NULL;
     s = doc ? ext_manifest_valid(m) : EXT_PLUGIN_INVALID;
   }
-  if (!s && source) {
+  if (!s) {
     size_t i, n;
     yyjson_val *artifact;
     yyjson_arr_foreach(yyjson_obj_get(m, "artifacts"), i, n, artifact) {
-      if (ext_path_fold_equal(
-              yyjson_get_str(yyjson_obj_get(artifact, "path")), STORE_MANIFEST))
+      const char *path = yyjson_get_str(yyjson_obj_get(artifact, "path"));
+      if (ext_path_fold_equal(path, selected) ||
+          (is_tree(artifact) && ext_path_fold_tree_contains(path, selected)))
         s = EXT_PLUGIN_INVALID;
     }
   }
@@ -183,7 +206,7 @@ static ext_plugin_status check_directory(const char *dir, const char *want_id,
   if (!s && content)
     s = ext_plugin_package_verify(bytes.data, bytes.len, dir);
   if (!s && content) {
-    extra_check check = {m};
+    extra_check check = {m, selected};
     s = ext_fs_walk(fs, "", listed, &check);
   }
   ext_fs_close(fs);
@@ -194,18 +217,26 @@ static ext_plugin_status check_directory(const char *dir, const char *want_id,
   }
   *manifest = bytes;
   *doc_out = doc;
+  if (manifest_path)
+    *manifest_path = selected;
   return EXT_PLUGIN_OK;
 }
 
 ext_plugin_status ext_plugin_store_digest(const char *root, const char *id, uint8_t out[32]) {
-  if (!root || !*root || !valid_id(id) || !out)
+  return ext_plugin_store_digest_with_layout(root, id, NULL, out);
+}
+ext_plugin_status ext_plugin_store_digest_with_layout(const char *root, const char *id,
+    const ext_plugin_store_layout *layout, uint8_t out[32]) {
+  if (!layout)
+    layout = &legacy_layout;
+  if (!root || !*root || !valid_id(id) || !out || !valid_layout(layout))
     return EXT_PLUGIN_INVALID;
   char *dir = package_dir(root, id);
   if (!dir)
     return EXT_PLUGIN_NOMEM;
   ext_plugin_buffer manifest = {0};
   yyjson_doc *doc = NULL;
-  ext_plugin_status s = check_directory(dir, id, 0, 1, &manifest, &doc);
+  ext_plugin_status s = check_directory(layout, dir, id, 1, &manifest, &doc, NULL);
   if (!s) {
     s = ext_plugin_directory_digest(dir, out);
     yyjson_doc_free(doc);
@@ -217,6 +248,7 @@ ext_plugin_status ext_plugin_store_digest(const char *root, const char *id, uint
 
 struct ext_plugin_store {
   char *root;
+  ext_plugin_store_layout layout;
   ext_plugin_store_limits limits;
   pthread_mutex_t mu;
   /* Serializes ext_plugin_store_install_archive, which spans several locked steps. */
@@ -225,22 +257,28 @@ struct ext_plugin_store {
 
 ext_plugin_status ext_plugin_store_open(const char *root, const ext_plugin_store_limits *limits,
                           ext_plugin_store **out) {
-  if (!root || !*root || !out)
+  return ext_plugin_store_open_with_layout(root, limits, NULL, out);
+}
+ext_plugin_status ext_plugin_store_open_with_layout(const char *root,
+    const ext_plugin_store_limits *limits, const ext_plugin_store_layout *layout,
+    ext_plugin_store **out) {
+  if (!layout)
+    layout = &legacy_layout;
+  if (!root || !*root || !out || !valid_layout(layout))
     return EXT_PLUGIN_INVALID;
   ext_plugin_store *store = calloc(1, sizeof(*store));
   if (!store)
     return EXT_PLUGIN_NOMEM;
   store->root = strdup(root);
-  if (!store->root || pthread_mutex_init(&store->mu, NULL)) {
-    free(store->root);
-    free(store);
-    return EXT_PLUGIN_NOMEM;
-  }
+  store->layout.manifest_path = strdup(layout->manifest_path);
+  store->layout.fallback_path = layout->fallback_path ? strdup(layout->fallback_path) : NULL;
+  if (!store->root || !store->layout.manifest_path ||
+      (layout->fallback_path && !store->layout.fallback_path) ||
+      pthread_mutex_init(&store->mu, NULL))
+    goto no_memory;
   if (pthread_mutex_init(&store->archives, NULL)) {
     pthread_mutex_destroy(&store->mu);
-    free(store->root);
-    free(store);
-    return EXT_PLUGIN_NOMEM;
+    goto no_memory;
   }
   if (limits)
     store->limits = *limits;
@@ -252,12 +290,21 @@ ext_plugin_status ext_plugin_store_open(const char *root, const ext_plugin_store
     store->limits.max_tree_bytes = STORE_TREE_BYTES;
   *out = store;
   return EXT_PLUGIN_OK;
+
+no_memory:
+  free((void *)store->layout.fallback_path);
+  free((void *)store->layout.manifest_path);
+  free(store->root);
+  free(store);
+  return EXT_PLUGIN_NOMEM;
 }
 void ext_plugin_store_close(ext_plugin_store *store) {
   if (!store)
     return;
   pthread_mutex_destroy(&store->archives);
   pthread_mutex_destroy(&store->mu);
+  free((void *)store->layout.fallback_path);
+  free((void *)store->layout.manifest_path);
   free(store->root);
   free(store);
 }
@@ -356,7 +403,7 @@ static int is_entrypoint(yyjson_val *m, yyjson_val *artifact) {
  * and verifies the copy. *staging is its name below the root. On failure the
  * staging directory is removed. */
 static ext_plugin_status stage(const ext_plugin_store *store, ext_fs *fs, const char *source,
-                        yyjson_val *m, const ext_plugin_buffer *manifest,
+                        yyjson_val *m, const ext_plugin_buffer *manifest, const char *manifest_path,
                         uint32_t flags, char **staging) {
   ext_fs *src = NULL;
   char *name = NULL;
@@ -401,7 +448,7 @@ static ext_plugin_status stage(const ext_plugin_store *store, ext_fs *fs, const 
     }
   }
   if (!s) {
-    char *target = under(name, STORE_MANIFEST);
+    char *target = under(name, manifest_path);
     s = target ? ext_fs_write_file(fs, target, manifest->data, manifest->len, 0)
                : EXT_PLUGIN_NOMEM;
     free(target);
@@ -410,7 +457,7 @@ static ext_plugin_status stage(const ext_plugin_store *store, ext_fs *fs, const 
     char *dir = under(store->root, name);
     ext_plugin_buffer copy = {0};
     yyjson_doc *doc = NULL;
-    s = dir ? check_directory(dir, NULL, 0, 1, &copy, &doc) : EXT_PLUGIN_NOMEM;
+    s = dir ? check_directory(&store->layout, dir, NULL, 1, &copy, &doc, NULL) : EXT_PLUGIN_NOMEM;
     if (!s) {
       yyjson_doc_free(doc);
       ext_plugin_buffer_free(&copy);
@@ -476,13 +523,11 @@ static int same_contracts(yyjson_val *a, yyjson_val *b) {
   return 1;
 }
 /* An upgrade keeps the id and the contracts and changes the revision. */
-static ext_plugin_status check_upgrade(ext_fs *fs, const char *name, yyjson_val *fresh) {
-  char *path = under(name, STORE_MANIFEST);
-  if (!path)
-    return EXT_PLUGIN_NOMEM;
+static ext_plugin_status check_upgrade(ext_fs *fs, const char *name,
+    const ext_plugin_store_layout *layout, yyjson_val *fresh) {
+  const char *selected = NULL;
   ext_plugin_buffer bytes = {0};
-  ext_plugin_status s = ext_fs_read_file(fs, path, STORE_MANIFEST_MAX, &bytes);
-  free(path);
+  ext_plugin_status s = read_manifest(fs, name, layout, &bytes, &selected);
   yyjson_doc *doc = NULL;
   yyjson_val *old = NULL;
   if (!s) {
@@ -522,7 +567,9 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
   char *name = NULL, *staging = NULL;
   int missing = 0, replacing = 0;
   ext_fs_kind kind = EXT_FS_NONE;
-  ext_plugin_status s = check_directory(source, expected_id, 1, 1, &manifest, &doc);
+  const char *manifest_path = NULL;
+  ext_plugin_status s = check_directory(&store->layout, source, expected_id, 1,
+                                         &manifest, &doc, &manifest_path);
   if (!s && reviewed_digest) {
     uint8_t raw[32];
     char digest[65];
@@ -554,7 +601,7 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
       else if (kind != EXT_FS_DIR)
         s = EXT_PLUGIN_INVALID;
       else
-        s = check_upgrade(fs, name, m);
+        s = check_upgrade(fs, name, &store->layout, m);
       replacing = 1;
       break;
     default:
@@ -565,7 +612,7 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
     }
   }
   if (!s)
-    s = stage(store, fs, source, m, &manifest, flags, &staging);
+    s = stage(store, fs, source, m, &manifest, manifest_path, flags, &staging);
   if (!s && reviewed_digest) {
     char *directory = under(store->root, staging);
     uint8_t raw[32];
@@ -661,13 +708,12 @@ ext_plugin_status ext_plugin_store_remove(ext_plugin_store *store, const char *i
     return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&store->mu);
   ext_fs *fs = NULL;
-  char *name = NULL, *path = NULL;
+  char *name = NULL;
+  const char *selected = NULL;
   ext_plugin_status s = installed_dir(store, id, &fs, &name);
   ext_plugin_buffer bytes = {0};
-  if (!s) {
-    path = under(name, STORE_MANIFEST);
-    s = path ? ext_fs_read_file(fs, path, STORE_MANIFEST_MAX, &bytes) : EXT_PLUGIN_NOMEM;
-  }
+  if (!s)
+    s = read_manifest(fs, name, &store->layout, &bytes, &selected);
   yyjson_doc *doc = NULL;
   if (!s) {
     doc = ext_parse(bytes.data, bytes.len);
@@ -690,7 +736,6 @@ ext_plugin_status ext_plugin_store_remove(ext_plugin_store *store, const char *i
   }
   yyjson_doc_free(doc);
   ext_plugin_buffer_free(&bytes);
-  free(path);
   free(name);
   ext_fs_close(fs);
   pthread_mutex_unlock(&store->mu);
@@ -709,7 +754,7 @@ static ext_plugin_status read_package(ext_plugin_store *store, const char *id, i
   ext_plugin_buffer bytes = {0};
   if (!s) {
     dir = under(store->root, name);
-    s = dir ? check_directory(dir, id, 0, content, &bytes, &doc) : EXT_PLUGIN_NOMEM;
+    s = dir ? check_directory(&store->layout, dir, id, content, &bytes, &doc, NULL) : EXT_PLUGIN_NOMEM;
   }
   if (!s) {
     yyjson_doc_free(doc);
@@ -875,7 +920,7 @@ ext_plugin_status ext_plugin_store_install_archive(ext_plugin_store *store, cons
   }
   ext_fs *fs = NULL;
   int missing = 0;
-  char *work = NULL, *dest = NULL, *root = NULL, *source = NULL, *path = NULL;
+  char *work = NULL, *dest = NULL, *root = NULL, *source = NULL;
   ext_plugin_buffer fresh = {0}, current = {0}, installed = {0};
   yyjson_doc *fresh_doc = NULL, *current_doc = NULL, *installed_doc = NULL;
   const char *found_id = NULL, *revision = NULL;
@@ -891,13 +936,12 @@ ext_plugin_status ext_plugin_store_install_archive(ext_plugin_store *store, cons
         max_archive_bytes ? max_archive_bytes : STORE_ARCHIVE_BYTES,
         store->limits.max_artifact_bytes, store->limits.max_tree_bytes,
         store->limits.max_tree_files};
-    s = ext_archive_extract(archive, digest, fs, dest, &limits, &root);
+    s = ext_archive_extract(archive, digest, fs, dest, &limits, &store->layout, &root);
   }
   if (!s) {
     source = under(store->root, root);
-    path = under(root, STORE_MANIFEST);
-    s = source && path ? ext_fs_read_file(fs, path, STORE_MANIFEST_MAX, &fresh)
-                       : EXT_PLUGIN_NOMEM;
+    const char *selected = NULL;
+    s = source ? read_manifest(fs, root, &store->layout, &fresh, &selected) : EXT_PLUGIN_NOMEM;
   }
   if (!s) {
     /* The identity the archive claims. The install that follows checks the
@@ -921,7 +965,7 @@ ext_plugin_status ext_plugin_store_install_archive(ext_plugin_store *store, cons
       if (have && !strcmp(have, revision)) {
         /* Already at this revision: it must be this content. */
         uint8_t a[32], b[32];
-        s = ext_plugin_store_digest(store->root, found_id, a);
+        s = ext_plugin_store_digest_with_layout(store->root, found_id, &store->layout, a);
         if (!s)
           s = ext_plugin_directory_digest(source, b);
         if (!s && memcmp(a, b, 32))
@@ -951,7 +995,6 @@ ext_plugin_status ext_plugin_store_install_archive(ext_plugin_store *store, cons
   free(dest);
   free(root);
   free(source);
-  free(path);
   pthread_mutex_unlock(&store->archives);
   if (s) {
     ext_plugin_buffer_free(&installed);
@@ -1697,6 +1740,11 @@ struct ext_plugin_layered {
 ext_plugin_status ext_plugin_layered_open(const char *const *roots, size_t count,
                             const ext_plugin_store_limits *limits,
                             ext_plugin_layered **out) {
+  return ext_plugin_layered_open_with_layout(roots, count, limits, NULL, out);
+}
+ext_plugin_status ext_plugin_layered_open_with_layout(const char *const *roots, size_t count,
+    const ext_plugin_store_limits *limits, const ext_plugin_store_layout *layout,
+    ext_plugin_layered **out) {
   if (!roots || !count || !out || count > SIZE_MAX / sizeof(char *))
     return EXT_PLUGIN_INVALID;
   char **clean = calloc(count, sizeof(*clean));
@@ -1722,7 +1770,7 @@ ext_plugin_status ext_plugin_layered_open(const char *const *roots, size_t count
       s = EXT_PLUGIN_NOMEM;
   }
   for (size_t i = 0; i < count && !s; i++) {
-    s = ext_plugin_store_open(roots[i], limits, &layered->stores[i]);
+    s = ext_plugin_store_open_with_layout(roots[i], limits, layout, &layered->stores[i]);
     if (!s)
       layered->count++;
   }

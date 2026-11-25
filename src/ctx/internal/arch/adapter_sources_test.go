@@ -9,13 +9,13 @@ import (
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
-// Every adapter in the repository is an ext package: a plugin.json template
+// Every adapter in the repository is an ext package: a ext.json template
 // that the adapter loader accepts on every platform we ship, and no adapter
 // directory still carries the old manifest or two manifests at once.
 func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 	root := repoRoot(t)
 	var directories []string
-	for _, pattern := range []string{"adapters/*/plugin.json", "examples/adapters/*/plugin.json", "examples/plugins/go/adapters/*/plugin.json"} {
+	for _, pattern := range []string{"adapters/*/ext.json", "examples/adapters/*/ext.json", "examples/plugins/go/adapters/*/ext.json"} {
 		matches, err := filepath.Glob(filepath.Join(root, pattern))
 		if err != nil {
 			t.Fatal(err)
@@ -28,7 +28,7 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 		t.Fatalf("found %d adapter manifests, expected at least 40", len(directories))
 	}
 	for _, directory := range directories {
-		data, err := os.ReadFile(filepath.Join(directory, "plugin.json"))
+		data, err := os.ReadFile(filepath.Join(directory, "ext.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -56,9 +56,9 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 				t.Errorf("%s on %s: %v", directory, goos, err)
 			}
 		}
-		for _, old := range []string{"adapter.toml", "plugin.toml"} {
+		for _, old := range []string{"adapter.toml", "plugin.toml", "plugin.json"} {
 			if _, err := os.Stat(filepath.Join(directory, old)); err == nil {
-				t.Errorf("%s still has %s beside plugin.json", directory, old)
+				t.Errorf("%s still has %s beside ext.json", directory, old)
 			}
 		}
 	}
@@ -71,8 +71,8 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 		if !entry.IsDir() {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(root, "adapters", entry.Name(), "plugin.json")); err != nil {
-			t.Errorf("adapters/%s has no plugin.json", entry.Name())
+		if _, err := os.Stat(filepath.Join(root, "adapters", entry.Name(), "ext.json")); err != nil {
+			t.Errorf("adapters/%s has no ext.json", entry.Name())
 		}
 	}
 }

@@ -165,6 +165,18 @@ static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, siz
 
 /* ---- the callbacks the engine calls ---- */
 
+ext_plugin_status ext_interface_events_request(ext_interface_host *h, const char *kind,
+  const uint8_t *data, size_t len, uint32_t timeout_ms, char **out, size_t *out_len) {
+  waiter w;
+  int answered = ask(h, kind, data, len, timeout_ms, &w);
+  if (!answered || w.is_error || !w.payload) {
+    free(w.payload);
+    return answered ? EXT_PLUGIN_DENIED : EXT_PLUGIN_CANCELED;
+  }
+  *out = w.payload; *out_len = w.payload_len;
+  return EXT_PLUGIN_OK;
+}
+
 static int32_t policy(ext_interface_host *h, int as_event, const char *kind, const uint8_t *json, size_t len) {
   if (!as_event)
     return 0;

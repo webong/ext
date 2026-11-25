@@ -19,6 +19,9 @@ ext_plugin_status ext_interface_host_borrow(yyjson_val *handle, ext_interface_ho
 void ext_interface_host_release(void *token);
 /* A graph owns one event queue and borrows it for each contained host. */
 ext_interface_host *ext_interface_events_new(void);
+/* Ask application policy for a bounded JSON result, without exposing a host. */
+ext_plugin_status ext_interface_events_request(ext_interface_host *events, const char *kind,
+  const uint8_t *data, size_t len, uint32_t timeout_ms, char **out, size_t *out_len);
 void ext_interface_host_event_sink(ext_interface_host *host, ext_interface_host *sink,
                                   yyjson_val *consumer, yyjson_val *routes);
 ext_plugin_status ext_interface_host_route_events(uint64_t handle, ext_interface_host *sink,

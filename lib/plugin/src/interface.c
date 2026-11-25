@@ -6,6 +6,7 @@
 #include "ext_plugin_host.h"
 #include "interface_host.h"
 #include "interface_graph.h"
+#include "interface_scope.h"
 #include "fs.h"
 #include "sync.h"
 #include "wire.h"
@@ -13,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { K_STORE = 1, K_LAYERED, K_HOST, K_WRITER, K_GRAPH };
+enum { K_STORE = 1, K_LAYERED, K_HOST, K_WRITER, K_GRAPH, K_SCOPE };
 
 typedef struct entry {
   uint64_t id;
@@ -34,6 +35,8 @@ static void destroy(entry *e) {
     ext_plugin_layered_close(e->ptr);
   else if (e->kind == K_WRITER)
     ext_plugin_store_writer_free(e->ptr);
+  else if (e->kind == K_SCOPE)
+    ext_interface_scope_free(e->ptr);
   else if (e->kind == K_GRAPH)
     ext_interface_graph_free(e->ptr);
   else
@@ -267,7 +270,10 @@ ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *hand
   const char *object = str(c, "object");
   ext_plugin_status s = EXT_PLUGIN_INVALID;
   ext_plugin_store_limits limits;
-  if (object && !strcmp(object, "execution_graph")) {
+  if (object && !strcmp(object, "command_scope")) {
+    ext_interface_scope *scope = NULL;
+    if (!(s = ext_interface_scope_open(c, &scope)) && (s = add(K_SCOPE, scope, handle))) ext_interface_scope_free(scope);
+  } else if (object && !strcmp(object, "execution_graph")) {
     ext_interface_graph *graph = NULL;
     if (!(s = ext_interface_graph_open(c, &graph)) && (s = add(K_GRAPH, graph, handle)))
       ext_interface_graph_free(graph);
@@ -331,6 +337,8 @@ ext_plugin_status ext_plugin_close(uint64_t handle) {
     return s;
   if (e->kind == K_HOST)
     ext_interface_host_shutdown(e->ptr);
+  else if (e->kind == K_SCOPE)
+    ext_interface_scope_shutdown(e->ptr);
   else if (e->kind == K_GRAPH)
     ext_interface_graph_shutdown(e->ptr);
   else if (e->kind == K_WRITER)
@@ -556,6 +564,7 @@ ext_plugin_status ext_plugin_call(uint64_t handle, const char *op, const char *i
     } else {
       s = e->kind == K_STORE     ? call_store(e->ptr, op, in, out, out_len)
           : e->kind == K_LAYERED ? call_layered(e->ptr, op, in, out, out_len)
+          : e->kind == K_SCOPE ? ext_interface_scope_call(e->ptr, op, in, out, out_len)
           : e->kind == K_GRAPH ? ext_interface_graph_call(e->ptr, op, in, out, out_len)
           : e->kind == K_WRITER ? EXT_PLUGIN_UNSUPPORTED
                                  : ext_interface_host_call(e->ptr, op, in, out, out_len);

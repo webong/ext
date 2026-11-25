@@ -219,6 +219,76 @@
     }
   },
   "events": {
-    "about": "Objects with events answer events, answer and sequence. An event is {seq, ticket, kind, tag?, data}; ticket is not 0 for one that asks, and an asking event not answered in time is a denial. answer allow is {ticket, allow}; answer result is {ticket, payload} or {ticket, error}. seq counts queued events from 1; once an operation returns, every event it raised has a seq no greater than what sequence then says. events fails with closed or not_found once the object is closed."
+    "about": "Objects with events answer events, answer and sequence. An event is {seq, ticket, kind, tag?, data}; ticket is not 0 for one that asks, and an asking event not answered in time is a denial. answer allow is {ticket, allow}; answer result is {ticket, payload} or {ticket, error}. seq counts queued events from 1; once an operation returns, every event it raised has a seq no greater than what sequence then says. events fails with closed or not_found once the object is closed.",
+    "command_scope": {
+      "about": "Reviewed dependency snapshots owned by one command broker. Application policy receives authenticated consumer identity; an environment address never grants package approval.",
+      "config": {
+        "type": "object",
+        "required": [
+          "packages",
+          "root",
+          "os",
+          "arch",
+          "temp_root"
+        ]
+      },
+      "operations": {
+        "view": {
+          "about": "Host-only snapshot directory, selected consumer tokens and resolved bindings. Never expose all tokens to a guest.",
+          "input": {
+            "type": "object"
+          },
+          "output": {
+            "type": "object"
+          }
+        },
+        "dispatch": {
+          "input": {
+            "type": "object",
+            "required": [
+              "token",
+              "request"
+            ]
+          },
+          "output": {
+            "type": "object"
+          }
+        },
+        "events": {
+          "input": {
+            "type": "object"
+          },
+          "output": {
+            "type": "array"
+          }
+        },
+        "answer": {
+          "input": {
+            "type": "object"
+          },
+          "output": {}
+        },
+        "sequence": {
+          "input": {
+            "type": "object"
+          },
+          "output": {
+            "type": "integer"
+          }
+        }
+      },
+      "events": {
+        "dispatch": {
+          "answer": "result",
+          "data": {
+            "type": "object"
+          },
+          "default_error": {
+            "code": "denied",
+            "message": "command not authorized"
+          }
+        }
+      }
+    }
   }
 }

@@ -24,7 +24,7 @@ esac
 
 echo "== the loader's build tags (CGO_ENABLED=0)"
 for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 freebsd/amd64 linux/386 linux/riscv64 windows/386; do
-  GOOS="${target%/*}" GOARCH="${target#*/}" CGO_ENABLED=0 go vet ./pkg/ext-go/core/... ./pkg/ext-go/cengine/... ./pkg/ext-go/conformance/cguest/...
+  GOOS="${target%/*}" GOARCH="${target#*/}" CGO_ENABLED=0 go vet ./pkg/ext-go/core/... ./pkg/ext-go/cengine/... ./tests/crosslang/cguest/...
 done
 
 CGO_ENABLED=1 go build -o "$build_dir/go-guest$exe" ./tests/crosslang/testdata/go-guest
@@ -33,9 +33,9 @@ CGO_ENABLED=1 go build -buildmode=c-shared -o "$build_dir/go-shared.$shared" ./t
 export EXT_CSHARED_GUEST="$build_dir/go-shared.$shared" EXT_CSHARED_REQUIRED=1
 export EXT_GO_GUEST="$build_dir/go-guest$exe" EXT_GO_SHARED="$build_dir/go-shared.$shared" EXT_CROSSLANG_REQUIRED=1
 echo "== cshared without cgo (purego)"
-(cd pkg/ext-go/core && CGO_ENABLED=0 go test -count=1 -v ./...) && (cd pkg/ext-go/cengine && CGO_ENABLED=0 go test -count=1 -v ./...) && CGO_ENABLED=0 go test -count=1 -v ./pkg/ext-go/conformance/cguest/...
+(cd pkg/ext-go/core && CGO_ENABLED=0 go test -count=1 -v ./...) && (cd pkg/ext-go/cengine && CGO_ENABLED=0 go test -count=1 -v ./...) && CGO_ENABLED=0 go test -count=1 -v ./tests/crosslang/cguest/...
 echo "== the shared host cases on the Go host without cgo (purego)"
 CGO_ENABLED=0 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
 echo "== cshared with cgo, on the same guest"
-(cd pkg/ext-go/core && CGO_ENABLED=1 go test -count=1 ./...) && (cd pkg/ext-go/cengine && CGO_ENABLED=1 go test -count=1 ./...) && CGO_ENABLED=1 go test -count=1 ./pkg/ext-go/conformance/cguest/...
+(cd pkg/ext-go/core && CGO_ENABLED=1 go test -count=1 ./...) && (cd pkg/ext-go/cengine && CGO_ENABLED=1 go test -count=1 ./...) && CGO_ENABLED=1 go test -count=1 ./tests/crosslang/cguest/...
 echo "cgo-free C ABI loader passed"

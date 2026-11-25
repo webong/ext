@@ -1,5 +1,5 @@
-/* The native desktop visible to this process, as res/system's DiscoverDesktop
- * reports it: whether it is interactive, its local X11 and Wayland endpoints,
+/* The native desktop visible to this process: whether it is interactive,
+ * its local X11 and Wayland endpoints,
  * whether it runs in a container, and what recording would need. Environment
  * variables, socket paths and a PATH search for ffmpeg (never run) only. */
 #include "collect.h"

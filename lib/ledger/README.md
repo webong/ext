@@ -2,7 +2,7 @@
 
 The ledger in C: one library that Linux, Darwin (macOS and iOS) and Windows
 programs embed, from any language with a C FFI, with nothing beyond the C library and the OS.
-It is the main implementation of the ledger, which the pure-Go [`pkg/ext-go/engine/ledger`](../../pkg/ext-go/engine/ledger/README.md) follows; the contract is the data in
+It is the ledger implementation; the contract is the data in
 [`lib/ledger/testdata`](../../lib/ledger/testdata), and this library is held to it.
 
 | Part | State |
@@ -79,6 +79,20 @@ ext_ledger_call(recorder, "scan", "{\"what\":\"processes\",\"timeout_ms\":5000}"
 ```
 
 `include/ext_ledger.h` lists the configs and operations; an input's `timeout_ms` bounds the call.
+The library's `collect` operation owns machine inventory, including process
+PID, parent PID, start identity, host identity, and coverage status. Its
+`{"what":"processes"}` input accepts `limit` from 1 to 65536 (default 4096);
+the typed C `ext_ledger_collect` function keeps the default bound. The
+`{"what":"process","pid":123,"resource_limit":1024}` input collects one
+process's bounded usage, files, mappings, sockets and IPC, then checks its
+start identity and executable again. `ext_ledger_collect_process` exposes the
+same operation to C callers, and `ext_ledger_recorder_scan_process` records
+the targeted snapshot. Each resource kind reports its own coverage, including
+partial or denied native reads. Linux resolves socket descriptors through the
+process's `/proc` socket tables; macOS uses `libproc`, and Windows uses process
+snapshots and the TCP/UDP owner tables.
+`{"what":"host"}` collects the host kinds this build supports. The
+recorder owns the persisted `ext.system` graph IDs derived from observations.
 Handles are never reused, an object is freed once no call holds it, and a store with a watch, recorder
 or supervisor open on it refuses to close (`EXT_LEDGER_BUSY`). The typed functions stay for C callers:
 `ext_ledger_store_*`, `ext_ledger_recorder_*`, `ext_ledger_supervisor_*` and `ext_ledger_collect*`.

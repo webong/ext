@@ -1,4 +1,4 @@
-/* Installed webview runtimes, as res/system's DiscoverWebviews reports them:
+/* Installed webview runtimes:
  * the shared WebKitGTK and Qt WebEngine libraries in the linker's directories
  * on Linux (checked to be ELF shared objects), the system WebKit framework on
  * macOS (its version read through CoreFoundation, no command run), and the
@@ -134,7 +134,7 @@ static int read_ld_config(const ext_ledger_context *ctx, strings *dirs, strings 
   FILE *f = fopen(clean, "r");
   if (!f) {
     free(clean);
-    return 0; /* absent, or unreadable: Go fails on unreadable, but a missing config is common */
+    return 0; /* absent or unreadable; a missing config is common */
   }
   char line[4096];
   while (!rc && fgets(line, sizeof line, f)) {
@@ -220,7 +220,7 @@ static int platform_webviews(const ext_ledger_context *ctx, lj_value *list) {
   for (size_t d = 0; !rc && d < dirs.n; d++) {
     if ((rc = ll_ctx_check(ctx))) break;
     struct dirent **entries;
-    int count = scandir(dirs.items[d], &entries, NULL, alphasort); /* Go reads a directory in name order */
+    int count = scandir(dirs.items[d], &entries, NULL, alphasort); /* stable directory order */
     if (count < 0) continue;
     for (int e = 0; e < count; e++) {
       const char *name = entries[e]->d_name;
@@ -376,7 +376,7 @@ static int cmp_keyed(const void *a, const void *b) {
   return strcmp(x->key, y->key);
 }
 
-/* name \1 scope \1 path key: the identity with its NULs made printable, so it sorts as Go sorts it. */
+/* name \1 scope \1 path key: the identity with its NULs made printable for sorting. */
 static char *identity(const lj_value *w) {
   char *k = ll_path_clean(rec_field(w, "location"));
   if (!k) return NULL;

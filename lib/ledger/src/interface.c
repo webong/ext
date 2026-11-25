@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "ext_ledger.h"
+#include "collect.h"
 #include "json.h"
 #include "ledger_internal.h"
 
@@ -353,7 +354,12 @@ static int call_library(const char *op, const lj_value *in, char **out, size_t *
   if (rc) return rc;
   if (!strcmp(op, "collect")) {
     const char *what = str(in, "what");
-    return what ? ext_ledger_collect(ctx, what, out, out_len) : EXT_LEDGER_INVALID;
+    int64_t limit = 4096, pid = 0, resource_limit = 1024;
+    int present = num(in, "limit", &limit);
+    int has_pid = num(in, "pid", &pid), has_resources = num(in, "resource_limit", &resource_limit);
+    if (!what || present < 0 || has_pid < 0 || has_resources < 0 || (present && strcmp(what, "processes")) ||
+        (strcmp(what, "process") ? has_pid || has_resources : !has_pid)) return EXT_LEDGER_INVALID;
+    return ll_collect_with_options(ctx, what, limit, pid, resource_limit, out, out_len);
   }
   if (!strcmp(op, "collect_environment")) return ext_ledger_collect_environment(out, out_len);
   if (!strcmp(op, "vocabulary")) {
@@ -446,6 +452,11 @@ static int call_recorder(ext_ledger_recorder *r, const char *op, const lj_value 
   if (!strcmp(op, "scan")) {
     const char *what = str(in, "what");
     if (!what) return EXT_LEDGER_INVALID;
+    if (!strcmp(what, "process")) {
+      int64_t pid = 0, resource_limit = 1024;
+      if (num(in, "pid", &pid) != 1 || num(in, "resource_limit", &resource_limit) < 0) return EXT_LEDGER_INVALID;
+      return (rc = ext_ledger_recorder_scan_process(r, ctx, pid, resource_limit)) ? rc : null_out(out, out_len);
+    }
     return (rc = ext_ledger_recorder_scan(r, ctx, what)) ? rc : null_out(out, out_len);
   }
   if (!strcmp(op, "record")) {

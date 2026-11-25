@@ -2,7 +2,15 @@
  * this process, and a machine recorder records it. */
 #include "ext_ledger.h"
 #include "ledger_internal.h"
+#include "collect.h"
 #include "testutil.h"
+#if defined(__linux__) || defined(__APPLE__)
+#include <sys/socket.h>
+#endif
+#ifdef __APPLE__
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#endif
 
 #ifdef _WIN32
 #define getpid_ GetCurrentProcessId
@@ -50,10 +58,96 @@ int main(void) {
   printf("environment: os %s, architecture %s\n", field(env, "os"), field(env, "architecture"));
   lj_free(env);
 
+  /* The described interface applies the requested process bound before the
+   * ledger returns the snapshot. Some OSes deny a process-table scan. */
+  const char *bounded = "{\"what\":\"processes\",\"limit\":1}";
+  rc = ext_ledger_call(0, "collect", bounded, strlen(bounded), &out, &len);
+  if (rc == EXT_LEDGER_OK) {
+    lj_value *one = lj_parse(out, len, NULL);
+    const lj_value *items = lj_get(one, "processes");
+    CHECK(items && items->type == LJ_ARRAY && items->u.array.len <= 1, "process limit bounds the snapshot");
+    CHECK(hex24(field(one, "host_id")) && *field(one, "observed_at"), "bounded snapshot has host identity and time");
+    lj_free(one);
+    ext_ledger_free(out);
+  } else {
+    CHECK(rc == EXT_LEDGER_UNSUPPORTED || rc == EXT_LEDGER_DENIED || rc == EXT_LEDGER_UNAVAILABLE,
+          "bounded process collection: %s", ext_ledger_code_name(rc));
+  }
+
+  /* Targeted native inspection works without the process-table scan. The
+   * public snapshot also needs a readable boot identity on this host. */
+#if defined(__linux__) || defined(__APPLE__)
+  int pair[2] = {-1, -1};
+  CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "create a local socket for process inspection");
+#endif
+#ifdef __APPLE__
+  int listener = socket(AF_INET, SOCK_STREAM, 0);
+  struct sockaddr_in bound = {0};
+  bound.sin_len = sizeof bound;
+  bound.sin_family = AF_INET;
+  bound.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  if (listener >= 0 && bind(listener, (struct sockaddr *)&bound, sizeof bound) != 0) {
+    close(listener); /* a restricted test runner may deny even a loopback bind */
+    listener = -1;
+  }
+  socklen_t bound_len = sizeof bound;
+  if (listener >= 0) getsockname(listener, (struct sockaddr *)&bound, &bound_len);
+#endif
+  lj_value *target = lj_new(LJ_ARRAY);
+  rc = ll_process_one(NULL, (int64_t)getpid_(), target);
+  CHECK(rc == 0 && target->u.array.len == 1, "inspect this process identity: %s", ext_ledger_code_name(rc));
+  if (!rc && target->u.array.len == 1) {
+    lj_value *p = target->u.array.items[0];
+    CHECK(*field(p, "start_id"), "targeted identity has a start ID");
+    rc = ll_process_resources(NULL, (int64_t)getpid_(), 16, p);
+    CHECK(rc == 0, "inspect this process resources: %s", ext_ledger_code_name(rc));
+    if (!rc) {
+      const lj_value *coverage = lj_get(p, "coverage");
+      static const char *kinds[] = {"usage", "file", "mapping", "socket", "ipc"};
+      for (size_t i = 0; i < sizeof kinds / sizeof *kinds; i++)
+        CHECK(*field(lj_get(coverage, kinds[i]), "state"), "targeted %s coverage is explicit", kinds[i]);
+#if defined(__linux__) || defined(__APPLE__)
+      int resolved = 0;
+      const lj_value *resources = lj_get(p, "resources");
+      for (size_t i = 0; resources && i < resources->u.array.len; i++)
+        if (!strcmp(field(resources->u.array.items[i], "protocol"), "unix")) resolved++;
+      CHECK(resolved >= 2, "both local socket descriptors resolve through the kernel table");
+#endif
+#ifdef __APPLE__
+      char expected[64];
+      snprintf(expected, sizeof expected, "127.0.0.1:%u", (unsigned)ntohs(bound.sin_port));
+      int matched = 0;
+      for (size_t i = 0; resources && i < resources->u.array.len; i++)
+        if (!strcmp(field(resources->u.array.items[i], "protocol"), "tcp") &&
+            !strcmp(field(resources->u.array.items[i], "local_address"), expected)) matched++;
+      if (listener >= 0) CHECK(matched >= 1, "native TCP socket endpoint matches its bound address");
+#endif
+    }
+  }
+  lj_free(target);
+#if defined(__linux__) || defined(__APPLE__)
+  if (pair[0] >= 0) close(pair[0]);
+  if (pair[1] >= 0) close(pair[1]);
+#endif
+#ifdef __APPLE__
+  if (listener >= 0) close(listener);
+#endif
+
+  rc = ext_ledger_collect_process(NULL, (int64_t)getpid_(), 16, &out, &len);
+  if (rc == 0) {
+    lj_value *one = lj_parse(out, len, NULL);
+    const lj_value *items = lj_get(one, "processes");
+    CHECK(!strcmp(field(one, "scope"), "process") && items && items->type == LJ_ARRAY && items->u.array.len == 1,
+          "targeted public snapshot has one process");
+    lj_free(one);
+    ext_ledger_free(out);
+  } else CHECK(rc == EXT_LEDGER_DENIED || rc == EXT_LEDGER_UNAVAILABLE || rc == EXT_LEDGER_UNSUPPORTED,
+               "targeted process collection: %s", ext_ledger_code_name(rc));
+
   rc = ext_ledger_collect(NULL, "processes", &out, &len);
   if (rc == EXT_LEDGER_UNSUPPORTED || rc == EXT_LEDGER_DENIED || rc == EXT_LEDGER_UNAVAILABLE) {
     printf("skip: this OS refuses or has no process collection (%s)\n", ext_ledger_code_name(rc));
-    return 0;
+    return failures ? 1 : 0;
   }
   CHECK(rc == 0, "collect processes: %s", ext_ledger_code_name(rc));
   if (rc) return 1;
@@ -126,6 +220,17 @@ int main(void) {
       recorded |= (long)number(lj_get(found->u.array.items[i], "attributes"), "pid") == (long)getpid_();
     CHECK(recorded, "the scan recorded this process");
     lj_free(found);
+    rc = ext_ledger_recorder_scan_process(r, NULL, (int64_t)getpid_(), 16);
+    CHECK(rc == 0, "targeted scan records process resources: %s", ext_ledger_code_name(rc));
+    if (!rc) {
+      const char *resources_query = "{\"namespace\":\"ext.system\",\"kind\":\"ext.system/process-resource\",\"limit\":65536}";
+      rc = ext_ledger_store_query_vertices(store, NULL, resources_query, strlen(resources_query), &out, &len);
+      lj_value *resources = rc ? NULL : lj_parse(out, len, NULL);
+      if (!rc) ext_ledger_free(out);
+      CHECK(rc == 0 && resources && resources->type == LJ_ARRAY && resources->u.array.len > 0,
+            "targeted scan recorded resources");
+      lj_free(resources);
+    }
     rc = ext_ledger_recorder_scan(r, NULL, "processes");
     CHECK(rc == 0, "a second scan reconciles: %s", ext_ledger_code_name(rc));
     rc = ext_ledger_recorder_scan(r, NULL, "host");

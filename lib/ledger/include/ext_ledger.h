@@ -152,19 +152,22 @@ EXT_LEDGER_API int ext_ledger_recorder_record(ext_ledger_recorder *recorder, con
                                      char **out, size_t *out_len);
 
 /* ---- the collectors ----
- * What the recorder reads from the machine through each kernel's own
- * interface, in the JSON forms of res/system's types. what is "processes"
- * (process identities, as res/system's DiscoverProcesses reports them),
- * "shells", "filesystems", "webviews", "resources", "desktop", "surfaces",
- * "accessibility" and "permissions" (as DiscoverShells, DiscoverFilesystems,
- * DiscoverWebviews, DiscoverResources, DiscoverDesktop, DiscoverSurfaces,
- * DiscoverAccessibility and DiscoverPermissions), or
- * "host" (the host inventory: every host kind this build collects here). A
- * collection this build or OS does not have is EXT_LEDGER_UNSUPPORTED. Scan
- * takes "processes" or "host". */
+ * The ledger reads machine inventory through each kernel's native interface.
+ * "processes" is a dated snapshot with host identity, PID, parent PID, start
+ * identity and coverage per process. The host kinds are "shells", "filesystems",
+ * "webviews", "resources", "desktop", "surfaces", "accessibility" and
+ * "permissions"; "host" combines those this build supports. A collection
+ * this build or OS does not have is EXT_LEDGER_UNSUPPORTED. Recorder scan
+ * takes "processes" or "host". The described library interface's collect
+ * operation accepts an optional process limit (1 to 65536, default 4096).
+ * A targeted "process" collection takes a PID and resource limit; it checks
+ * start identity and executable again after resource inspection. */
 EXT_LEDGER_API int ext_ledger_collect(const ext_ledger_context *ctx, const char *what, char **out, size_t *out_len);
+/* A targeted process snapshot, scope "process", with bounded resources. */
+EXT_LEDGER_API int ext_ledger_collect_process(const ext_ledger_context *ctx, int64_t pid, int64_t resource_limit, char **out, size_t *out_len);
 /* Collects what and records it through the recorder's observation of it. */
 EXT_LEDGER_API int ext_ledger_recorder_scan(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *what);
+EXT_LEDGER_API int ext_ledger_recorder_scan_process(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, int64_t pid, int64_t resource_limit);
 /* The recorder environment of this machine, the JSON ext_ledger_recorder_open takes. */
 EXT_LEDGER_API int ext_ledger_collect_environment(char **out, size_t *out_len);
 

@@ -14,7 +14,7 @@ if [[ "$targets" == *" javascript "* ]]; then
   scripts/lang/ts.sh typecheck
 
   # Exercise both directions of the Go and TypeScript JSON-line example.
-  go run ./pkg/ext-go/examples/plugin-typescript
-  go build -o "$RUNNER_TEMP/ext-plugin-example" ./pkg/ext-go/examples/plugin-typescript
-  node pkg/ext-go/examples/plugin-typescript/host.mjs "$RUNNER_TEMP/ext-plugin-example"
+  go run ./examples/plugins/go/plugin-typescript
+  go build -o "$RUNNER_TEMP/ext-plugin-example" ./examples/plugins/go/plugin-typescript
+  node examples/plugins/go/plugin-typescript/host.mjs "$RUNNER_TEMP/ext-plugin-example"
 fi

@@ -1,0 +1,6 @@
+**/target/
+**/.zig-cache/
+**/zig-out/
+**/dist/
+**/node_modules/
+**/site/guest.wasm

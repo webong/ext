@@ -1,0 +1,11 @@
+{
+  "name": "ext-web-examples",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build:examples": "node build.mjs",
+    "smoke:chromium": "npm run build:examples && node smoke-chromium.mjs",
+    "smoke:firefox": "npm run build:examples && node smoke-firefox.mjs"
+  }
+}

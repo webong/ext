@@ -7,7 +7,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 )
 
-func CTXPlugin(ctx context.Context) (plugin.Backend, error) {
+func ExtPlugin(ctx context.Context) (plugin.Backend, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

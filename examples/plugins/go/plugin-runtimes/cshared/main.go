@@ -1,0 +1,42 @@
+//go:build cgo
+
+// Build with -buildmode=c-shared. cgo generates the corresponding C header.
+package main
+
+/*
+#include <stdint.h>
+*/
+import "C"
+
+import (
+	"github.com/webong/ext/examples/plugins/go/plugin-runtimes/echo"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest/abi"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest/guest"
+	"unsafe"
+)
+
+var server = newServer()
+
+func newServer() *guest.Server {
+	s, err := guest.New(echo.New, guest.Options{})
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+//export ext_plugin_guest_abi_version
+func ext_plugin_guest_abi_version() C.uint32_t { return C.uint32_t(abi.Version) }
+
+//export ext_plugin_guest_open
+func ext_plugin_guest_open() C.uint64_t { return C.uint64_t(server.Open()) }
+
+//export ext_plugin_guest_call
+func ext_plugin_guest_call(handle C.uint64_t, op C.uint32_t, request *C.uint8_t, requestLen C.uint32_t, response *C.uint8_t, capacity C.uint32_t, responseLen *C.uint32_t) C.uint32_t {
+	return C.uint32_t(server.CallInto(uint64(handle), uint32(op), unsafe.Pointer(request), uint32(requestLen), unsafe.Pointer(response), uint32(capacity), (*uint32)(unsafe.Pointer(responseLen))))
+}
+
+//export ext_plugin_guest_close
+func ext_plugin_guest_close(handle C.uint64_t) { server.Close(uint64(handle)) }
+
+func main() {}

@@ -74,7 +74,7 @@ func guestWith(imports, body string) map[string]string {
 }
 
 const factory = `
-func CTXPlugin(ctx context.Context) (plugin.Backend, error) {
+func ExtPlugin(ctx context.Context) (plugin.Backend, error) {
 	d := plugin.Descriptor{APIVersion: plugin.APIVersion, Identity: plugin.Identity{ID: "test/guest", Revision: "1"},
 		Contracts: []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "test", Version: "v1"}, Operations: []plugin.Operation{{Name: "run"}}}}}
 	g, err := plugin.NewGuest(d, plugin.GuestOptions{Handler: handle})
@@ -211,13 +211,13 @@ func TestFactoryIsRequired(t *testing.T) {
 	if _, err := open(t, guestWith("", "func Other() {}\nvar _ = context.Background\nvar _ plugin.Backend\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrUnsupported) {
 		t.Fatalf("missing factory: %v", err)
 	}
-	if _, err := open(t, guestWith("", "func CTXPlugin() {}\nvar _ = context.Background\nvar _ plugin.Backend\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrUnsupported) {
+	if _, err := open(t, guestWith("", "func ExtPlugin() {}\nvar _ = context.Background\nvar _ plugin.Backend\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrUnsupported) {
 		t.Fatalf("wrong signature: %v", err)
 	}
-	if _, err := open(t, guestWith("", "func CTXPlugin(ctx context.Context) (plugin.Backend, error) { return nil, nil }\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrInvalid) {
+	if _, err := open(t, guestWith("", "func ExtPlugin(ctx context.Context) (plugin.Backend, error) { return nil, nil }\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("nil backend: %v", err)
 	}
-	if _, err := open(t, guestWith("", "func CTXPlugin(ctx context.Context) (plugin.Backend, error) { return nil, nil\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrInvalid) {
+	if _, err := open(t, guestWith("", "func ExtPlugin(ctx context.Context) (plugin.Backend, error) { return nil, nil\n"), yaegi.Options{}); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("syntax error: %v", err)
 	}
 }

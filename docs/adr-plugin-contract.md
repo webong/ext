@@ -42,7 +42,7 @@ There are three independent identities:
 
 `Descriptor` declares 1–64 unique contract references, each with 1–256 unique
 operations. An operation may name a consumer-defined surface for admission.
-For example, a consumer may use `observation` and `action`; CTX does not assign
+For example, a consumer may use `observation` and `action`; Ext does not assign
 permissions to those names. Capability and role catalogs remain domain data.
 
 `Select` requires a contract and operation, optionally pins the complete
@@ -93,7 +93,7 @@ and fresh handshake. The host must fence old session references when replacing
 a process and own rollback of a multi-plugin composition. The plugin library
 does not implement an additional process supervisor or composition database.
 The HashiCorp backend delegates startup and cleanup to go-plugin's client;
-the same child must not also be owned by CTX supervisor.
+the same child must not also be owned by another supervisor.
 
 ## Shared host and guest interface
 
@@ -329,14 +329,14 @@ and guests. It is a library implementation alongside JSON-line transport.
 The shared plugin core has no HashiCorp imports; importing the HashiCorp backend
 brings in the pinned go-plugin dependency and its RPC dependencies.
 
-The native launch handshake, CTX descriptor handshake, and consumer contract
+The native launch handshake, Ext descriptor handshake, and consumer contract
 versions serve separate purposes. The magic cookie is a launch convention,
 not authentication. Configure upstream `SecureConfig`, `AutoMTLS`/TLS,
 environment, logging, and startup limits as appropriate to the host's policy.
-The CTX verifier still runs before `hashicorp.Connect` may start a process.
+The Ext verifier still runs before `hashicorp.Connect` may start a process.
 
-`Connect` takes ownership of a dedicated go-plugin client and dispenses the CTX
-interface. The backend closes the client and kills its process when the CTX
+`Connect` takes ownership of a dedicated go-plugin client and dispenses the Ext
+interface. The backend closes the client and kills its process when the Ext
 session closes or fails. Set `StartTimeout`: cancellation returns promptly,
 but cleanup of an in-progress native startup waits for that startup to finish.
 Hosts that use native `Dispense` directly retain responsibility for `Client.Kill`.
@@ -347,7 +347,7 @@ must be mapped explicitly; a runtime framework cannot infer domain semantics.
 The translation must provide a verified descriptor and honor cancellation.
 
 The gRPC service schema is `pkg/ext-go/hashicorp/runtime.proto`. It uses standard
-protobuf `Empty` and `BytesValue` messages carrying CTX JSON envelopes, so other
+protobuf `Empty` and `BytesValue` messages carrying Ext JSON envelopes, so other
 languages can generate service stubs without a custom codec. Use the supplied
 `hashicorp.GRPCServer` factory for transport message limits. net/rpc checks the
 JSON limit after upstream Gob decoding; its upstream decoder is not an
@@ -356,7 +356,7 @@ connection, while gRPC cancels the binding's in-flight requests. Neither path
 retries a call automatically.
 
 Native broker callbacks, streaming interfaces, and reattachment remain explicit
-upstream features that consumer bindings can use. This backend's standard CTX
+upstream features that consumer bindings can use. This backend's standard Ext
 interface currently exposes unary handshake/invocation. See
 [`pkg/ext-go/hashicorp/README.md`](../pkg/ext-go/hashicorp/README.md) for host and guest
 usage and process examples.
@@ -376,7 +376,7 @@ existing trust records remain usable. Special files and paths with line breaks
 are rejected along with symlinks.
 
 The argv/environment/stdio adapter protocol is an explicit compatibility
-binding. CTX shell adapters can carry interactive or binary streams without
+binding. Ext shell adapters can carry interactive or binary streams without
 wrapping those streams in JSON. Their package manifest and checksum provide
 the selected descriptor; they do not pretend to perform a JSON handshake.
 Command execution retains existing trust checks and invocation behavior.
@@ -412,8 +412,8 @@ new wire fields need a separately supported API version. New domain methods
 can be declared without changing the generic protocol, and independently
 versioned domain contracts may coexist in a descriptor.
 
-Run the end-to-end example with `go run ./pkg/ext-go/examples/plugin`. Contract, admission,
-drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
+Run the end-to-end example with `go run ./examples/plugins/go/plugin`. Contract, admission,
+drain, integrity, malformed-frame, cancellation, concurrency, and Ext compatibility
 tests live under `pkg/ext-go/engine/`, `pkg/ext-go/engine/plugin/transport/jsonline/`, and `pkg/ext-go/engine/plugin/host/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/ext-go/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
@@ -433,5 +433,5 @@ The TypeScript SDK supplies both sides of the v1 JSON-line contract. Frozen
 fixtures and real Go/JavaScript examples cover interoperability. In-process,
 JSON-line and both HashiCorp RPC bindings run a common conformance suite.
 
-Scope: this SDK work is CTX-only. Migration of other consumers is deferred;
-their repositories and pinned CTX dependencies are not changed by this work.
+Scope: this SDK belongs to Ext. Migration of consumer repositories and their
+pinned dependencies is separate from the SDK implementation.

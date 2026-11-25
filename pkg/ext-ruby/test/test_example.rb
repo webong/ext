@@ -8,7 +8,7 @@ require "rbconfig"
 # The example plugin runs, and its manifest names the script it ships.
 class ExampleTest < Minitest::Test
   include TestHelper
-  DIR = File.expand_path("../examples/echo", __dir__)
+  DIR = File.expand_path("../../../examples/plugins/ruby/echo", __dir__)
 
   def test_the_manifest_digest_matches_the_script
     manifest = JSON.parse(File.read(File.join(DIR, "plugin.json")))

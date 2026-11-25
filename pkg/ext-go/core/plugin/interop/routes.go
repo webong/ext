@@ -76,7 +76,7 @@ func meets(r Route, w Requirements) bool {
 // caller preference order. Names identify wire bindings, never source languages.
 // Protocols must match end-to-end; this resolver does not translate versions.
 // Requirements describe native transport features, not domain capabilities such
-// as CTX pull-stream operations (which can run over unary transports), and the
+// as Ext pull-stream operations (which can run over unary transports), and the
 // sandbox boundaries the consumer accepts. A route that meets the transport
 // requirements but not the boundaries is skipped; when every such route was
 // skipped for its boundary the error is plugin.ErrDenied, else

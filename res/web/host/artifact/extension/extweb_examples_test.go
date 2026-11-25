@@ -9,21 +9,21 @@ import (
 	"github.com/webong/ext/res/web/host/internal/fixtures"
 )
 
-// The example extensions that pkg/ext-web builds (npm run build:examples in
-// pkg/ext-web) must go through the same inspection and packaging as any other
+// The example extensions built with pkg/ext-web (npm run build:examples in
+// examples/web/extensions) must go through the same inspection and packaging as any other
 // extension: a manifest shape this package cannot read or pack would otherwise
 // be found only by a user. The theme example is built by the library's own
 // createThemeManifest, so it also covers what that function emits.
 //
 // EXT_WEB_DIST names the directory holding the built examples and makes a missing
 // build a failure, which is how the web-js workflow runs it. Without it the test
-// looks for pkg/ext-web/dist in the checkout and skips when it has not been built.
+// looks for examples/web/extensions/dist in the checkout and skips when it has not been built.
 func TestExtWebExamplesPackage(t *testing.T) {
 	dist := os.Getenv("EXT_WEB_DIST")
 	if dist == "" {
-		dist = fixtures.RepoPath(t, "pkg", "ext-web", "dist")
+		dist = fixtures.RepoPath(t, "examples", "web", "extensions", "dist")
 		if _, err := os.Stat(dist); err != nil {
-			t.Skip("pkg/ext-web/dist is not built; run npm run build:examples in pkg/ext-web or set EXT_WEB_DIST")
+			t.Skip("examples/web/extensions/dist is not built; run npm run build:examples in examples/web/extensions or set EXT_WEB_DIST")
 		}
 	}
 	for _, name := range []string{"host", "guest", "theme", "firefox-host", "firefox-guest"} {

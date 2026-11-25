@@ -21,7 +21,7 @@ ci_import_env
 
 # Build example extensions
 (
-cd pkg/ext-web
+cd examples/web/extensions
 npm run build:examples
 )
 ci_import_env
@@ -30,7 +30,7 @@ ci_import_env
 
 # Package the examples with the Go tooling
 (
-export EXT_WEB_DIST="$GITHUB_WORKSPACE/pkg/ext-web/dist"
+export EXT_WEB_DIST="$GITHUB_WORKSPACE/examples/web/extensions/dist"
 cd res/web/host
 go test ./artifact/extension -run TestExtWebExamplesPackage -count=1 -v
 )

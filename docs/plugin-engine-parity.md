@@ -75,7 +75,7 @@ for yet.
 
 ## Required destination
 
-CTX is in development. The C engine is the main engine; where it still lacks
+Ext is in development. The C engine is the main engine; where it still lacks
 behavior or platform coverage that the pure-Go engine has, the gap is closed in C,
 and the pure-Go implementation is retired only once nothing depends on it. Parity is a requirement, not an optional follow-up. ABI and internal API
 changes are acceptable during this work; every language binding must be updated

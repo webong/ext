@@ -37,7 +37,7 @@ func handle(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
 	}
 }
 
-func CTXPlugin(ctx context.Context) (plugin.Backend, error) {
+func ExtPlugin(ctx context.Context) (plugin.Backend, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

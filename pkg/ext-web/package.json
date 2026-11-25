@@ -18,10 +18,7 @@
     "./bridge": { "types": "./bridge.d.mts", "default": "./bridge.mjs" }
   },
   "scripts": {
-    "test": "node --test test.mjs *.test.mjs",
-    "build:examples": "node examples/build.mjs",
-    "smoke:chromium": "npm run build:examples && node examples/smoke-chromium.mjs",
-    "smoke:firefox": "npm run build:examples && node examples/smoke-firefox.mjs"
+    "test": "node --test test.mjs *.test.mjs"
   },
   "engines": { "node": ">=22" }
 }

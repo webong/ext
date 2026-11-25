@@ -26,7 +26,7 @@ import (
 
 func handle(ctx context.Context, r plugin.Request) (json.RawMessage, error) { return r.Payload, nil }
 
-func CTXPlugin(ctx context.Context) (plugin.Backend, error) {
+func ExtPlugin(ctx context.Context) (plugin.Backend, error) {
 	g, err := plugin.NewGuest(descriptor(), plugin.GuestOptions{Handler: handle})
 	if err != nil {
 		return nil, err

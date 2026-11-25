@@ -55,7 +55,7 @@ not benchmarked. Results should not be generalized to those workloads.
 
 ## What the prototype establishes
 
-- A versioned C boundary can expose CTX host behavior without embedding Go in
+- A versioned C boundary can expose Ext host behavior without embedding Go in
   the engine. A Go-written guest still has its own runtime in its subprocess.
 - Verification-before-execution, authorization, exact declaration matching,
   bounded wire validation, response correlation and abortive cleanup can be

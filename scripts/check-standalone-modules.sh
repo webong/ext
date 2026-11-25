@@ -7,7 +7,7 @@
 # published yet (a release in progress) cannot be checked until that tag
 # exists. Skips fail the release gate by default. Development checks can opt in
 # to allowing skips; explicitly selected modules are always required. The
-# executable-only cmd/ext module and test-only modules under tests/ are not checked.
+# executable-only cmd/ext module and unpublished modules under tests/ and examples/ are not checked.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"
@@ -44,11 +44,11 @@ for dir in $modules; do
         failed=$((failed + 1))
       fi
       continue ;;
-    tests/*)
-      # Test-only modules (tests/crosslang) are never tagged or published, so a consumer never
+    tests/*|examples/*)
+      # Test and teaching-example modules are never tagged or published, so a consumer never
       # resolves them; they build with the workspace.
       if [ -n "${STANDALONE_ONLY:-}" ]; then
-        echo "FAIL $dir: test-only modules are never published"
+        echo "FAIL $dir: test and example modules are never published"
         failed=$((failed + 1))
       fi
       continue ;;

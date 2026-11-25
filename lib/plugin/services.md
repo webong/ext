@@ -86,7 +86,7 @@ versions. Dependency plans reject cycles, duplicate identities and ambiguous
 providers. Providers precede consumers; otherwise traversal is ordered by the
 SHA-256 of canonical identity JSON, matching the Go reference.
 
-Schemas support the bounded CTX vocabulary, not arbitrary JSON Schema. The
+Schemas support the bounded Ext vocabulary, not arbitrary JSON Schema. The
 reference is `plugin/schema/schema.go`; required fields, unknown properties,
 Unicode string length, item limits, enums and numeric constraints are checked by
 C. Integer-valued schema bounds must use integer JSON syntax and fit int64.

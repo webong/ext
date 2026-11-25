@@ -22,7 +22,7 @@ The manifest file is `plugin.json`. `serveStdio` accepts the manifest or a bare 
 structure.
 
 Install it with Composer (`composer require webong/ext-io`, PSR-4 `ExtIO\` → `src/`), or without
-Composer `require 'path/to/pkg/ext-php/autoload.php';`. `examples/echo` is a complete guest.
+Composer `require 'path/to/pkg/ext-php/autoload.php';`. [The echo example](../../examples/plugins/php/echo) is a complete guest.
 
 - `serveStdio($descriptor, $handler, $maxCallSeconds = 30.0, $redactErrors = false)`: serves
   until the input ends. `$descriptor` is an array or `stdClass`, or the path of an

@@ -17,7 +17,7 @@ end
 ```
 
 The manifest file is `plugin.json` (an `ext.package/v1` manifest). `serve_stdio` accepts the
-manifest or a bare descriptor file by structure. [`examples/echo`](examples/echo) is a complete
+manifest or a bare descriptor file by structure. [`examples/echo`](../../examples/plugins/ruby/echo) is a complete
 plugin: a manifest whose artifact is `main.rb`, served through `Capability::Router`.
 
 Add `lib` to the load path (`ruby -I pkg/ext-ruby/lib`), or build and install the gem

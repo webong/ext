@@ -1,4 +1,4 @@
-// Package plugintest supplies a reusable conformance suite for CTX backends.
+// Package plugintest supplies a reusable conformance suite for Ext backends.
 // Factories bind Guest() locally or in a dedicated subprocess and must return
 // a fresh owned backend each time. The suite performs real transport calls.
 package plugintest

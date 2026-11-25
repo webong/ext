@@ -15,7 +15,7 @@ import (
 func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 	root := repoRoot(t)
 	var directories []string
-	for _, pattern := range []string{"adapters/*/plugin.json", "examples/adapters/*/plugin.json", "pkg/ext-go/examples/adapters/*/plugin.json"} {
+	for _, pattern := range []string{"adapters/*/plugin.json", "examples/adapters/*/plugin.json", "examples/plugins/go/adapters/*/plugin.json"} {
 		matches, err := filepath.Glob(filepath.Join(root, pattern))
 		if err != nil {
 			t.Fatal(err)

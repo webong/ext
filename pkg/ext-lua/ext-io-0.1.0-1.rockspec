@@ -35,7 +35,6 @@ build = {
     ["ext_io.plugin.frames"] = "ext_io/plugin/frames.lua",
     ["ext_io.plugin.guest"] = "ext_io/plugin/guest.lua",
   },
-  copy_directories = { "examples" },
 }
 test = {
   type = "command",

@@ -37,6 +37,9 @@ use (
 	./adapters/x11
 	./adapters/zen
 	./cmd/ext
+	./examples/ledger/go
+	./examples/plugins/go
+	./examples/web/go
 	./pkg/ext-go
 	./pkg/ext-go/c2goengine
 	./pkg/ext-go/cengine

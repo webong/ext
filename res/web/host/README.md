@@ -23,7 +23,7 @@ packages, not Go files of their own.
 | `engine/bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
 | `engine/wasm` | Protocol-neutral Go APIs for module inspection, bounded WASI command execution, persistent byte streams and raw reactor hosting through wazero; also `reactor.js`, the shared page-side reactor glue embedded in the iOS and Android WebView hosts |
 
-`examples/plugin-webview` shows the engine with a plugin, and `internal/portcorpus`
+[The WebView example](../../../examples/web/go/plugin-webview) shows the engine with a plugin, and `internal/portcorpus`
 writes the corpus that `scripts/web-differential.sh` uses to compare the Swift and Java
 modules with Go.
 

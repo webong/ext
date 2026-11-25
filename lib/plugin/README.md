@@ -14,7 +14,7 @@ through those facts.
 The same native engine can be embedded in Go, Rust, Zig and Node.js. Static
 linking is the default; a shared library is optional. The
 engine itself contains no Go runtime. The guest executable may use any runtime;
-the baseline fixture happens to be Go. CTX's existing `ext.plugin/v1` guest
+the baseline fixture happens to be Go. Ext's existing `ext.plugin/v1` guest
 protocol and existing language guest implementations remain unchanged.
 
 ## Names
@@ -142,7 +142,7 @@ cmake --install /tmp/ext-cengine --prefix /tmp/ext-host-package
 ```
 
 The default install contains `libext_plugin_host_static.a`, `libext_plugin_guest_static.a`,
-four public headers, versioned CMake package metadata and the CTX, parser and
+four public headers, versioned CMake package metadata and the Ext, parser and
 Unicode-table licenses. Add `-DEXT_BUILD_SHARED=ON` to
 also build/install host and guest shared libraries (`.so` / `.dylib`, ABI major 2).
 There are no published binary bundles; builds target the local architecture.
@@ -180,7 +180,7 @@ runtime library search path. The Rust example defaults to static linkage and
 accepts `--features shared`. Zig and Node builds select the archive or dynamic
 library through linker flags; the runner demonstrates both choices.
 
-Static embedding needs no separately deployed CTX library. Node still loads a
+Static embedding needs no separately deployed Ext library. Node still loads a
 `.node` addon, with the C engine compiled into that addon. Go's independent SDK
 continues to work without cgo; choosing this C binding requires a C toolchain.
 Browsers need a WASM embedding; they cannot load a native `.node` addon.

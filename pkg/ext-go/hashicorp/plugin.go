@@ -1,4 +1,4 @@
-// Package hashicorp binds CTX's shared plugin endpoint to HashiCorp go-plugin.
+// Package hashicorp binds Ext's shared plugin endpoint to HashiCorp go-plugin.
 // This library backend owns go-plugin's handshake, RPC bindings, dispensing,
 // and client cleanup. Domain semantics remain in the consumer's plugin.Guest.
 package hashicorp
@@ -15,7 +15,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-const PluginName = "ctx"
+// PluginName is the Ext backend dispense key.
+const PluginName = "ext"
 
 // HandshakeConfig returns a copy of the backend's native handshake. The cookie
 // identifies a compatible launch convention; it provides no authentication.
@@ -75,7 +76,7 @@ func (*Plugin) GRPCClient(ctx context.Context, _ *hc.GRPCBroker, conn *grpc.Clie
 	return &grpcBackend{conn: conn, lifetime: lifetime, cancel: cancel}, nil
 }
 
-// Connect starts/connects a dedicated go-plugin client and dispenses the CTX
+// Connect starts/connects a dedicated go-plugin client and dispenses the Ext
 // interface. Call it inside plugin.Options.Connect, after trust verification.
 // Ownership transfers here: failures kill the client, and the returned backend
 // kills it on Close. Never also supervise that child with the ledger supervisor (pkg/ext-go/cengine/ledger/supervisor).
@@ -85,7 +86,7 @@ func Connect(ctx context.Context, client *hc.Client) (plugin.Backend, error) {
 	return ConnectInterface(ctx, client, PluginName, func(value interface{}) (plugin.Backend, error) {
 		backend, ok := value.(plugin.Backend)
 		if !ok {
-			return nil, errors.New("go-plugin did not dispense a CTX backend")
+			return nil, errors.New("go-plugin did not dispense an Ext backend")
 		}
 		return backend, nil
 	})

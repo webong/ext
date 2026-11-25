@@ -24,7 +24,7 @@ The manifest file is `plugin.json`. `serve_stdio` accepts the manifest or a bare
 structure.
 
 Put this directory on `package.path` (`?.lua` and `?/init.lua`), or `luarocks make` the rockspec
-here. [`examples/echo`](examples/echo) is a complete guest.
+here. [`examples/echo`](../../examples/plugins/lua/echo) is a complete guest.
 
 - `serve_stdio(descriptor, handler, opts)`: serves until the input ends. `descriptor` is a table or
   the path of an `ext.package/v1` `plugin.json` (its `descriptor` is used) or a bare descriptor

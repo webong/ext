@@ -9,7 +9,7 @@ import (
 
 // ServeStdio serves a standalone guest on stdin/stdout, including Go WASI
 // commands. It owns and closes both streams. Send diagnostics to stderr only;
-// stdout is reserved for the CTX protocol. Call once from the guest's main.
+// stdout is reserved for the Ext protocol. Call once from the guest's main.
 func ServeStdio(ctx context.Context, guest plugin.Endpoint) error {
 	return ServeGuest(ctx, stdio{}, guest)
 }

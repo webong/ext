@@ -8,7 +8,7 @@
 // artifact named by an entrypoint whose runtime is Runtime ("go-source"). It
 // exports the factory nativego requires:
 //
-//	func CTXPlugin(context.Context) (plugin.Backend, error)
+//	func ExtPlugin(context.Context) (plugin.Backend, error)
 //
 // Its imports are checked before anything is evaluated: only the standard
 // library packages in Options.Packages (DefaultPackages when nil), the ext
@@ -58,11 +58,11 @@ const Runtime = "go-source"
 
 // Symbol is the factory the guest package exports, as for nativego:
 //
-//	func CTXPlugin(context.Context) (plugin.Backend, error)
+//	func ExtPlugin(context.Context) (plugin.Backend, error)
 //
 // Each call must create an independent backend. The factory context bounds
 // startup, not the guest's lifetime.
-const Symbol = "CTXPlugin"
+const Symbol = "ExtPlugin"
 
 // ErrStopped is returned by every call after the interpreter has been stopped.
 var ErrStopped = errors.New("yaegi: interpreter stopped")

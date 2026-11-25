@@ -7,4 +7,4 @@ lib/plugin/testdata/v1/archives/** binary
 
 # Example plugins whose manifests pin their scripts by SHA-256 keep LF everywhere, so a Windows
 # checkout hashes the same bytes.
-pkg/ext-ruby/examples/** text eol=lf
+examples/plugins/ruby/** text eol=lf

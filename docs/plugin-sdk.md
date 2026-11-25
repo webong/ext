@@ -138,12 +138,12 @@ version. The host must bind the reviewed metadata to installed artifacts.
 Runnable template:
 
 ```sh
-go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
-go run ./pkg/ext-go/examples/plugin-sdk --backend inprocess
+go run ./examples/plugins/go/plugin-sdk --backend jsonline
+go run ./examples/plugins/go/plugin-sdk --backend inprocess
 ```
 
 Both print the configured echo, health and a three-item stream. The existing
-`pkg/ext-go/examples/plugin-hashicorp` shows native subprocess ownership for both RPCs.
+`examples/plugins/go/plugin-hashicorp` shows native subprocess ownership for both RPCs.
 
 ## Instances and configuration
 
@@ -254,8 +254,8 @@ remain host-owned. Graph records do not grant permissions; restart generations,
 transactional activation and rollback remain part of the host's composition.
 
 ```sh
-go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --entry main pkg/ext-go/examples/plugin-package/plugin.json
-go run ./pkg/ext-go/hashicorp/cmd/ext-plugin resolve pkg/ext-go/examples/plugin-package/plugin.json
+go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --entry main examples/plugins/go/plugin-package/plugin.json
+go run ./pkg/ext-go/hashicorp/cmd/ext-plugin resolve examples/plugins/go/plugin-package/plugin.json
 ```
 
 Add `--root DIR` to verify artifact contents. `inspect` reports `trusted: false`
@@ -282,12 +282,12 @@ fixtures and domain/schema tests complement the behavioral backend suite.
 ```sh
 go test -race ./pkg/ext-go/hashicorp/... ./pkg/ext-go/hashicorp/cmd/ext-plugin
 node --test pkg/ext-ts/test.mjs
-go run ./pkg/ext-go/examples/plugin-typescript
+go run ./examples/plugins/go/plugin-typescript
 ```
 
 The cross-language example runs a real JavaScript guest from a Go host. The
 reverse direction is available by building that Go example and passing the
-executable to `pkg/ext-go/examples/plugin-typescript/host.mjs`. Type declarations have a
+executable to `examples/plugins/go/plugin-typescript/host.mjs`. Type declarations have a
 separate `typecheck.mts` fixture. CI exercises both directions and the native
 backend conformance suite.
 
@@ -343,7 +343,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 ### Interoperability across implementations
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
-`pkg/ext-go/engine/plugin/host/interop` plans explicit direct/bridged routes; `pkg/ext-go/engine/plugin/transport/bridge` exposes a
+`pkg/ext-go/core/plugin/interop` plans explicit direct/bridged routes; `pkg/ext-go/engine/plugin/transport/bridge` exposes a
 verified backend as an Endpoint. `ext bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)

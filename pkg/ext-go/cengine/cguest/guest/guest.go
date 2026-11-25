@@ -1,5 +1,5 @@
 // Package guest binds Go guests to the Ext C ABI. A c-shared main package
-// exports four tiny cgo wrappers; see pkg/ext-go/examples/plugin-runtimes/cshared.
+// exports four tiny cgo wrappers; see examples/plugins/go/plugin-runtimes/cshared.
 package guest
 
 import (

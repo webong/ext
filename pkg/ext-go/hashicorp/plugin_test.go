@@ -24,7 +24,7 @@ func fixtureDescriptor() plugin.Descriptor {
 }
 
 // A real go-plugin subprocess exercises the native startup handshake, cookie,
-// TLS, Dispense, CTX handshake, invocation, and process cleanup for both RPCs.
+// TLS, Dispense, Ext handshake, invocation, and process cleanup for both RPCs.
 func TestGuestProcess(t *testing.T) {
 	transport := os.Getenv("EXT_PLUGIN_TEST_CHILD")
 	if transport == "" {

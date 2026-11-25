@@ -24,7 +24,7 @@ type AdapterObservation struct {
 	BrowserShare                                     []string
 	Trusted, ListSupported, ObserveSupported, Listed bool
 	Contexts                                         []ContextObservation
-	// Programs are the executables CTX found for the commands this adapter
+	// Programs are the executables the consumer found for the commands this adapter
 	// declares. They are machine facts: the graph holds one vertex per file, however
 	// many adapters were given it.
 	Programs  []ProgramCandidate

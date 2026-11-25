@@ -1,4 +1,4 @@
-// Package stream provides a pull-based, bounded stream contract over any CTX
+// Package stream provides a pull-based, bounded stream contract over any Ext
 // unary backend. Reads supply backpressure; no unbounded queue or replay exists.
 package stream
 

@@ -15,11 +15,11 @@ import (
 
 // Symbol is the required exported function name. The guest declares:
 //
-//	func CTXPlugin(context.Context) (plugin.Backend, error)
+//	func ExtPlugin(context.Context) (plugin.Backend, error)
 //
 // Each call must create an independent backend. Its Close releases resources;
 // it cannot unload code. The factory context bounds startup, not guest lifetime.
-const Symbol = "CTXPlugin"
+const Symbol = "ExtPlugin"
 
 type Backend struct {
 	*inprocess.Backend

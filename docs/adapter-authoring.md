@@ -158,7 +158,7 @@ request, err := plugin.ParseAdapterInvocation(os.Args[1:])
 ```
 
 Import `github.com/webong/ext/pkg/ext-go`. The complete
-[Go echo example](../pkg/ext-go/examples/adapters/go_echo/main.go) implements the basic
+[Go echo example](../examples/plugins/go/adapters/go_echo/main.go) implements the basic
 handlers; the [shell echo example](../examples/adapters/echo/ctx-echo) shows the
 same contract without the Go SDK. These examples echo arguments; replace that
 behavior with your native integration.
@@ -206,7 +206,7 @@ author; native libraries may require a suitable target toolchain.
 To build the repository's complete example, run this from the CTX checkout:
 
 ```sh
-ext package build ./pkg/ext-go/examples/adapters/go_echo
+ext package build ./examples/plugins/go/adapters/go_echo
 ```
 
 ### Other languages or an already-built executable

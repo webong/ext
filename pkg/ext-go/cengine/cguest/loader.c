@@ -49,7 +49,7 @@ ext_library *ext_library_load(const char *path, char *error, size_t cap) {
     call_fn call = (call_fn)LOOKUP(h, "ext_plugin_guest_call");
     close_fn close = (close_fn)LOOKUP(h, "ext_plugin_guest_close");
     if (!version || !open || !call || !close) {
-        snprintf(error, cap, "missing required CTX C ABI exports"); return NULL;
+        snprintf(error, cap, "missing required Ext C ABI exports"); return NULL;
     }
 #if defined(__APPLE__) && defined(__x86_64__)
     /* Every Go c-shared library exports this. On darwin/amd64 each Go runtime keeps
@@ -59,7 +59,7 @@ ext_library *ext_library_load(const char *path, char *error, size_t cap) {
         snprintf(error, cap, "%s", EXT_GO_GUEST_DARWIN_AMD64); return NULL;
     }
 #endif
-    if (version() != 1u) { snprintf(error, cap, "unsupported CTX C ABI version"); return NULL; }
+    if (version() != 1u) { snprintf(error, cap, "unsupported Ext C ABI version"); return NULL; }
     ext_library *library = (ext_library *)malloc(sizeof(ext_library));
     if (!library) { snprintf(error, cap, "library allocation failed"); return NULL; }
     library->open = open; library->call = call; library->close = close;

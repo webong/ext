@@ -232,7 +232,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_host_drain_with_options(ext_plu
                                                     const ext_plugin_call_options *);
 /* Calls are serialized unless an extension declares EXT_PLUGIN_BACKEND_CONCURRENT.
  * Queue time counts toward timeout. Copies no retained caller pointers.
- * Input/output are CTX envelopes; domain errors return EXT_PLUGIN_OK with
+ * Input/output are Ext envelopes; domain errors return EXT_PLUGIN_OK with
  * Response.error. Caller owns returned buffer and frees via the same engine
  * instance that allocated it. Never pass handles or buffers between separately
  * linked engine copies. Request deadline and timeout_ms both bound dispatch.

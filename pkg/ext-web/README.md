@@ -104,7 +104,7 @@ do not run scripts from remote URLs.
 `ext-web/themes` creates a color-and-image theme object, builds a static
 Manifest V3 theme manifest, and applies a live theme where the browser exposes
 `browser.theme`. Colors use RGB arrays and images use packaged relative paths.
-`npm run build:examples` creates a color-only static theme in `dist/theme`.
+`npm run build:examples` in `examples/web/extensions` creates a color-only static theme in `dist/theme`.
 
 ```js
 import { createThemeManifest, createThemeController } from 'ext-web/themes';
@@ -144,7 +144,7 @@ safe for page use. These APIs carry no Cymonkey or Xallet command vocabulary.
 
 ## Host and guest examples
 
-Run `npm run build:examples` in this package. The output contains independently
+Run `npm run build:examples` in [examples/web/extensions](../../examples/web/extensions). The output contains independently
 loadable `dist/host` and `dist/guest` Chromium MV3 extensions, plus
 `dist/firefox-host` and `dist/firefox-guest` Firefox MV3 extensions. The Firefox
 builds use background modules and the `browser` API. Their fixed add-on IDs are
@@ -160,7 +160,7 @@ directory's `manifest.json` as a temporary add-on. In the host popup, admit
 `ext-peer-host@example.org`. Check the guest's status and greeting, try the
 denied method, then call the guest echo from the host. Temporary add-ons are
 removed when Firefox restarts. The examples require no `management` permission.
-Reloading either extension exercises reconnection. Run `npm test` for the
+Reloading either extension exercises reconnection. Run `npm test` in `pkg/ext-web` for the
 protocol harness. The examples use only the `storage` permission.
 
 `res/web/host/artifact/extension` can inspect and package these built directories for an

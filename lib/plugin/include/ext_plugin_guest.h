@@ -34,7 +34,7 @@ extern "C" {
  * The host supplies MAX_FRAME_BYTES capacity. Do not retry calls to resize a
  * buffer: an operation can already have performed effects. Domain errors use
  * Response.error with status OK; nonzero statuses are transport failures.
- * Each handle is serialized by the CTX host; different handles may run at once.
+ * Each handle is serialized by the Ext host; different handles may run at once.
  * close releases session resources after outstanding calls return. Loaded code
  * stays resident. Cancellation does not interrupt arbitrary native execution.
  */

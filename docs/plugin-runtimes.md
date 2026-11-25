@@ -1,6 +1,6 @@
 # Build a plugin once, choose its runtime
 
-The CTX plugin library supports all four runtime families in the comparison:
+The Ext plugin library supports all four runtime families in the comparison:
 native Go plugins, HashiCorp RPC subprocesses, WASM/WASI, and C shared libraries.
 It also provides in-process endpoints and JSON-line connections. All use the
 same descriptors, typed methods, host admission and `ext.plugin/v1` envelopes.
@@ -17,8 +17,8 @@ provide their own domain contracts and trust decisions.
    authorization, and the chosen backend's `Open` or `Connect` function.
 6. Call the same typed method using `author.Call`.
 
-The [echo implementation](../pkg/ext-go/examples/plugin-runtimes/echo/echo.go) and
-[host](../pkg/ext-go/examples/plugin-runtimes/host/main.go) demonstrate this. The echo
+The [echo implementation](../examples/plugins/go/plugin-runtimes/echo/echo.go) and
+[host](../examples/plugins/go/plugin-runtimes/host/main.go) demonstrate this. The echo
 handler, schema and descriptor are shared by three build targets; only their
 entry points differ. Existing health, configuration and pull-stream contracts
 can also run over these backends' unary calls. Reverse host services need an
@@ -26,49 +26,49 @@ explicit binding and authorization; loaders do not automatically inject them.
 
 | Runtime | Guest entry point | Host entry point | Availability |
 | --- | --- | --- | --- |
-| Native Go | Export `CTXPlugin(context.Context) (plugin.Backend, error)` | `nativego.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD; cgo and Go plugin build support required |
+| Native Go | Export `ExtPlugin(context.Context) (plugin.Backend, error)` | `nativego.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD; cgo and Go plugin build support required |
 | WASI Preview 1 command | `jsonline.ServeStdio(ctx, guest)` | `wasm.Open(ctx, verifiedBytes, options)` | wazero-supported host targets, no cgo required |
 | C shared library | Four C exports backed by `pkg/ext-go/cengine/cguest/guest.Server` or a foreign implementation | `cguest.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
-| Go source (yaegi) | The same `CTXPlugin` factory as native Go, in a package of Go source shipped as a tree artifact (entrypoint runtime `go-source`) | `yaegi.Open(ctx, verifiedDir, digest, options)` or `yaegi.PackageOptions` with a caller-opened C host | Every platform Go builds for, no cgo; imports limited to a host-chosen allow-list; see its [guide](../pkg/ext-go/yaegi/README.md) |
+| Go source (yaegi) | The same `ExtPlugin` factory as native Go, in a package of Go source shipped as a tree artifact (entrypoint runtime `go-source`) | `yaegi.Open(ctx, verifiedDir, digest, options)` or `yaegi.PackageOptions` with a caller-opened C host | Every platform Go builds for, no cgo; imports limited to a host-chosen allow-list; see its [guide](../pkg/ext-go/yaegi/README.md) |
 | HashiCorp | `hashicorp.Plugin` and go-plugin serving | `hashicorp.Connect` | Existing gRPC and net/rpc bindings; see its [guide](../pkg/ext-go/hashicorp/README.md) |
 
 `nativego.Supported()` and `cshared.Supported()` report whether the loader is
 compiled into the current build. Unsupported builds return
 `plugin.ErrUnsupported` without loading code. They do not claim that an arbitrary
 artifact's architecture or dependencies are compatible. The WASI implementation
-supports **Preview 1 commands speaking CTX JSON lines**, not every WASM binary,
+supports **Preview 1 commands speaking Ext JSON lines**, not every WASM binary,
 WASI Preview 2 component or arbitrary exported-function interface.
 
 ## Build and use the shared example
 
-Run from the CTX repository root. Use the same Go toolchain, source tree and
+Run from the Ext repository root. Use the same Go toolchain, source tree and
 build flags for the host and native Go guest. The commands below create local
 artifacts and run the example; they do not install anything.
 
 ```sh
 mkdir -p /tmp/ext-plugin-example
-go build -o /tmp/ext-plugin-example/host ./pkg/ext-go/examples/plugin-runtimes/host
+go build -o /tmp/ext-plugin-example/host ./examples/plugins/go/plugin-runtimes/host
 
 # WASI: a Go command compiled to wasm.
-GOOS=wasip1 GOARCH=wasm go build -o /tmp/ext-plugin-example/echo.wasm ./pkg/ext-go/examples/plugin-runtimes/wasi
+GOOS=wasip1 GOARCH=wasm go build -o /tmp/ext-plugin-example/echo.wasm ./examples/plugins/go/plugin-runtimes/wasi
 /tmp/ext-plugin-example/host --backend wasm \
   --artifact /tmp/ext-plugin-example/echo.wasm \
   --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.wasm | cut -d ' ' -f 1)"
 
 # Native Go: Linux, macOS or FreeBSD with cgo.
-go build -buildmode=plugin -o /tmp/ext-plugin-example/echo.so ./pkg/ext-go/examples/plugin-runtimes/nativego
+go build -buildmode=plugin -o /tmp/ext-plugin-example/echo.so ./examples/plugins/go/plugin-runtimes/nativego
 /tmp/ext-plugin-example/host --backend nativego \
   --artifact /tmp/ext-plugin-example/echo.so \
   --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.so | cut -d ' ' -f 1)"
 
 # C ABI: this extension is for macOS; use .so on Linux/FreeBSD or .dll on Windows.
-go build -buildmode=c-shared -o /tmp/ext-plugin-example/echo.dylib ./pkg/ext-go/examples/plugin-runtimes/cshared
+go build -buildmode=c-shared -o /tmp/ext-plugin-example/echo.dylib ./examples/plugins/go/plugin-runtimes/cshared
 /tmp/ext-plugin-example/host --backend cshared \
   --artifact /tmp/ext-plugin-example/echo.dylib \
   --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.dylib | cut -d ' ' -f 1)"
 ```
 
-Each example is intended to print `Hello from CTX`. Use native shell paths and
+Each example is intended to print `Hello from Ext`. Use native shell paths and
 SHA-256 tooling on Windows. Hashing your own local build is an example trust
 decision; computing a digest of a downloaded file does not establish publisher
 trust. Production hosts verify reviewed packages and protect artifact paths and
@@ -79,7 +79,7 @@ their native dependencies against replacement before and during loading.
 The entire transport entry point can be:
 
 ```go
-func CTXPlugin(ctx context.Context) (plugin.Backend, error) {
+func ExtPlugin(ctx context.Context) (plugin.Backend, error) {
     guest, err := registry.Guest(author.Options{Authorize: authorize})
     if err != nil {
         return nil, err
@@ -95,7 +95,7 @@ guest that owns instance/stream managers, return a backend whose `Close` closes
 those too. The factory context bounds startup and must not become the guest's
 lifetime context; `plugin.Open` cancels its startup context after the handshake.
 
-Loading runs Go package initializers before the CTX handshake. Native Go has no
+Loading runs Go package initializers before the Ext handshake. Native Go has no
 isolation from the host. Loader initialization cannot be canceled, handlers
 must honor contexts, and `Close` releases resources but does not unload code.
 Build the host and plugin with matching toolchains, relevant flags and shared
@@ -106,12 +106,12 @@ old native code; use immutable artifact paths for each selected revision.
 ## WASI guests
 
 Go authors use the existing typed guest and call `jsonline.ServeStdio` from
-`main`. The [WASI entry point](../pkg/ext-go/examples/plugin-runtimes/wasi/main.go) also
+`main`. The [WASI entry point](../examples/plugins/go/plugin-runtimes/wasi/main.go) also
 handles errors on stderr. Guests in other languages implement the existing
 JSON-line hello/request/response protocol. Stdout is exclusively protocol data.
 
 `wasm.Open` creates a dedicated wazero runtime and persistent command per
-backend. It compiles the supplied verified bytes; CTX does not choose file paths
+backend. It compiles the supplied verified bytes; Ext does not choose file paths
 or grant permissions from module metadata. `plugin.Open` establishes readiness
 through the usual exact handshake, so start failures and protocol mismatches
 fail admission. The backend lifetime is independent of the startup context.
@@ -165,7 +165,7 @@ Every library must export these C calling-convention symbols:
 | `ext_plugin_guest_close` | Release the handle's resources after calls finish |
 
 The handshake request is `{"deadline":"<RFC3339 timestamp>"}`; its response is
-the CTX descriptor. Invocation uses ordinary `plugin.Request`/`Response` JSON.
+the Ext descriptor. Invocation uses ordinary `plugin.Request`/`Response` JSON.
 Handshake must precede invocation. Status zero means a valid response, including
 intentional domain failures encoded as `Response.error`. Other statuses are
 transport failures; hosts must close the handle and must not replay the call.
@@ -178,7 +178,7 @@ let exceptions cross the C boundary. Host and guest may use different languages
 and allocators. The Go host uses C-allocated byte buffers; Go pointers and Go
 objects never cross between independently compiled runtimes.
 
-For Go, copy the [four cgo wrappers](../pkg/ext-go/examples/plugin-runtimes/cshared/main.go)
+For Go, copy the [four cgo wrappers](../examples/plugins/go/plugin-runtimes/cshared/main.go)
 and use `guest.New(factory, options)`. The helper owns handles, enforces capacity
 (64 by default), serializes each handle, validates envelopes and applies
 deadlines. It deliberately requires an explicit factory so each handle owns
@@ -186,7 +186,7 @@ its backend's resources. `CallInto` checks lengths; callers still must supply
 valid native pointers. cgo's generated header declares the Go exports; foreign
 implementations can use the portable header directly. Both have the same ABI.
 A foreign host can load the Go-built library and use these four exports too;
-that host must implement CTX selection, validation and admission policy itself.
+that host must implement Ext selection, validation and admission policy itself.
 
 Rust authors can use `ext_io::plugin::export_guest!(factory)` from the
 [Rust SDK](../pkg/ext-rust/README.md). Zig authors can use
@@ -194,10 +194,10 @@ Rust authors can use `ext_io::plugin::export_guest!(factory)` from the
 [Zig SDK](../pkg/ext-zig/README.md). These helpers implement serialization,
 validation, dispatch and handle/buffer ownership around typed guest methods.
 Both SDKs also serve command guests over JSON lines and compile them to WASI.
-They include host Sessions for consuming CTX guests from those languages.
+They include host Sessions for consuming Ext guests from those languages.
 
-For other languages, implement the four exports in the header and the CTX JSON
-envelopes. A library with unrelated C symbols does not become a CTX guest just
+For other languages, implement the four exports in the header and the Ext JSON
+envelopes. A library with unrelated C symbols does not become an Ext guest just
 because the host can load its file. Run `scripts/plugin-crosslang.sh` for the
 Rust/Zig/Go interoperability suite; see each SDK's guide for toolchain setup.
 

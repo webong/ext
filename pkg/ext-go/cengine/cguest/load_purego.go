@@ -78,7 +78,7 @@ func load(path string) (*exports, error) {
 	}
 	for _, name := range []string{"ext_plugin_guest_abi_version", "ext_plugin_guest_open", "ext_plugin_guest_call", "ext_plugin_guest_close"} {
 		if _, err := lib.Symbol(name); err != nil {
-			return nil, fmt.Errorf("missing required CTX C ABI exports")
+			return nil, fmt.Errorf("missing required Ext C ABI exports")
 		}
 	}
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
@@ -94,7 +94,7 @@ func load(path string) (*exports, error) {
 		return nil, err
 	}
 	if version() != abi.Version {
-		return nil, fmt.Errorf("unsupported CTX C ABI version")
+		return nil, fmt.Errorf("unsupported Ext C ABI version")
 	}
 	e := &exports{}
 	if err := lib.BindAll(map[string]any{"ext_plugin_guest_open": &e.open, "ext_plugin_guest_call": &e.call, "ext_plugin_guest_close": &e.close}); err != nil {

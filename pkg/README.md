@@ -1,11 +1,7 @@
 # Public packages
 
-Reusable libraries live here so ctx, ctn, cto and the wider ecosystem share one
-public surface. The product modules in `src/ctx`, `src/ctn` and `src/cto` also
-export Go libraries; their implementation packages stay private to each product,
-and [`res/`](../res/README.md) is a separate container for reusable resource
-libraries. Go libraries in both containers are separate Go modules; language
-packages such as `ext-ts` and `ext-web` use their own toolchains.
+Reusable libraries, language SDKs and platform bindings live here. Applications
+use these packages to embed Ext's capabilities through public APIs.
 
 Each Go library here is its own module rather than a package inside one
 repository-wide module. The root `go.work` lists those modules so the repository
@@ -15,13 +11,13 @@ independently buildable and publishable through their own toolchains.
 Keep dependencies pointing inward so a library never depends back on its
 consumers.
 
-| Module | Depends on | Third-party dependencies |
-| --- | --- | --- |
-| [`ext-go/engine`](ext-go/engine/README.md) | nothing | none (standard library only) |
-| [`ext-go/cgoengine`](ext-go/cgoengine/README.md) | `ext-go/engine` | none |
-| [`ext-go/hashicorp`](ext-go/hashicorp/README.md) | `ext-go/engine` | `go-plugin`, `grpc`, `protobuf` |
-| [`ext-go/wasm`](ext-go/wasm/README.md) | `ext-go/engine`, `res/web/host` | `wazero` through `res/web/host` |
-| [`ext-go`](ext-go/README.md) (umbrella) | all of the above, `res/system` | none |
+| Module | Purpose |
+| --- | --- |
+| [`ext-go/engine`](ext-go/engine/README.md) | Pure-Go engines using only the standard library |
+| [`ext-go/cgoengine`](ext-go/cgoengine/README.md) | Go bindings for the C engines |
+| [`ext-go/hashicorp`](ext-go/hashicorp/README.md) | HashiCorp go-plugin backend using gRPC |
+| [`ext-go/wasm`](ext-go/wasm/README.md) | WebAssembly plugin backend using wazero |
+| [`ext-go`](ext-go/README.md) (umbrella) | Integrations and examples combining multiple modules |
 
 A consumer that only needs `ext-go/engine` never downloads the C engine, the
 HashiCorp stack or the WASI runtime, and each backend is opt-in. A backend never
@@ -29,14 +25,14 @@ depends on `cgoengine`.
 
 | Library | Contents |
 | --- | --- |
-| [`ext-go`](ext-go/README.md) | The Go plugin library: the contract, C engine bindings and plugin-specific backends; its WASM binding uses `res/web/host` |
+| [`ext-go`](ext-go/README.md) | The Go plugin library: the contract, C engine bindings and plugin-specific backends |
 | [`ext-web`](ext-web/README.md) | The JavaScript/TypeScript package for code that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. Private, built and tested with Node; it is not a plugin SDK |
 
 ## Plugin language SDKs and bindings
 
 Language-facing plugin packages live here; `ext-go` is the Go one, a tree of
 modules that holds the contract, engine bindings and plugin-specific backends.
-Its `wasm` module depends on `res/web/host` for reusable WebAssembly mechanics. The portable C engine and its public
+The portable C engine and its public
 headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to it.
 
 | Directory | Contents |
@@ -64,9 +60,8 @@ name is `plugin`. Go guest C exports use
 
 C embedding examples live in each language's `examples/` directory. HashiCorp's
 native runtime integration remains the separate `ext-go/hashicorp` module.
-WebAssembly inspection and execution live in
-[`res/web/host/engine/wasm`](../res/web/host/engine/wasm/README.md); [`ext-go/wasm`](ext-go/wasm/README.md)
-binds that reusable library to the plugin engine.
+[`ext-go/wasm`](ext-go/wasm/README.md) runs WebAssembly guests through the plugin
+contract.
 
 This layout does not complete the shared-engine migration. Rust, Zig and
 TypeScript still contain independent SDK implementations, and the native Go

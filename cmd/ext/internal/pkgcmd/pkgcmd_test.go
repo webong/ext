@@ -503,9 +503,6 @@ func TestManagementRefusesConcurrentWriter(t *testing.T) {
 			t.Fatalf("%s bypassed writer lock: %d %s", command, code, stderr)
 		}
 	}
-	if err := migrate(home); err == nil || !strings.Contains(err.Error(), "package writer unavailable") {
-		t.Fatalf("migration bypassed lock: %v", err)
-	}
 }
 
 func TestDiscoveredCommandsRunFromPrivateSnapshots(t *testing.T) {

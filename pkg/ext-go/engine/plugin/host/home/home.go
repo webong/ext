@@ -8,26 +8,23 @@ import (
 	"runtime"
 )
 
-// Config returns Ext's per-user state root. EXT_HOME overrides it. Without it, an
-// installation made before ~/.config/ext existed keeps being used from its old
-// directory.
+// Config returns Ext's per-user state root. EXT_HOME overrides it.
 func Config() string {
 	if value := os.Getenv("EXT_HOME"); value != "" {
 		return value
 	}
-	shared, legacy := candidates()
-	if shared == "" {
-		return ".ext"
-	}
-	if _, err := os.Stat(shared); err == nil {
-		return shared
-	}
-	if legacy != "" {
-		if _, err := os.Stat(legacy); err == nil {
-			return legacy
+	if runtime.GOOS == "windows" {
+		if dir, err := os.UserConfigDir(); err == nil {
+			return filepath.Join(dir, "ext")
 		}
 	}
-	return shared
+	if dir, err := os.UserHomeDir(); err == nil {
+		if runtime.GOOS == "windows" {
+			return filepath.Join(dir, ".ext")
+		}
+		return filepath.Join(dir, ".config", "ext")
+	}
+	return ".ext"
 }
 
 // Packages is the shared installed package root.
@@ -42,31 +39,9 @@ func Adapters() string {
 }
 
 // Intelligence is the shared CTN intelligence-provider package substore.
-// The former inference override remains a migration fallback.
 func Intelligence() string {
 	if value := os.Getenv("EXT_INT_PACKAGE_ROOT"); value != "" {
 		return value
 	}
-	if value := os.Getenv("EXT_INFERENCE_PACKAGE_ROOT"); value != "" {
-		return value
-	}
 	return Packages()
-}
-
-// Inference is retained for callers using the original CTN name.
-func Inference() string { return Intelligence() }
-
-func candidates() (shared, legacy string) {
-	if runtime.GOOS == "windows" {
-		if dir, err := os.UserConfigDir(); err == nil {
-			return filepath.Join(dir, "ext"), filepath.Join(dir, "ctx")
-		}
-	}
-	if dir, err := os.UserHomeDir(); err == nil {
-		if runtime.GOOS == "windows" {
-			return filepath.Join(dir, ".ext"), filepath.Join(dir, ".ctx")
-		}
-		return filepath.Join(dir, ".config", "ext"), filepath.Join(dir, ".config", "ctx")
-	}
-	return "", ""
 }

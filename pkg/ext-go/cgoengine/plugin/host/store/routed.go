@@ -10,7 +10,7 @@ import (
 
 // The package operations of a Store (install, upgrade, replace, remove, load, list, verify and the
 // unverified listing) run in the C engine's package store, cgoengine.PackageStore, or in the
-// pure-Go store behind the same type in a build without the C engine. A Store holds no handle: each
+// shared C store behind the same type in a build without linked cgo. A Store holds no handle: each
 // call opens one on the root and closes it again, so a Store keeps nothing open and, as before,
 // needs no Close. Installed still re-verifies content on use, in this package.
 

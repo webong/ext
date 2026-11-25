@@ -17,6 +17,9 @@ import (
 
 type Library struct{ api *library.Described }
 
+// Objects exposes the canonical C library interface for operations beyond sessions.
+func (lib *Library) Objects() *library.Described { return lib.api }
+
 func Bind(native *library.Library) (*Library, error) {
 	i, e := library.BindInterface(native, "ext_plugin", 1)
 	if e != nil {

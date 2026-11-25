@@ -42,7 +42,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: model provider list takes no arguments")
 			return 2
 		}
-		s, err := store.New(home.Inference(), store.Limits{})
+		s, err := store.New(home.Intelligence(), store.Limits{})
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -108,7 +108,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: model provider install needs one sealed package directory")
 			return 2
 		}
-		s, err := store.New(home.Inference(), store.Limits{})
+		s, err := store.New(home.Intelligence(), store.Limits{})
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -135,7 +135,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctn: model provider trust needs one installed package ID")
 			return 2
 		}
-		s, err := store.New(home.Inference(), store.Limits{})
+		s, err := store.New(home.Intelligence(), store.Limits{})
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -193,7 +193,7 @@ func modelTrustFile() (*hosttrust.File, error) {
 }
 
 func resolveModelProvider(id string) (store.Entrypoint, string, error) {
-	s, err := store.New(home.Inference(), store.Limits{})
+	s, err := store.New(home.Intelligence(), store.Limits{})
 	if err != nil {
 		return store.Entrypoint{}, "", err
 	}

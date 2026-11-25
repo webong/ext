@@ -34,8 +34,8 @@ a program that requires both an ambiguous import.
 
 `plugin/interop` owns transport-route metadata and portable resolution;
 `plugin.JSONLineProfile` owns the standard JSON-line capability description.
-The published `engine/plugin/host/interop` types are aliases and its resolver
-forwards here; `engine/plugin/transport/jsonline.Profile` forwards here too.
+Consumers import `core/plugin/interop` directly; the old route forwarding
+package has been removed. `engine/plugin/transport/jsonline.Profile` forwards here.
 There is one implementation of their validation and defaults.
 
 Drivers select how Go accesses a canonical C library: linked cgo, translated C,

@@ -259,14 +259,8 @@ rmdir "$EXT_HOME/.package-write.lock"
 		run(ext, 0, "removed", "package", "remove", "example/adapter-consumer")
 		run(ext, 0, "trusted wasm", "package", "trust", "wasm")
 	}
-	// Migrate a real trusted adapter, then consume it through CTN again.
-	if err := os.Rename(filepath.Join(home, "packages"), filepath.Join(home, "adapters")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Rename(filepath.Join(home, "adapters", ".package-trust.json"), filepath.Join(home, "adapters", "package-trust.json")); err != nil {
-		t.Fatal(err)
-	}
-	run(ext, 0, "package store ready", "package", "migrate")
+	// Products consume the current shared store; the migration command is gone.
+	run(ext, 2, "usage: ext package", "package", "migrate")
 	run(ext, 0, "PASS", "ctn", "verify", file)
 	run(ext, 0, "trusted", "ctx", "adapter", "ls")
 	installed := filepath.Join(home, "packages", "wasm", "evaluator"+suffix)

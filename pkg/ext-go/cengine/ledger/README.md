@@ -19,7 +19,7 @@ Driver coverage is explicit:
 | purego | `Bind` loads the native shared library. |
 | cgo | `cgoengine/ledger.Bind`, built with `ext_ledger_cgo` and the fetched C headers and library. |
 | c2go | `c2goengine/ledger.Bind`, generated from the C portable profile with `ext_ledger_c2go`; memory/file stores, watches, recorder projections and fingerprints on 64-bit Linux/macOS. |
-| go | Removed; record aliases do not provide an engine. |
+| go | Removed; use a C driver. Shared record types live in `core/ledger`. |
 
 `BindInterface` accepts a described ABI supplied by a driver; it does not create
 a missing driver or substitute another implementation. Platform collector and
@@ -31,3 +31,6 @@ environments and process supervision. Windows translation is unavailable;
 native purego or cgo library for those platform operations. Run
 `bash scripts/ledger-c2go.sh` from the repository to regenerate and validate the
 profile; generated translations are not committed.
+
+See the [consumer-shaped example](../../../../examples/ledger/go/consumer-shaped)
+for a standalone Go consumer of the ledger binding.

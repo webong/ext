@@ -133,7 +133,7 @@ type providerConfig struct {
 }
 
 func inferencePackageRoot() string {
-	return home.Inference()
+	return home.Intelligence()
 }
 
 const inferenceTrustScope = "inference.provider/v1"

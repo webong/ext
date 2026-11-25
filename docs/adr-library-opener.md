@@ -196,18 +196,13 @@ CTX now reaches `lib/ledger` through `pkg/ext-go/cengine/ledger.Bind`,
 `Library.Objects` exposes the remaining described C operations. Additional driver
 implementations remain a separate migration step.
 
-Ledger-owned wire records live in `core/ledger/observation`; CTX owns host-selection policy. The Go recorder and SQLite store implementations were removed. The former recorder module now requires an explicitly opened native store. The Go `NewMemory` implementation and Go supervisor have also been removed; use the native memory backend and `cengine/ledger/supervisor.OpenNative`.
+Ledger-owned wire records live in `core/ledger/observation`; CTX owns host-selection policy. The Go recorder and SQLite store implementations were removed. The former recorder wrapper module has also been removed; consumers use `cengine/ledger.NewGraph` with an explicitly opened native store. The Go `NewMemory` implementation and Go supervisor have also been removed; use the native memory backend and `cengine/ledger/supervisor.OpenNative`.
 CTX's `graphapi` owns location and upgrade policy, while collection, recording,
 resolution of stored inventory, storage and reconciliation execute in C.
 
-On first use CTX stages a snapshot of every namespace in its old `graph.db`
-into a private C file store and publishes it as `ledger/` only after success.
-The SQLite source is read-only and is retained with its history. Current facts,
-links, labels and provenance migrate; revisions, record timestamps and change
-cursors belong to the new store generation. Resume change readers from a fresh
-snapshot after upgrading. Stop old CTX writers during cutover: subsequent writes
-to the preserved SQLite database are not merged. Failed imports leave the old
-store and destination untouched. SQLite is only used for this legacy import.
+CTX uses its current `ledger/` C file store directly. The old `graph.db` importer
+has been removed; existing SQLite files are left untouched and are not read.
+Frozen SQL fixtures remain tests of the native SQLite backend.
 
 The CLI bundle carries both C libraries. Ext gives private product guests the
 ledger's library path, and standalone Go consumers explicitly load or provide

@@ -52,6 +52,7 @@
         "cmd/**",
         "src/**",
         "pkg/ext-go/**",
+        "examples/plugins/go/**",
         "res/**/*.go",
         "res/**/go.mod",
         "res/**/go.sum",
@@ -385,12 +386,14 @@
       "main_paths": [
         "lib/plugin/**",
         "pkg/ext-go/**",
+        "examples/plugins/go/**",
         "scripts/ci/jobs/plugin-engine/**",
         "scripts/plugin-engine-test.sh"
       ],
       "pr_paths": [
         "lib/plugin/**",
         "pkg/ext-go/**",
+        "examples/plugins/go/**",
         "scripts/ci/jobs/plugin-engine/**",
         "scripts/plugin-engine-test.sh"
       ],
@@ -699,12 +702,16 @@
         "pkg/ext-dotnet/**",
         "pkg/ext-go/core/**",
         "pkg/ext-go/cengine/**",
+        "examples/ledger/go/**",
         "pkg/ext-go/cgoengine/go.mod",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
+        "examples/plugins/lua/**",
         "pkg/ext-php/**",
+        "examples/plugins/php/**",
         "pkg/ext-python/**",
         "pkg/ext-ruby/**",
+        "examples/plugins/ruby/**",
         "scripts/ci/jobs/host-cases/**",
         "scripts/cshared-purego.sh",
         "scripts/ext-lua-host.sh",
@@ -716,6 +723,7 @@
         "lib/plugin/**",
         "pkg/ext-go/core/**",
         "pkg/ext-go/cengine/**",
+        "examples/ledger/go/**",
         "pkg/ext-go/cgoengine/go.mod",
         "pkg/ext-go/engine/**",
         "scripts/ci/jobs/host-cases/**",
@@ -736,6 +744,7 @@
         "ruby": {
           "paths": [
             "pkg/ext-ruby/**",
+            "examples/plugins/ruby/**",
             "scripts/ext-ruby-host.sh"
           ],
           "setup": [
@@ -744,7 +753,8 @@
         },
         "php": {
           "paths": [
-            "pkg/ext-php/**"
+            "pkg/ext-php/**",
+            "examples/plugins/php/**"
           ],
           "setup": [
             "php",
@@ -755,6 +765,7 @@
         "lua": {
           "paths": [
             "pkg/ext-lua/**",
+            "examples/plugins/lua/**",
             "scripts/ext-lua-host.sh"
           ],
           "setup": [
@@ -1131,7 +1142,7 @@
           "paths": [
             "pkg/ext-ts/**",
             "scripts/lang/ts.sh",
-            "pkg/ext-go/examples/plugin-typescript/**",
+            "examples/plugins/go/plugin-typescript/**",
             "pkg/ext-go/cgoengine/**",
             "pkg/ext-go/engine/**"
           ],
@@ -1162,6 +1173,7 @@
             "lib/plugin/**",
             "go.work*",
             "pkg/ext-go/**",
+            "examples/plugins/go/**",
             "pkg/ext-rust/**",
             "pkg/ext-zig/**",
             "pkg/ext-android/**",
@@ -1284,7 +1296,8 @@
         "sdk": {
           "group": "base",
           "tools": [
-            "go"
+            "go",
+            "c"
           ],
           "pr_paths": [
             "lib/plugin/**",
@@ -1292,7 +1305,10 @@
             "tests/crosslang/**",
             "scripts/ci/jobs/plugin-sdk/sdk.sh",
             "pkg/ext-go/**",
-            "res/web/host/**"
+            "examples/plugins/go/**",
+            "res/web/host/**",
+            "examples/web/go/**",
+            "examples/ledger/go/**"
           ],
           "cells": [
             {
@@ -1318,6 +1334,7 @@
           ],
           "pr_paths": [
             "res/web/host/**",
+            "examples/web/go/**",
             "res/web/android/**",
             "res/web/ios/**",
             "res/web/testdata/**",
@@ -1391,6 +1408,7 @@
         "pkg/ext-android/**",
         "pkg/ext-go/core/**",
         "pkg/ext-go/cengine/**",
+        "examples/ledger/go/**",
         "pkg/ext-darwin/**",
         "pkg/ext-rust/**",
         "res/web/android/**",
@@ -1408,6 +1426,7 @@
         "pkg/ext-android/**",
         "pkg/ext-go/core/**",
         "pkg/ext-go/cengine/**",
+        "examples/ledger/go/**",
         "pkg/ext-darwin/**",
         "pkg/ext-rust/**",
         "res/web/android/**",
@@ -1429,6 +1448,7 @@
             "pkg/ext-rust/**",
             "pkg/ext-go/core/**",
             "pkg/ext-go/cengine/**",
+            "examples/ledger/go/**",
             "scripts/plugin-*wamr*.sh",
             "pkg/ext-darwin/**",
             "res/web/ios/**",
@@ -1463,6 +1483,7 @@
             "pkg/ext-rust/**",
             "pkg/ext-go/core/**",
             "pkg/ext-go/cengine/**",
+            "examples/ledger/go/**",
             "scripts/plugin-*wamr*.sh",
             "pkg/ext-android/**",
             "res/web/android/**",
@@ -1501,6 +1522,7 @@
             "pkg/ext-rust/**",
             "pkg/ext-go/core/**",
             "pkg/ext-go/cengine/**",
+            "examples/ledger/go/**",
             "scripts/plugin-*wamr*.sh",
             "pkg/ext-android/**",
             "res/web/android/**",
@@ -1538,6 +1560,7 @@
       "main_paths": null,
       "pr_paths": [
         "pkg/ext-web/**",
+        "examples/web/extensions/**",
         "scripts/ci/jobs/web-js/**"
       ],
       "jobs": {
@@ -1570,6 +1593,7 @@
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-php/**",
+        "examples/plugins/php/**",
         "scripts/ci/jobs/ext-php/**",
         "tests/crosslang/**",
         "scripts/lang/common.sh",
@@ -1655,6 +1679,7 @@
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-ruby/**",
+        "examples/plugins/ruby/**",
         "scripts/ci/jobs/ext-ruby/**",
         "scripts/lang/**",
         "tests/crosslang/**"
@@ -1663,6 +1688,7 @@
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-ruby/**",
+        "examples/plugins/ruby/**",
         "scripts/ci/jobs/ext-ruby/**",
         "tests/crosslang/**",
         "scripts/lang/common.sh",
@@ -1769,6 +1795,7 @@
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
+        "examples/plugins/lua/**",
         "scripts/ci/jobs/ext-lua/**",
         "scripts/ext-lua.sh",
         "scripts/lang/**",
@@ -1778,6 +1805,7 @@
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
+        "examples/plugins/lua/**",
         "scripts/ci/jobs/ext-lua/**",
         "scripts/ext-lua.sh",
         "tests/crosslang/**",

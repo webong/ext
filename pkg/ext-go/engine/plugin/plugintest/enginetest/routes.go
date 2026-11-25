@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/webong/ext/pkg/ext-go/core/plugin/interop"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/interop"
 )
 
 // routeOutcome names how a route resolution ended, in the vocabulary of route-cases.json.

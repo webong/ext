@@ -126,22 +126,6 @@ func TestEndToEnd(t *testing.T) {
 	if code, _, errOut := run("package", "trust", "example/hello"); code != 0 {
 		t.Fatalf("approve upgrade = %d %q", code, errOut)
 	}
-	// Recreate the legacy layout and prove the real CLI requires and performs migration.
-	if err := os.Rename(filepath.Join(home, "packages"), filepath.Join(home, "commands")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Rename(filepath.Join(home, "commands", ".package-trust.json"), filepath.Join(home, "package-trust.json")); err != nil {
-		t.Fatal(err)
-	}
-	if code, _, errOut := run("hi"); code != 1 || !strings.Contains(errOut, "ext package migrate") {
-		t.Fatalf("migration gate: %d %q", code, errOut)
-	}
-	if code, out, errOut := run("package", "migrate"); code != 0 {
-		t.Fatalf("migration: %d %q %q", code, out, errOut)
-	}
-	if code, out, errOut := run("hi", "after-migration"); code != 0 || out != "after-migration\n" {
-		t.Fatalf("migrated command: %d %q %q", code, out, errOut)
-	}
 	if code, _, _ := run("package", "remove", "example/hello"); code != 0 {
 		t.Fatal("remove failed")
 	}

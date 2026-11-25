@@ -32,7 +32,7 @@ goplugin.Serve(&goplugin.ServeConfig{
 
 Omit `GRPCServer` to serve net/rpc. The handler checks domain authorization,
 honors its context, and supports concurrent calls. Both transports share the
-same CTX descriptor and request/response validation.
+same Ext descriptor and request/response validation.
 
 ## Host
 
@@ -44,7 +44,7 @@ configuration, including executable checksums and automatic TLS.
 
 Set `AllowedProtocols` explicitly to `ProtocolGRPC` or `ProtocolNetRPC`, and
 bound `StartTimeout` to the remaining connection deadline. Configure process
-environment and logging deliberately: go-plugin's defaults are not CTX's
+environment and logging deliberately: go-plugin's defaults are not Ext's
 domain policy. The native magic cookie is not an authorization credential.
 
 `Connect` owns the client lifecycle. Close it when the endpoint closes so the
@@ -53,7 +53,7 @@ child process is reaped.
 ## Relationship to other modules
 
 Route resolution across backends lives in `core/plugin/interop`, with the old
-`engine/plugin/host/interop` API preserved by aliases and forwarding. The relay
+`core/plugin/interop` API. The relay
 between this backend and JSON-line transports remains in
 `engine/plugin/transport/bridge`.
 
@@ -66,9 +66,9 @@ The root library imports shared `core/plugin` contracts and
 `core/plugin/interop` route metadata; it has no transitive dependency on the
 `engine` implementation. `JSONLineBridge` uses the shared JSON-line capability
 profile without linking the JSON-line client. Its return type is identical to
-the existing `engine/plugin/host/interop.Bridge` alias.
+`core/plugin/interop.Bridge`.
 
 The module still requires `engine` for its example command, guest helpers and
-test oracles. The `ctx` dispense name, handshake cookie, deadlines and process
+test oracles. The `ext` dispense name, handshake cookie, deadlines and process
 cleanup behavior are unchanged. This module is a plugin backend for guest
 execution, not a driver for accessing Ext's canonical C libraries.

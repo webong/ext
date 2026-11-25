@@ -23,9 +23,8 @@ ext ctn inference providers
 
 `package` refuses to replace an existing output directory. `install` refuses
 to replace an installed package and prints its package digest. The default
-store is `<EXT_HOME>/commands` (or the shared Ext config home); set
-`EXT_INT_PACKAGE_ROOT` to use another store. The previous
-`EXT_INFERENCE_PACKAGE_ROOT` override remains a fallback. Installation alone grants no
+store is `<EXT_HOME>/packages` (or the shared Ext config home); set
+`EXT_INT_PACKAGE_ROOT` to use another store. The old inference-specific environment override is no longer read. Installation alone grants no
 execution authority. After reviewing the package, record its exact digest:
 
 ```sh

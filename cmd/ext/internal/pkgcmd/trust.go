@@ -1,20 +1,12 @@
 package pkgcmd
 
 import (
-	"errors"
-	"io/fs"
-	"os"
 	"path/filepath"
 
-	"github.com/webong/ext/cmd/ext/internal/packagelock"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 )
-
-// TrustFile names the legacy command trust file. Existing digests are imported
-// unchanged once; a new trust file is then authoritative.
-const TrustFile = "command-trust.json"
 
 // Keep the existing scope: package trust in this host does not grant trust
 // in adapter or other consumer scopes. The name predates non-command packages.
@@ -33,56 +25,7 @@ func LoadTrust(home string) (*Trust, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
-		if err := importLegacyTrust(home, path, file); err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
 	return readTrust(file)
-}
-
-func importLegacyTrust(home, path string, file *hosttrust.File) error {
-	// Only legacy import writes during discovery. Recheck under the same lock
-	// used by migration, explicit management and bundle publication.
-	if _, err := os.Stat(filepath.Join(home, TrustFile)); errors.Is(err, fs.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	release, err := packagelock.Acquire(home)
-	if err != nil {
-		return err
-	}
-	defer release()
-	if _, err := os.Stat(path); err == nil {
-		return nil
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	legacyPath := filepath.Join(home, TrustFile)
-	data, readErr := os.ReadFile(legacyPath)
-	if readErr != nil && !errors.Is(readErr, fs.ErrNotExist) {
-		return readErr
-	}
-	if readErr == nil {
-		var old struct {
-			Packages map[string]string `json:"packages"`
-		}
-		if err := plugin.Decode(data, &old); err != nil {
-			return err
-		}
-		if len(old.Packages) > 0 {
-			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-				return err
-			}
-			if err := file.ImportLegacy(scope, old.Packages); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func readTrust(file *hosttrust.File) (*Trust, error) {
@@ -120,7 +63,7 @@ func (t *Trust) Trust(installed store.Installed) error {
 		return err
 	}
 	// Explicit package approval records the host scope; adapters additionally
-	// need their existing consumer scope. Migration never performs this widening.
+	// need their existing consumer scope. Each scope is recorded explicitly.
 	if err := t.file.Record(scope, installed.Name(), digest); err != nil {
 		return err
 	}
@@ -141,7 +84,7 @@ func (t *Trust) Revoke(id string) error {
 	return nil
 }
 
-// Retain separate scopes so migrating an adapter never authorizes commands.
+// Keep adapter and command approvals scoped separately.
 func packageScope(p store.Installed) string {
 	for _, c := range p.Manifest.Descriptor.Contracts {
 		if c.Name == plugin.AdapterContractName {

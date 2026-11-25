@@ -17,7 +17,7 @@ import (
 )
 
 func TestProviderMutationsCoordinateWithPackageWriter(t *testing.T) {
-	for _, override := range []string{"", "EXT_INT_PACKAGE_ROOT", "EXT_INFERENCE_PACKAGE_ROOT"} {
+	for _, override := range []string{"", "EXT_INT_PACKAGE_ROOT"} {
 		name := override
 		if name == "" {
 			name = "shared-store"
@@ -26,7 +26,6 @@ func TestProviderMutationsCoordinateWithPackageWriter(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("EXT_HOME", home)
 			t.Setenv("EXT_INT_PACKAGE_ROOT", "")
-			t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", "")
 			if override != "" {
 				t.Setenv(override, filepath.Join(t.TempDir(), "packages"))
 			}

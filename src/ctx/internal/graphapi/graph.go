@@ -70,9 +70,6 @@ func Open(home string) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureStore(context.Background(), lib, home); err != nil {
-		return nil, err
-	}
 	store, err := lib.OpenStore(context.Background(), "file", filepath.Join(home, Directory), model.Options{})
 	if err != nil {
 		return nil, err

@@ -1,15 +1,14 @@
 # Go library APIs
 
-`github.com/webong/ext/pkg/ext-go/engine` holds guest authoring, plugin contracts and compatibility
-ledger record aliases, with no root package. It builds on `core` and never
+`github.com/webong/ext/pkg/ext-go/engine` holds guest authoring, plugin contracts and the Go reference session, with no root package. It builds on `core` and never
 imports `cengine`. The module requires Go 1.25.
 
 `engine/plugin` retains its public contract names as aliases of `core/plugin`.
 Guests, package management, transports and authoring stay here. Production
 hosts use `cengine/plugin` or `cgoengine/plugin`; the Go session remains only as
 the differential-test oracle.
-`engine/ledger` retains compatibility record aliases only; its
-shared types alias `core/ledger` and `core/ledger/observation`.
+Ledger contracts live directly in `core/ledger` and `core/ledger/observation`;
+the former ledger aliases and recorder wrapper have been removed.
 
 The native ledger binding moved to `cengine/ledger`. CTX uses that binding's
 `Bind`, `Library.OpenStore` and `NewGraph`; no C loader remains in this module.
@@ -32,7 +31,7 @@ four groups:
   and `validate/jsonschema` (an offline JSON Schema subset).
 - `host`: everything that runs plugins on a machine. the installed-package host moved to `cengine/plugin/host`; `host/store` installs, verifies and lists packages under a root you choose;
   `host/process` starts the child process; `host/adapter` manages host-side adapters;
-  `host/interop` resolves which backend serves a request; `host/nativego` loads a Go plugin built
+  `core/plugin/interop` resolves which backend serves a request; `host/nativego` loads a Go plugin built
   as a shared library.
 - `guest`: what a plugin implementation uses. `guest/author` (typed operations and guest
   construction), `guest/capability` (the health and configuration contracts), `guest/instance`
@@ -125,9 +124,8 @@ A backend never depends on `cgoengine`.
 
 Shared plugin contracts live in `core/plugin`; this module retains their
 published aliases. Transport-route types and resolution now live in
-`core/plugin/interop`, with aliases and forwarding at the existing
-`engine/plugin/host/interop` path. The JSON-line profile forwards to
-`core/plugin.JSONLineProfile`. No published package path or module root moved.
+`core/plugin/interop`; the old forwarding package has been removed. The JSON-line profile forwards to
+`core/plugin.JSONLineProfile`. Module roots remain unchanged.
 
 The in-process and JSON-line implementations, Go guest SDK, package store, and
 reference Go session stay here. Yaegi still uses the guest SDK, in-process

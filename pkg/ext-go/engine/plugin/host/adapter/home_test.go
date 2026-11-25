@@ -29,7 +29,7 @@ func TestHomePrecedence(t *testing.T) {
 	}
 }
 
-func TestDefaultHomeKeepsAnEarlierInstallation(t *testing.T) {
+func TestDefaultHomeIgnoresEarlierInstallation(t *testing.T) {
 	clearHomeEnvironment(t)
 	if runtime.GOOS == "windows" {
 		t.Skip("default directories differ on Windows")
@@ -43,8 +43,8 @@ func TestDefaultHomeKeepsAnEarlierInstallation(t *testing.T) {
 	if err := os.MkdirAll(legacy, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got := ConfigHome(); got != legacy {
-		t.Fatalf("earlier installation must keep working: %q, want %q", got, legacy)
+	if got := ConfigHome(); got != shared {
+		t.Fatalf("legacy directory must not override Ext home: %q, want %q", got, shared)
 	}
 	if err := os.MkdirAll(shared, 0o700); err != nil {
 		t.Fatal(err)

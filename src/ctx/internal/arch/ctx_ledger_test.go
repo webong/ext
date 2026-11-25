@@ -11,8 +11,8 @@ import (
 	"testing"
 )
 
-// CTX graph behavior must stay on the C binding. Legacy SQLite is permitted
-// only as the upgrade reader. Graph records come from core.
+// CTX graph behavior stays on the C binding; graph records come from core.
+// No Go SQLite implementation or legacy upgrade reader belongs here.
 func TestCTXGraphUsesNativeLedger(t *testing.T) {
 	root := repoRoot(t)
 	for _, dir := range []string{"src/ctx/internal/app", "src/ctx/internal/graphapi"} {
@@ -32,7 +32,7 @@ func TestCTXGraphUsesNativeLedger(t *testing.T) {
 			names := map[string]string{}
 			for _, imp := range file.Imports {
 				name, _ := strconv.Unquote(imp.Path.Value)
-				if strings.HasPrefix(name, "github.com/webong/ext/pkg/ext-go/engine/ledger") {
+				if strings.HasPrefix(name, "github.com/webong/ext/pkg/ext-go/engine/ledger") || name == "database/sql" || name == "modernc.org/sqlite" {
 					t.Errorf("%s imports legacy recorder %s", path, name)
 				}
 				alias := filepath.Base(name)

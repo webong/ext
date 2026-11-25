@@ -66,10 +66,12 @@ transport bridge executable lifecycle in `cmd/ext/internal/bridgecmd`; ext-go
 retains only the reusable transport libraries. A product
 never imports another product module. The standalone `src/cto/sandbox` contract
 is available to its consumers. Shared implementation code goes in `pkg/` or `res/`.
-`examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
-consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
-`pkg/ext-go/examples` for plugins (the umbrella requires every backend), `pkg/ext-go/cengine/ledger/examples` and
-`res/web/host/examples` for those libraries. The product modules export `ctx.Run`,
+`examples/` holds runnable teaching examples for every language and binding, grouped by
+purpose (`plugins/`, `ledger/`, `web/`, plus the shell adapter and Android consumer).
+It is a container, not a Go module. Related Go examples have their own unpublished
+modules listed in `go.work`; they consume the public libraries. Conformance examples,
+fixtures and test helpers stay with their owning packages or in `tests/crosslang`.
+The product modules export `ctx.Run`,
 `ctn.Run` and `cto.Run` for Go consumers; the private guests in each product's
 `plugin/` directory adapt those functions to `ext.command/v1`. Ext does not import
 the product modules. Their module paths include `src/`, so external Go consumers
@@ -130,8 +132,9 @@ its fixtures in `lib/plugin/testdata`, and then reaches `pkg/ext-go/cgoengine`, 
 (decided 2026-11-23, [the library opener ADR](docs/adr-library-opener.md), decision 8): Go hosts and the
 Go ledger reach `lib/plugin` and `lib/ledger` through their library interfaces with the cgo, c2go and
 purego drivers, and only the Go guest SDK and the shared data model stay pure Go. Until their users move,
-the pure-Go host in `pkg/ext-go/engine` (and the pure-Go build of `pkg/ext-go/cgoengine`) keeps
-`CGO_ENABLED=0` programs working and is retired after; build nothing new on it. Where the two
+the pure-Go host in `pkg/ext-go/engine` remains a conformance reference; build nothing new on it.
+`cgoengine` uses the shared C host and store through purego when linked cgo is not selected,
+including `CGO_ENABLED=0` builds. Where the two
 disagree, the C engine and the fixtures decide. See
 `docs/plugin-engine-parity.md`. A change to the plugin contract or the package manifest lands in both
 implementations, and the conformance checks compare the two.
@@ -139,7 +142,7 @@ implementations, and the conformance checks compare the two.
 module: the store now (memory and file backends, the optional SQLite backend on `tables.json`), the
 reader and the recorder with its per-kernel collectors next. It has no third-party code at all (its
 JSON, SHA-256 and CRC-32 are its own) and shares nothing with `lib/plugin`. It is held to the
-`lib/ledger/testdata` fixtures. Go binds it through `cengine/ledger`; `engine/ledger` retains record aliases only (see
+`lib/ledger/testdata` fixtures. Go binds it through `cengine/ledger`; shared records live in `core/ledger` (see
 [the architecture ADR](docs/adr-architecture.md#resgraph-storage-and-libledger)).
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
@@ -149,8 +152,8 @@ library's dependencies pointing inward so it never depends back on its consumers
 `src/ctx/internal/arch` enforces that direction.
 
 `pkg/ext-go/` is a tree of modules, not one module, so an application takes
-only the parts it needs: `engine` (portable plugin code plus the C-backed ledger API), `cgoengine` (the C
-engine binding, with a pure-Go build of the same API), `wasm` (the plugin binding
+only the parts it needs: `engine` (portable plugin code), `cgoengine` (the C
+engine binding, with a shared-library purego build of the same API), `wasm` (the plugin binding
 for `res/web/host/engine/wasm`), and `hashicorp` (go-plugin, grpc), plus
 `pkg/ext-go` itself as a thin umbrella module that requires them at matching
 versions. CTN owns the inference, model, perception, and realtime bridges as
@@ -170,7 +173,7 @@ module graph. Tests that need
 a backend belong in that backend's module, and tests or commands that need both
 a backend and the engine belong in the umbrella module, not in `engine`, so
 the core stays free of every runtime. `pkg/ext-go/engine/plugin` uses the standard
-library and `core/plugin` only (its nested module `engine/ledger/recorder` is outside it). `src/ctx/internal/arch` enforces both rules.
+library and `core/plugin` only. `src/ctx/internal/arch` enforces both rules.
 
 When adding a library module, list it in `go.work`, give it a `go.mod`, and add
 matching `require` directives to a product module only if that product imports it
@@ -196,16 +199,16 @@ The reusable libraries are:
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
-- `pkg/ext-go/engine` for Go plugin sessions and compatibility ledger record aliases. Shared plugin and ledger contracts are aliases of `core/plugin` and `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; compatibility record aliases remain. The nested recorder is a native entry point; its Go implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library location and read-only SQLite migration; ledger mechanics execute in C.
+- `pkg/ext-go/engine` for Go plugin sessions and guest authoring. Shared plugin contracts are aliases of `core/plugin`; shared ledger records live directly in `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; the compatibility ledger aliases have also been removed. The recorder wrapper module, Go recorder implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library and store location; ledger mechanics execute in C.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is not committed: the `tools` module generates it on each platform, the binding beside it (`internal/ccgo`) builds only with `-tags ext_c2go`, the ext-plugin release translates, tests against the pure-Go engine (`engine/plugin/plugintest/enginetest`) and publishes each platform's as the c2go driver's archive, and a project fetches it (`go tool ext bundle fetch -lib ext_plugin -driver c2go`); it depends on `engine` only.
-- `pkg/ext-go/cgoengine` for the Go bindings of the C libraries in `lib/`: `cgoengine/plugin` binds lib/plugin, with a pure-Go build of the same API. It carries no C: a cgo build points `CGO_CFLAGS` at the engine's headers and `CGO_LDFLAGS` at its library, the ones `go tool ext bundle fetch -lib ext_plugin -driver cgo` brings into a project (in this repository, `lib/plugin/include` and a CMake build).
+- `pkg/ext-go/cgoengine` for the Go bindings of the C libraries in `lib/`: `cgoengine/plugin` binds lib/plugin, with a shared-library purego build of the same API. It carries no C: a cgo build points `CGO_CFLAGS` at the engine's headers and `CGO_LDFLAGS` at its library, the ones `go tool ext bundle fetch -lib ext_plugin -driver cgo` brings into a project (in this repository, `lib/plugin/include` and a CMake build).
 - `pkg/ext-go/core` for the switcher: `core/driver` picks how a program runs each library of `lib/`, go (the pure-Go `engine`) or one of the C drivers `cengine` serves (purego, cgo, ccgo), by name, by `EXT_ENGINE` or as the best available one ([the library opener ADR](docs/adr-library-opener.md)). `core/plugin` owns shared plugin types, validation and backend interfaces; `core/ledger` owns graph records and error vocabulary, with wire observation types in `core/ledger/observation`. Core uses only the standard library; host selection belongs to consumers. Core never imports either engine and has no root package, because the umbrella published the selection package at `pkg/ext-go/core` up to v0.12.0 (that package is gone: Go reaches lib/plugin through its description, `cengine/library.Describe` or a binding `ext bundle bind` generates).
 - `pkg/ext-go/cengine/cguest/backend`, a package within the `cengine` module, for the plugin backend that runs plugin guests built as C shared libraries, like `yaegi`, `hashicorp` and `wasm`: `cguest` speaks `ext.plugin/v1` over `cengine/cguest` (the frames, the frame limit, the default deadline, the descriptor and response checks, the engine's errors) and `cguest/guest` is the Go guest export (`-buildmode=c-shared`). It imports `core/plugin` and the local loader, never `cgoengine`. Running such a guest is not loading a library of `lib/`: the plugin contract plays no part in how the drivers reach `lib/plugin` or `lib/ledger`.
 - `pkg/ext-go/cengine` for the C side of every library of `lib/`, with generic loading packages that know none of them; the module requires purego, `core` for shared plugin and ledger contracts: it serves the C drivers (purego, cgo and ccgo), and `cgoengine` and `c2goengine` stay their own modules and register with it, so a program downloads the ccgo translation only when it imports it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens the built copy of the C library once per canonical path and binds its exports. `cengine/fetch` is how a Go project that uses ext-go brings a C library in before it builds: from the library's citation it downloads and verifies each target's archive and writes a Go package the project imports, for cgo (headers and a static library linked through `${SRCDIR}`), c2go (the translation) or purego (an embedded shared library); ext-go itself carries no C ([the library opener ADR](docs/adr-library-opener.md)). `cengine/bind` generates a typed Go binding of a library from the description of its interface (lib/plugin's `interface.json`). ext-go is a program SDK and has no command: `cengine/libcmd` is the shared command package behind ext's builtin `ext bundle fetch` and `ext bundle bind`, which a project runs as `go tool ext bundle ...` from `go generate` after `go get -tool github.com/webong/ext/cmd/ext`. `cengine/cguest` loads C ABI guests (the `ext_plugin_guest_*` exports) and exchanges frames with them as bytes, with `cguest/abi` for the ABI's constants; what the frames mean is `pkg/ext-go/cengine/cguest/backend`'s. The module path is new; the `ext_cengine` build tag and the old `pkg/plugin-go/cengine` module name the C plugin engine binding, now `cgoengine`.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host`; it has no root Go package and holds examples and benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host`; it has no root Go package and holds benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
 
 CTN owns the nested modules `src/ctn/inference`, `src/ctn/perception`, and
 `src/ctn/realtime` for provider, perception, and duplex session contracts
@@ -228,10 +231,10 @@ Product adapter engines and stores that are reused across adapters
 ctx does not import them: it loads adapters as installed ext packages. Product adapter
 executables use the same plugin library. `pkg/ext-go/engine` owns the
 adapter process protocol and adapter descriptor helpers (`engine/plugin/host/adapter`), and holds the pure-Go package store and host (`engine/plugin/host`, `engine/plugin/host/store`). Adapters and other Go
-programs import `pkg/ext-go/cgoengine/plugin`, the Go entry point to the plugin engine: it
+programs import `pkg/ext-go/cgoengine/plugin`, a Go entry point to the plugin engine: it
 re-exports the `engine/plugin` data model and serves sessions, guests, digests and
-routes on the C engine (`ext_cengine` and cgo) or in pure Go, so `CGO_ENABLED=0`
-builds keep working. There is no separate `pkg/plugin` module: its code is
+routes on the C engine (`ext_cengine` and cgo) or through the shared C library via purego, including `CGO_ENABLED=0`
+builds. There is no separate `pkg/plugin` module: its code is
 `pkg/ext-go/engine/plugin`. Everything that runs plugins on a machine is grouped under `engine/plugin/host`: `host` opens an
 installed package, and its subpackages `store` (the installed package store), `process` (starting the
 child), `adapter` (the host-side adapter manager), `interop` (route resolution) and `nativego`
@@ -263,7 +266,7 @@ is the canonical home that the iOS, Android, Rust and Zig bindings build from. T
 `scripts/ext-zig-release.sh` fails when that copy drifts.
 
 Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
-TypeScript), with language-specific embedding examples alongside them. `pkg/ext-web`
+TypeScript), with runnable teaching examples under root `examples/` and conformance examples alongside the bindings. `pkg/ext-web`
 is not one of them: it is the package for code that runs inside a browser extension,
 named for that platform like the mobile SDKs. The
 mobile SDKs are named for their platforms because they are native to them:

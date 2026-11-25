@@ -20,7 +20,6 @@ import (
 
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	"github.com/webong/ext/cmd/ext/internal/packagelock"
-	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	"github.com/webong/ext/pkg/ext-go/cengine/libcmd"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
@@ -222,9 +221,6 @@ func (m Manager) run(op, file string, out io.Writer) error {
 		return err
 	}
 	defer release()
-	if err := pkgcmd.RequireMigration(m.Home); err != nil {
-		return err
-	}
 	artifactRoot := ""
 	stageRoot := ""
 	if len(nativePlans) > 0 {

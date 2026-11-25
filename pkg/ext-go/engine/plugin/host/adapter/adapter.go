@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,7 +63,7 @@ type Manifest struct {
 	Executable        string
 	ExecutableWindows string
 	// ProgramRoots are the directory patterns of a declarative installer: it has
-	// no executable, and CTX looks for programs in these directories itself. They
+	// no executable, and the host looks for programs in these directories itself. They
 	// come from the package file named by the program_roots metadata key, so they
 	// are sealed and trusted with the package.
 	ProgramRoots         []string
@@ -410,7 +409,7 @@ func (a *Adapter) ConfigKeys() []string {
 }
 
 // Declarative reports whether the adapter is data only: it names directories to
-// look in and has no executable. CTX never runs it.
+// look in and has no executable. The host never runs it.
 func (a *Adapter) Declarative() bool { return len(a.Manifest.ProgramRoots) > 0 }
 
 func (a *Adapter) ExecutablePath() string {
@@ -968,31 +967,8 @@ func copyDirectory(source, target string) error {
 
 const adapterTrustScope = "ctx.adapter/v2"
 
-// trustFile migrates the old adapter-only ledger once. The scoped ledger is
-// authoritative thereafter, including after a record is revoked.
 func (s *Store) trustFile() (*hosttrust.File, error) {
-	file, err := hosttrust.New(s.TrustFile)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := os.Stat(s.TrustFile); err == nil {
-		return file, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	legacy, err := readLegacyTrust(filepath.Join(s.Home, "trust"))
-	if err != nil {
-		return nil, err
-	}
-	if len(legacy) > 0 {
-		if err := os.MkdirAll(filepath.Dir(s.TrustFile), 0o700); err != nil {
-			return nil, err
-		}
-		if err := file.ImportLegacy(adapterTrustScope, legacy); err != nil {
-			return nil, err
-		}
-	}
-	return file, nil
+	return hosttrust.New(s.TrustFile)
 }
 
 func (s *Store) readTrust() (map[string]string, error) {
@@ -1009,26 +985,6 @@ func (s *Store) readTrust() (map[string]string, error) {
 		out[record.ID] = record.Digest
 	}
 	return out, nil
-}
-
-func readLegacyTrust(path string) (map[string]string, error) {
-	result := map[string]string{}
-	input, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return result, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer input.Close()
-	scanner := bufio.NewScanner(input)
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) == 2 {
-			result[fields[0]] = fields[1]
-		}
-	}
-	return result, scanner.Err()
 }
 
 func splitList(value string) []string {

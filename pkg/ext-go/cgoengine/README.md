@@ -79,13 +79,14 @@ Static linkage is the default. To use the optional shared library, enable
 the dynamic loader's library path. See the [engine guide](../../../lib/plugin/README.md)
 for lifecycle, ownership, backend extension and current limitations.
 
-- [`examples/host`](examples/host/main.go): host using the C engine.
+- [`plugin/examples/host`](plugin/examples/host/main.go): host using the C engine.
 - [`cshared/guest`](cshared/guest/guest.go): Go guest lifecycle for the public
   C plugin ABI; does not depend on the C host engine or its build tag.
 
-The pure-Go implementation remains in `pkg/ext-go` as the fallback build and the
-baseline the engine is compared against, while
-[shared-engine parity](../../../docs/plugin-engine-parity.md) is completed.
+The default build loads the canonical C host and package store through purego.
+The `ext_cengine` build links C through cgo. Neither silently falls back to a Go
+host or package store. The Go reference store adapter is compiled only in tests
+for [shared-engine parity](../../../docs/plugin-engine-parity.md).
 
 ## Shared engine APIs
 
@@ -121,8 +122,8 @@ Inside this repository, the scripts give it `lib/plugin/include` and a CMake bui
 
 This module preserves its plugin API, build tags, and current implementation
 selection: the tagged cgo build links the C engine, while the default build uses
-the shared native host through `cengine/plugin`. The backend contract refactor
-does not change that fallback behavior or introduce a Go host fallback.
+the shared native host and store through `cengine/plugin` and the described C
+interface. A missing native library is an error, never a Go implementation fallback.
 
 A driver describes this access to the C library. Yaegi, WASM, and HashiCorp are
 plugin backends: they describe guest execution and consume `core/plugin` types,

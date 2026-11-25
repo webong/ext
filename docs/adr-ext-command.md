@@ -58,9 +58,10 @@ digest for this host; it does not create commands or grant authority in adapter
 or other consumer scopes. Invalid command metadata is reported separately and
 never registered, while the package can still be managed for its other contracts.
 The shared store is `EXT_HOME/packages`, with scoped trust in its hidden
-`.package-trust.json` ledger. `ext package migrate` verifies and combines legacy
-command and adapter stores; it retains the originals as backups. Existing scopes
-remain separate, so adapter approval does not become command approval.
+`.package-trust.json` ledger. Old command and adapter stores and their trust
+files are no longer imported. Reinstall reviewed packages into the current store
+and approve them explicitly. Adapter and command approvals remain separate.
+
 
 Native library preparation is exposed directly as `ext bundle fetch` and
 `ext bundle bind`, including through `go tool ext bundle ...`. There is no

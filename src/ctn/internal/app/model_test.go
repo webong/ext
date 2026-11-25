@@ -110,7 +110,7 @@ func TestModelCommandRunRequiresProvider(t *testing.T) {
 
 func TestModelCommandRunNoProviderAvailable(t *testing.T) {
 	t.Setenv("EXT_HOME", t.TempDir())
-	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(t.TempDir(), "packages"))
+	t.Setenv("EXT_INT_PACKAGE_ROOT", filepath.Join(t.TempDir(), "packages"))
 	root := modelStoreTestHelper(t)
 	inputFile := writeTensorInput(t, []mlTensorInput{{
 		Shape:  []int{1, 4},
@@ -130,7 +130,7 @@ func TestModelRunThroughTrustedProviderPackage(t *testing.T) {
 	modelRoot := modelStoreTestHelper(t)
 	config := t.TempDir()
 	t.Setenv("EXT_HOME", config)
-	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(config, "packages"))
+	t.Setenv("EXT_INT_PACKAGE_ROOT", filepath.Join(config, "packages"))
 	binary := filepath.Join(t.TempDir(), "modelguest")
 	build := exec.Command("go", "build", "-o", binary, "./testdata/modelguest")
 	if out, err := build.CombinedOutput(); err != nil {
@@ -270,7 +270,7 @@ func TestModelRunThroughCoreMLGuest(t *testing.T) {
 	}
 	config := t.TempDir()
 	t.Setenv("EXT_HOME", config)
-	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(config, "packages"))
+	t.Setenv("EXT_INT_PACKAGE_ROOT", filepath.Join(config, "packages"))
 	modelRoot := t.TempDir()
 	modelStore, err := ml.OpenStore(modelRoot)
 	if err != nil {
@@ -362,7 +362,7 @@ func TestModelRunThroughONNXGuest(t *testing.T) {
 	}
 	config := t.TempDir()
 	t.Setenv("EXT_HOME", config)
-	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(config, "packages"))
+	t.Setenv("EXT_INT_PACKAGE_ROOT", filepath.Join(config, "packages"))
 	modelRoot := t.TempDir()
 	modelStore, err := ml.OpenStore(modelRoot)
 	if err != nil {

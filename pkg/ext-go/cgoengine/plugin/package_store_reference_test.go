@@ -12,23 +12,8 @@ import (
 	"strings"
 )
 
-// ErrPackageExists is returned by an install over an installed package id.
-var ErrPackageExists = errors.New("plugin package already installed")
-
-// PackageStoreLimits are optional size bounds for a PackageStore: one artifact file (a file inside
-// a tree counts too), the files in one tree and the bytes of one tree. Zero takes the default.
-//
-// MaxArchiveBytes bounds the archive file InstallArchive reads, 512 MiB when zero; MaxTreeFiles and
-// MaxTreeBytes also bound the entries and the extracted total of an archive.
-type PackageStoreLimits struct {
-	MaxArtifactBytes int64
-	MaxTreeFiles     int
-	MaxTreeBytes     int64
-	MaxArchiveBytes  int64
-}
-
 // goPackageStore is the package store of the pure-Go engine behind the PackageStore methods. It is
-// the PackageStore of a build without the C engine, and the baseline the C store is held to.
+// used only by conformance tests as the baseline the C store is held to.
 type goPackageStore struct {
 	s    *store.Store
 	root string
@@ -113,15 +98,6 @@ func (g *goPackageStore) Remove(id string) error { return packageStoreError(g.s.
 // Load reads and verifies one installed package and returns its plugin.json.
 func (g *goPackageStore) Load(id string) ([]byte, error) { return g.manifest(g.s.Load(id)) }
 
-// PackageEntrypoint is the executable ResolveEntrypoint selects: the entrypoint's name, the name and
-// path of its artifact (the package directory joined with the artifact's path) and the package digest.
-type PackageEntrypoint struct {
-	Name     string `json:"name"`
-	Artifact string `json:"artifact"`
-	Path     string `json:"path"`
-	Digest   string `json:"digest"`
-}
-
 // ResolveEntrypoint reads and verifies a package, checks that it serves the exact contract and that its
 // directory digest is the one the caller reviewed (an empty or changed digest is plugin.ErrDenied), then
 // selects the entrypoint for protocol that best matches this platform (plugin.ErrUnsupported when the
@@ -159,24 +135,6 @@ func (g *goPackageStore) IDs() ([]string, error) {
 	}
 	sort.Strings(ids)
 	return ids, nil
-}
-
-// PackageRecord is one package a store or layered view serves: its id, the directory it lives in,
-// the position of the root that serves it (always 0 for a single store) and its plugin.json.
-type PackageRecord struct {
-	ID        string
-	Directory string
-	Layer     int
-	Manifest  []byte
-}
-
-// PackageCheck is the result of verifying one entry below a root: a package id, or the directory
-// name when it is not a package directory. Err is nil when the entry verified.
-type PackageCheck struct {
-	ID        string
-	Directory string
-	Layer     int
-	Err       error
 }
 
 func (g *goPackageStore) records(installed []store.Installed, layerOf func(string) int) ([]PackageRecord, error) {

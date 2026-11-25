@@ -24,7 +24,7 @@ type Manager struct {
 	Trust *Trust
 }
 
-const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sha256 digest] | trust <id> | untrust <id> | remove <id> [--force] | list | inspect <id> | verify <id> | migrate
+const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sha256 digest] | trust <id> | untrust <id> | remove <id> [--force] | list | inspect <id> | verify <id>
        ext package plan [--without <id> | --with <sealed-package-dir>]
        ext package install|upgrade --source <name>
        ext package build|pack|index|test|doctor ...`

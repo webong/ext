@@ -142,7 +142,7 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 
 The C ledger's Go API is `pkg/ext-go/cengine/ledger`. CTX binds the C
 library there. `core/ledger` owns shared contracts and validation, while
-`engine/ledger` retains the compatibility Go implementation. The dependency
+Shared records live in `core/ledger`; the old `engine/ledger` aliases are removed. The dependency
 order is `core -> engine -> cengine`; engine never imports the native binding.
 See [CTX ledger adoption](adr-library-opener.md#ctx-ledger-adoption) for storage
 cutover details.

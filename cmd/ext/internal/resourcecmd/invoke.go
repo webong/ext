@@ -55,9 +55,6 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 		return nil, err
 	}
 	defer release()
-	if err := pkgcmd.RequireMigration(m.Home); err != nil {
-		return nil, err
-	}
 	root := filepath.Join(m.Home, "packages")
 	s, err := lib.Open("store", map[string]any{"root": root}, nil)
 	if err != nil {

@@ -7,11 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	native "github.com/webong/ext/pkg/ext-go/cengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/core/plugin/interop"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/interop"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema"
 	"strings"
 )
@@ -21,59 +19,6 @@ import (
 
 // CEngine reports whether this build runs on the shared C engine.
 const CEngine = true
-
-// PackageStore is the package store of the pure-Go engine in this build; the C engine build serves
-// the same methods from the C store.
-type PackageStore = goPackageStore
-
-// OpenPackageStore returns a store rooted at root.
-func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, error) {
-	return openGoPackageStore(root, limits)
-}
-
-// LayeredPackageStore is a read-only view over several package roots in priority order; the C engine
-// build serves the same methods from the C view.
-type LayeredPackageStore = goLayeredPackageStore
-
-// OpenLayeredPackageStore returns a view over roots, highest priority first.
-func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*LayeredPackageStore, error) {
-	return openGoLayeredPackageStore(roots, limits)
-}
-
-// StoreDigest verifies one installed package using the pure-Go reference.
-func StoreDigest(root, id string) (string, error) {
-	s, err := store.New(root, store.Limits{})
-	if err != nil {
-		return "", err
-	}
-	p, err := s.Load(id)
-	if err != nil {
-		return "", err
-	}
-	return p.Digest()
-}
-
-func TrustStateOf(path, scope, id, digest string) (hosttrust.State, error) {
-	t, err := hosttrust.New(path)
-	if err != nil {
-		return hosttrust.Untrusted, err
-	}
-	return t.StateOf(scope, id, digest)
-}
-func TrustRecord(path, scope, id, digest string) error {
-	t, err := hosttrust.New(path)
-	if err != nil {
-		return err
-	}
-	return t.Record(scope, id, digest)
-}
-func TrustRevoke(path, scope, id string) error {
-	t, err := hosttrust.New(path)
-	if err != nil {
-		return err
-	}
-	return t.Revoke(scope, id)
-}
 
 // Guest serves a descriptor and handler. Destroy is a no-op in this build.
 type Guest struct{ *plugin.Guest }

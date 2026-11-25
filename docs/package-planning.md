@@ -61,7 +61,7 @@ the pin before planning, and publication checks it again. New packages may still
 be staged with unresolved requirements; approval and invocation remain gated.
 
 Built-in package mutations hold `EXT_HOME/.package-write.lock` across preflight
-and publication; bundle installation, migration and legacy trust import use the
+and publication; bundle installation and explicit trust changes use the
 same lock. CTX adapter install/trust/remove/add/refresh and its catalog setup
 helpers participate too, including when CTX runs as an installed guest. They use
 the shared filesystem utility `res/system/service/host/dirlock`; the lock remains

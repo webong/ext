@@ -55,8 +55,7 @@ isolate installations.
 
 The shared library is `pkg/ext-go/engine/plugin/host/adapter`. The default adapter
 store is the shared `$EXT_HOME/packages` root, with `EXT_ADAPTER_HOME` as an adapter-only
-override. An existing `~/.config/ctx` directory keeps being used until
-`~/.config/ext` exists. See the
+override. The default home is `~/.config/ext`; old CTX directories are not discovered. See the
 [API reference](adapter-api.md) for home resolution and scoped trust.
 
 The contract is `ext.adapter/2.0`. Every variable the host passes to an adapter or
@@ -99,9 +98,8 @@ packages are refused, and that removal through Ext is visible through ext.
 - [Ownership rules](../AGENTS.md#adapter-ownership)
 
 
-Legacy command and adapter stores move together with `ext package migrate`.
-The original directories are preserved as backups. The shared trust ledger is
-`EXT_HOME/packages/.package-trust.json`; approval scopes remain distinct. A
-custom `EXT_ADAPTER_HOME` deliberately selects an isolated adapter store and is
-not automatically migrated. The host's `ext package` always manages its shared
-package root, including when such a consumer override is set.
+The shared trust ledger is `EXT_HOME/packages/.package-trust.json`; approval
+scopes remain distinct. Old command/adapter directories and trust files are no
+longer imported. Reinstall reviewed packages into the current store and approve
+them explicitly. A custom `EXT_ADAPTER_HOME` selects an isolated adapter store;
+`ext package` always manages its shared package root.

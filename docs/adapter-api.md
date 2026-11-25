@@ -9,8 +9,7 @@ code from the current directory or arbitrary `PATH` entries.
 The home is shared by every ext product. The adapter trust record is scoped
 to the adapter protocol and its exact installed package digest; CTN's provider
 trust records have separate scopes. `EXT_HOME` sets the home and
-`EXT_ADAPTER_HOME` sets just the adapter directory. An existing `~/.config/ctx`
-directory keeps being used until `~/.config/ext` is created. The old `CTX_HOME`
+`EXT_ADAPTER_HOME` sets just the adapter directory. The default home is `~/.config/ext`; old CTX directories are not discovered. The old `CTX_HOME`
 and `CTX_ADAPTER_HOME` names are no longer read. A product that does not understand an adapter's
 runtime ignores it.
 
@@ -831,7 +830,7 @@ ext package trust example
 
 `ext package build` requires Go and emits one archive per target. Cross builds
 default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
-under `pkg/ext-go/examples/adapters/go_echo` shows the public parser and a complete Go
+under `examples/plugins/go/adapters/go_echo` shows the public parser and a complete Go
 adapter. An adapter written in another language can prepare a package directory
 and use `ext package pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.

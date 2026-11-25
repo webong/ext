@@ -9,10 +9,10 @@ module of its own and a program that wants less takes less:
 | --- | --- |
 | [`core`](core) | shared plugin and ledger contracts, observation types, plugin validation and driver selection |
 | [`engine`](engine) | retiring Go implementations, guest/package helpers, and compatibility exports for core definitions |
-| [`cgoengine`](cgoengine) | existing plugin API: linked cgo implementation or the current shared native host fallback |
+| [`cengine`](cengine) | native loading, fetching, binding generation, C guest mechanics and native ledger bindings |
+| [`cgoengine`](cgoengine) | plugin API: C host and package store through linked cgo or a shared native library |
 | [`c2goengine`](c2goengine) | translated-C implementations and bindings (no cgo, no C compiler in the consuming build) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
-| [`cengine`](cengine) | native loading, fetching, binding generation, C guest mechanics and native ledger bindings |
 | [`yaegi`](yaegi) | independent Go source plugin backend; added separately from the umbrella |
 | [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/host/engine/wasm` runtime |
 
@@ -22,7 +22,9 @@ CTN also owns the public `model.tensor/v1` bridge in `src/ctn/model`,
 which peer products can use to call installed provider packages directly.
 These bridges build on the generic Ext Go plugin engine.
 
-The umbrella module holds examples and benchmarks that use several libraries.
+The umbrella module holds benchmarks that use several libraries. Runnable
+[Go plugin examples](../../examples/plugins/go) live in their own consumer module
+under root [examples](../../examples/README.md).
 Execution-graph snapshots come from `lib/plugin`; the CLI publishes their
 observations through `lib/ledger`. Cross-language conformance lives in
 `tests/crosslang`. Ext-go is a library and ships no public executable; the

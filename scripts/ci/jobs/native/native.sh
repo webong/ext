@@ -11,7 +11,7 @@
 # Validate Windows system library
 if [ "$RUNNER_OS" = Windows ]; then
 (
-go test -v ./res/system/... ./pkg/ext-go/engine/ledger/... ./pkg/ext-go/engine/ledger/recorder/... -timeout 5m
+go test -v ./res/system/... ./pkg/ext-go/cengine/ledger/... -timeout 5m
 )
 ci_import_env
 fi
@@ -25,7 +25,7 @@ ci_import_env
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/engine/ledger/recorder pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )

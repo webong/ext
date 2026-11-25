@@ -1,7 +1,8 @@
 # Host discovery
 
-Host inventory is discovered by the collectors of `github.com/webong/ext/res/system`
-(`service/host`, `service/process`, `capture/surface`) and recorded by `github.com/webong/ext/pkg/ext-go/engine/ledger/recorder`.
+Host inventory collection and recording execute in `lib/ledger`, exposed to Go
+through `github.com/webong/ext/pkg/ext-go/cengine/ledger`.
+`res/system` provides separate operating-system APIs for consumers.
 It works through the installed CTX package without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 
@@ -434,14 +435,14 @@ layout. Real PID reuse is not forced, and a passing build is not a native test.
 Run ordinary contract/parser tests with:
 
 ```sh
-(cd res/system && go test ./...) && (cd pkg/ext-go/engine/ledger/recorder && go test ./...) && (cd src/ctx && go test ./internal/app)
+(cd res/system && go test ./...) && (cd pkg/ext-go/cengine && go test ./ledger/...) && (cd src/ctx && go test ./internal/app)
 ```
 
 Enable native fixtures explicitly (the shell must permit subprocess inspection
 and binding temporary loopback sockets):
 
 ```sh
-EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system/service/process ./pkg/ext-go/engine/ledger/recorder \
+EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system/service/process \
   -run '^(TestNativeProcess|TestProcess|TestLiveProcess)' -count=3 -timeout=5m
 ```
 

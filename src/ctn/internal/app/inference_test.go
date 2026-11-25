@@ -30,7 +30,7 @@ func TestInferenceProviderRequiresTrustedPackage(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := filepath.Join(t.TempDir(), "packages")
-	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", root)
+	t.Setenv("EXT_INT_PACKAGE_ROOT", root)
 	t.Setenv("EXT_HOME", t.TempDir())
 	var output, diagnostics bytes.Buffer
 	if code := inferenceInstallCommand([]string{source}, &output, &diagnostics); code != 0 {

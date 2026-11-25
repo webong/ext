@@ -71,14 +71,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err := pkgcmd.RequireMigration(home); err != nil && len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "package", "source", "bundle", "commands", "which", "version", "help", "--help", "-h":
-		default:
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	}
 	os.Exit(app.RunWith(app.Options{Registry: reg, Package: manage}, os.Args[1:], os.Stdout, os.Stderr))
 }
 
@@ -95,16 +87,6 @@ func discoverPackages(reg *registry.Registry, home string) func([]string, io.Wri
 		}
 	}
 
-	if err := pkgcmd.RequireMigration(home); err != nil {
-		reg.Note(err.Error())
-		return func(args []string, stdout, stderr io.Writer) int {
-			if len(args) == 1 && args[0] == "migrate" {
-				return pkgcmd.RunMigration(home, stdout, stderr)
-			}
-			fmt.Fprintln(stderr, err)
-			return 1
-		}
-	}
 	trust, err := pkgcmd.LoadTrust(home)
 	if err != nil {
 		return fail(err)
@@ -118,9 +100,6 @@ func discoverPackages(reg *registry.Registry, home string) func([]string, io.Wri
 	}
 	manager := pkgcmd.Manager{Store: packages, Trust: trust}
 	return func(args []string, stdout, stderr io.Writer) int {
-		if len(args) == 1 && args[0] == "migrate" {
-			return pkgcmd.RunMigration(home, stdout, stderr)
-		}
 		return manager.Run(args, stdout, stderr)
 	}
 }

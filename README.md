@@ -7,7 +7,7 @@ and languages. Plugins can extend an application, use other plugins, and expose
 extension points of their own.
 
 Use the **CLI** to install and run plugins from your shell, or embed the
-**libraries** in your own software.
+**libraries** in your own software. See the [runnable examples](examples/README.md).
 
 ## Use ext from the shell
 
@@ -47,10 +47,11 @@ ext <command> [args]
 and dispatches it through the plugin contract. Installing another compatible
 command package extends the available commands without rebuilding the CLI.
 
-All plugin packages share one default installed store. Existing installations
-move to it with `ext package migrate`; old stores are retained as backups.
+All plugin packages share one default installed store. Legacy command and adapter
+stores are no longer imported. Reinstall reviewed packages into the current store and
+approve them explicitly; existing files are left untouched.
 See [package management](docs/adr-cli-package-model.md) and
-[command dispatch](docs/adr-ext-command.md) for migration, discovery and trust rules.
+[command dispatch](docs/adr-ext-command.md) for discovery and trust rules.
 
 ## A network of plugins
 

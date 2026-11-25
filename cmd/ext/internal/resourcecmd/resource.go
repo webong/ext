@@ -13,7 +13,6 @@ import (
 	"sort"
 
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
-	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
@@ -105,9 +104,6 @@ func parseGrants(args []string) ([]DependencyGrant, error) {
 }
 
 func (m Manager) providers() ([]Provider, error) {
-	if err := pkgcmd.RequireMigration(m.Home); err != nil {
-		return nil, err
-	}
 	lib, err := nativeplugin.Open()
 	if err != nil {
 		return nil, err

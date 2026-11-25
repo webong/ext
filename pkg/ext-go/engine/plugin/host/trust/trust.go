@@ -193,39 +193,6 @@ func (f *File) Revoke(scope, id string) error {
 	return f.save(doc)
 }
 
-// ImportLegacy preserves existing digests exactly; a changed installed
-// package stays untrusted. New-format records take precedence.
-func (f *File) ImportLegacy(scope string, legacy map[string]string) error {
-	if !validKey(scope) {
-		return plugin.ErrInvalid
-	}
-	for id, digest := range legacy {
-		if !validKey(id) || !validDigest(digest) {
-			return plugin.ErrInvalid
-		}
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	doc, err := f.load()
-	if err != nil {
-		return err
-	}
-	changed := false
-	for id, digest := range legacy {
-		if index(doc.Records, scope, id) >= 0 {
-			continue
-		}
-		if len(doc.Records) >= maxRecords {
-			return plugin.ErrInvalid
-		}
-		doc.Records = append(doc.Records, Record{scope, id, digest})
-		changed = true
-	}
-	if !changed {
-		return nil
-	}
-	return f.save(doc)
-}
 func (f *File) save(doc document) error {
 	sort.Slice(doc.Records, func(i, j int) bool {
 		a, b := doc.Records[i], doc.Records[j]

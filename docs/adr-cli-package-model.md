@@ -7,7 +7,7 @@ commands except the first increment below.
 Implemented first increment: `ext package` installs and trusts packages without
 command declarations. `ext bundle fetch` and `ext bundle bind` replace the
 former top-level library command directly. Command and adapter packages now share
-`EXT_HOME/packages`; `ext package migrate` combines their old stores. Named source index registration, refresh and pinned installation are implemented
+`EXT_HOME/packages`; old stores are no longer imported. Named source index registration, refresh and pinned installation are implemented
 through the C engine catalog services. Pinned package bundle planning and
 installation are implemented. `ext resource providers` discovers verified
 manifest declarations without invocation; explicit live list/inspect use the C
@@ -90,15 +90,10 @@ manifest metadata from live observations that require an authorized invocation.
 ## Implementation and remaining design decisions
 
 1. Implemented: one default root, `EXT_HOME/packages`, and a scoped ledger at
-   `EXT_HOME/packages/.package-trust.json`. `ext package migrate` stages verified
-   packages, receipts and trust records and publishes them with one rename.
-   Different content under the same identity, malformed packages and conflicting
-   trust records abort before publication. Old roots remain as backups and are
-   never read after publication, including after revocation. Run migration with
-   other package writers stopped; a migration lock serializes migration calls.
-   Custom `EXT_ADAPTER_HOME` roots remain explicit isolated stores and are not
-   automatically moved. Old unsealed adapter templates require reinstalling from
-   reviewed source; migration will not reseal changed content and retain trust.
+   `EXT_HOME/packages/.package-trust.json`. Old command/adapter stores and trust
+   files are not read or migrated. Reinstall reviewed packages into the current
+   store and approve them explicitly. Custom `EXT_ADAPTER_HOME` roots remain
+   explicit isolated stores.
 2. Implemented: `package install|upgrade|list|inspect|verify|trust|untrust|remove`
    manages packages. `build|pack|index|test|doctor` retains adapter-specific
    operations through existing handlers. Archive installs use `--sha256` and
@@ -124,27 +119,25 @@ Go parity. Product-specific behavior remains in its plugin or adapter.
    trust operation previously refused that package. This increment supports reviewed
    packages independent of whether they expose commands; command registration
    remains a consumer of trusted capabilities.
-2. Design and test store migration before changing the public commands. Existing
-   identities, verified artifacts, receipts and scoped trust must be accounted
-   for. Produce a migration report for collisions or changed content rather
-   than silently picking a winner.
+2. Use the current shared package store and explicit approvals. The transitional
+   store migration and trust importers have been retired; old files are not read.
 3. Move catalog configuration and refresh to source management. Keep source
    selection distinct from runtime provider selection and command-name routing.
 4. Add bundle planning over package dependencies, then resource discovery over
    an explicit provider contract. Neither should require a product-name branch.
 5. Switch documentation and remove the old adapter command as a deliberate
-   development cut once equivalent operations and migration checks pass. Do not
+   development cut once equivalent operations pass acceptance checks. Do not
    introduce compatibility shims by default.
 
 New host mechanics belong in `lib/plugin` and its described library interface,
 then the language bindings. Under decision 8 of the
 [library opener ADR](adr-library-opener.md), the pure-Go host is being retired;
 do not build the new management foundation on it. Existing code is a reference
-for behavior and migration, not the destination for new host features.
+for conformance, not the destination for new host features.
 
 Acceptance must cover a package with no commands, a command plugin, an adapter,
 a dependency chain, ambiguous and missing providers, tampering, trust-scope
-separation, and interrupted migration or bundle installation. A declared
+separation, old trust files being ignored, and interrupted bundle installation. A declared
 dependency does not itself establish a live session or authorize a reverse call.
 
 ## Documentation
@@ -170,26 +163,16 @@ future source and resource APIs.
 - [x] Expose native fetch and bind directly under `ext bundle`.
 - [x] Share `EXT_HOME/packages` between command discovery, adapter consumers and
   default intelligence-provider discovery.
-- [x] Migrate legacy stores with verified content, identity collision detection,
-  preserved executable artifacts, receipts and unchanged authorization scopes.
-- [x] Keep migration failures unpublished and old directories intact. A second
-  migration does not resurrect removed packages or revoked grants.
+- [x] Retire the transitional store migration after establishing the shared
+  layout. Old directories remain untouched and cannot restore revoked grants.
 - [x] Move top-level adapter operations under package management, including
   adapter sealing, archive installation, catalog operations, diagnostics,
   shim activation and dependency-aware adapter removal.
-- [x] Preserve per-consumer trust: migration copies scopes unchanged. Explicit
+- [x] Preserve per-consumer trust with separate scopes. Explicit
   `package trust` records host approval and, for adapters, adapter approval;
   this does not grant CTN inference/model or other consumer-specific authority.
-- [x] Exercise command and adapter migration through the real CLI, then prove
-  CTX/CTN can consume the adapter and still reject tampered content.
-
-Run migration with other package writers stopped. An interrupted process may
-leave `.package-write.lock` in `EXT_HOME`: after confirming no package writer is
-running, remove that lock and rerun `ext package migrate`. Unpublished
-`.packages-*` staging directories are never treated as installed state. Retained
-legacy stores are backups, not fallbacks. Migration intentionally fails on an
-unsealed legacy template; reinstall it from reviewed source rather than granting
-trust to newly sealed bytes.
+- [x] Retire the legacy store migration command and trust importers. Old files
+  remain untouched; only the current package root and scoped trust file are read.
 
 Follow-on increments now provide named sources, pinned package bundles and
 resource discovery through the described C engine interface. The remaining work

@@ -5,5 +5,5 @@
 //
 // The native checks the host-requirements resolver needs (FilesystemAt,
 // ExecutableAccess, DirectoryWritable) are exported here, because they are OS
-// mechanisms; the resolver itself and the graph vocabulary are in the ledger recorder (pkg/ext-go/engine/ledger/recorder).
+// mechanisms; the resolver itself and the graph vocabulary are in lib/ledger, exposed to Go through pkg/ext-go/cengine/ledger.
 package host

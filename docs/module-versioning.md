@@ -66,8 +66,9 @@ match their directories (`github.com/webong/ext/src/<name>`). They carry no
 `replace` directives, so other Go projects can resolve them after their module
 versions and dependencies are published. The workspace resolves local edits.
 Adapters are ext packages that CTX loads, not Go imports. The Go
-examples live in the library they show (for example `pkg/ext-go/examples`) and need no module
-of their own. The repository root is not a module: it
+teaching examples live under root `examples/` (for example `examples/plugins/go`)
+in their own unpublished modules listed in `go.work`. Conformance examples stay
+with their libraries. Example modules are never tagged or published. The repository root is not a module: it
 holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
 
 The public binary release is tagged `ext-vX.Y.Z`; it is not a Go module
@@ -520,7 +521,7 @@ separate modules under its product tree:
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
 | `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `res/system`; third-party purego |
-| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds examples and benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
+| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
@@ -843,7 +844,8 @@ Ext-go ships reusable libraries; `cmd/ext` owns the public executable.
 `core/plugin` owns the shared plugin model and backend interfaces; the public
 `engine/plugin` names alias those types. `core/ledger` owns store records and
 errors, with observation types in `core/ledger/observation` and supervisor
-records in `core/ledger/supervisor`. Existing Go ledger model names remain aliases.
+records in `core/ledger/supervisor`. Native bindings reuse these shared records;
+the old `engine/ledger` aliases have been removed.
 Native `Bind`, `Library`, `NativeStore`, `NativeWatch` and `Graph` now live in
 `cengine/ledger`; `OpenNative` and its supervisor binding live in
 `cengine/ledger/supervisor`. Native consumers must update those imports.
@@ -851,14 +853,14 @@ The allowed layering is `core -> engine -> cengine`, with no dependency back
 from engine to cengine. Published paths are not reassigned to another module.
 
 The Go recorder implementation and `engine/ledger/recorder/sqlite` have been removed.
-The former recorder module retains only `New(ctx, *cengineledger.NativeStore)`;
-this changes its API and requires callers to migrate. Prefer `cengine/ledger`
-directly. CTX imports old databases read-only; frozen SQL fixtures preserve the
-migration contract without a second Go storage implementation.
+The former recorder wrapper module has also been removed. Callers use
+`cengine/ledger.NewGraph` directly with an explicitly opened native store. The old SQLite importer is removed; existing databases are left untouched.
+Frozen SQL fixtures continue to verify the native SQLite backend.
 
 The ledger retirement also removes `NewMemory`, `NewMemoryWithOptions`, the Go
 supervisor lifecycle API, and Go graph preparation/traversal/canonicalization
-helpers. Record aliases remain. Open C's memory backend through
+helpers. The `engine/ledger` record, supervisor and test-helper aliases are also
+removed; use `core/ledger` and its subpackages directly. Open C's memory backend through
 `cengine/ledger.Library.OpenStore`, use its supervisor binding, and obtain
 transaction canonical JSON and fingerprints through `Library.CanonicalTransaction`.
 Attribute validation also runs in C through `Library.ValidateAttributes`; callers
@@ -876,3 +878,18 @@ routing execute in C. Go guests do not load a native library.
 source loading for a caller-selected host. The inference bridge's `Open`
 uses the native host too. Consumers must provision the native library and
 update these helpers before adopting the new module versions.
+
+### Compatibility cleanup
+
+The unused `engine/ledger` packages and `engine/plugin/host/interop` forwarding
+package are removed. Import shared records and routes from `core/ledger` and
+`core/plugin/interop` directly. Module roots and release tags are unchanged.
+
+Ext now uses only its current home and package layout: old CTX home directories,
+`EXT_INFERENCE_PACKAGE_ROOT`, legacy package/trust files and `graph.db` are not
+imported. Existing files are left untouched. Reinstall reviewed packages and
+approve their digests explicitly in the current store.
+
+The default `cgoengine/plugin` package store, digest and trust operations execute
+in C through the shared-library interface. Linked cgo uses the same C engine.
+The Go reference store adapter exists only in conformance tests.

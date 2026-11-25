@@ -9,7 +9,8 @@ Use `Default()` for the configured engine, or open a shared library with
 `cengine/library.Open` and pass it to `Bind`. `Library.Open` accepts the shared
 `engine.Options` model and a Go transport; `Library.OpenProcess` lets C launch
 the guest. Close sessions and registries when finished. Installed packages use
-`cengine/plugin/host`.
+`cengine/plugin/host`. `Library.Objects()` exposes the described C library
+interface, including package-store and trust operations.
 
 The default loader checks `EXT_PLUGIN_LIBRARY`, an embedded library provider,
 and `ext-lib` beside the executable. A no-cgo Go build still needs the native

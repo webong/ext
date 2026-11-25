@@ -124,6 +124,13 @@ self_contained = "true"
 
 	if runtime.GOOS != "windows" {
 		t.Run("nested-adapter-snapshots", func(t *testing.T) {
+			nativeBin := t.TempDir()
+			tool := filepath.Join(nativeBin, "scopefixture")
+			if err := os.WriteFile(tool, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", nativeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
 			for _, name := range []string{"snapshot_leaf", "snapshot_outer", "snapshot_browser"} {
 				dir := t.TempDir()
 				manifest := `api_version = "2.0"
@@ -136,6 +143,10 @@ share_spaces = "credential"
 selectable = "false"
 self_contained = "true"
 `
+				if name == "snapshot_outer" {
+					manifest = strings.Replace(manifest, `capabilities = "validate,doctor,share"`, `capabilities = "validate,doctor,share,run"`, 1)
+					manifest += "computer_commands = \"scopefixture\"\n"
+				}
 				if name != "snapshot_leaf" {
 					manifest += "dependencies_" + runtime.GOOS + " = \"credential:snapshot_leaf@2.0\"\n"
 				}
@@ -152,7 +163,7 @@ printf '%s\n' "$0" >> "$EXT_HOME/snapshot-paths"
 mkdir "$EXT_HOME/.package-write.lock"
 rmdir "$EXT_HOME/.package-write.lock"
 `
-				script += "printf nested-value\n"
+				script += "test \"${EXT_SNAPSHOT_LEAF_SELECTOR-}\" = fixture || exit 9\nprintf nested-value\n"
 				if err := adapter.WriteKeyValueManifest(dir, manifest); err != nil {
 					t.Fatal(err)
 				}

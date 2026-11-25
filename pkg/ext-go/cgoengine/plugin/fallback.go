@@ -6,23 +6,21 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	native "github.com/webong/ext/pkg/ext-go/cengine/plugin"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/interop"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema"
 	"strings"
 )
 
-// This file is the pure-Go build of the engine API: the same functions and
-// behavior as the C engine build, served by pkg/ext-go, for programs built
-// without cgo, without the ext_cengine tag, or for a platform the C engine does
-// not support.
+// The default host uses the canonical C engine through purego. Guest authoring
+// and the remaining package helpers retain their language-native APIs.
 
 // CEngine reports whether this build runs on the shared C engine.
-const CEngine = false
+const CEngine = true
 
 // PackageStore is the package store of the pure-Go engine in this build; the C engine build serves
 // the same methods from the C store.
@@ -103,64 +101,34 @@ func GuestFromRegistry(r *author.Registry, opts author.Options) (*Guest, error) 
 	return &Guest{g}, nil
 }
 
-// Session is one admitted connection to a plugin: handshake, verification,
-// authorization, calls and draining.
-type Session struct {
-	*plugin.Session
-	proc *process.Process
-}
+// Session is the canonical C host reached through the shared-library driver.
+type Session struct{ *native.Session }
 
-// Open verifies, connects and handshakes with the plugin options supplies.
 func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Session, error) {
-	s, err := plugin.Open(ctx, d, options)
+	lib, err := native.Default()
 	if err != nil {
 		return nil, err
 	}
-	return &Session{Session: s}, nil
+	session, err := lib.Open(ctx, d, options)
+	if err != nil {
+		return nil, err
+	}
+	return &Session{session}, nil
 }
-
-// OpenProcess starts the launch as a child process and opens a session over its
-// stdin and stdout. options.Connect is unused.
 func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions, options plugin.Options) (*Session, error) {
 	return openProcess(ctx, d, launch, options, &Session{})
 }
-
-// openProcess opens result; a registry names result in its handler before the
-// session exists.
 func openProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions, options plugin.Options, result *Session) (*Session, error) {
-	if launch.StderrBytes < 0 {
-		return nil, plugin.ErrInvalid
-	}
-	connect := options
-	connect.Connect = func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
-		proc, err := process.Start(ctx, process.Command{
-			Path:        launch.Executable,
-			Args:        launch.Arguments,
-			Dir:         launch.Directory,
-			Env:         launch.Environment,
-			StderrBytes: launch.StderrBytes,
-		})
-		if err != nil {
-			return nil, err
-		}
-		result.proc = proc
-		return proc, nil
-	}
-	s, err := plugin.Open(ctx, d, connect)
+	lib, err := native.Default()
 	if err != nil {
 		return nil, err
 	}
-	result.Session = s
-	return result, nil
-}
-
-// Stderr returns the retained, bounded and possibly truncated stderr of a
-// session opened with OpenProcess. Treat it as untrusted text.
-func (s *Session) Stderr() string {
-	if s.proc == nil {
-		return ""
+	session, err := lib.OpenProcess(ctx, d, native.Launch{Executable: launch.Executable, Arguments: launch.Arguments, Environment: launch.Environment, Directory: launch.Directory, StderrBytes: launch.StderrBytes}, options)
+	if err != nil {
+		return nil, err
 	}
-	return s.proc.Stderr()
+	result.Session = session
+	return result, nil
 }
 
 // SHA256 returns the SHA-256 digest of input.

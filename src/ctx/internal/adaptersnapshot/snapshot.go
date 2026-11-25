@@ -64,9 +64,24 @@ func Prepare(ctx context.Context, owner *adapter.Store, candidate *adapter.Adapt
 	if err != nil {
 		return fail(err)
 	}
-	installed, err := packages.List()
+	installed, problems, err := packages.ListUnverified()
 	if err != nil {
 		return fail(err)
+	}
+	// An explicitly configured legacy adapter home keeps its trust file beside
+	// packages. Only that exact regular file is excluded from the package inventory.
+	for _, problem := range problems {
+		info, statErr := os.Lstat(problem.Directory)
+		if filepath.Clean(problem.Directory) != filepath.Clean(owner.TrustFile) || statErr != nil || !info.Mode().IsRegular() {
+			return fail(problem.Err)
+		}
+	}
+	for i, p := range installed {
+		verified, err := packages.Load(p.Manifest.Name())
+		if err != nil {
+			return fail(err)
+		}
+		installed[i] = verified
 	}
 	manifests := make([]packagekit.Manifest, len(installed))
 	for i, p := range installed {

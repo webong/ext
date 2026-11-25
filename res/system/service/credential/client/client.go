@@ -5,6 +5,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -68,11 +69,30 @@ func GetDeclaredWithEnv(ctx context.Context, space, item string, extra map[strin
 		command.Env = os.Environ()
 		for key, value := range extra {
 			if !validEnvironment.MatchString(key) || key == "EXT_EXECUTABLE" || key == "EXT_PRODUCT_PREFIX" ||
-				strings.HasPrefix(key, "EXT_DEPENDENCY_") || strings.ContainsRune(value, 0) {
+				strings.HasPrefix(key, "EXT_DEPENDENCY_") || strings.HasPrefix(key, "EXT_SCOPE_") || strings.ContainsRune(value, 0) {
 				return nil, errors.New("invalid credential lookup environment")
 			}
 			command.Env = append(command.Env, key+"="+value)
 		}
+	}
+	// Explicit per-call selector settings travel through the authenticated broker.
+	// Never inherit settings from a previous nested call.
+	if os.Getenv("EXT_SCOPE_ADDR") != "" {
+		if command.Env == nil {
+			command.Env = os.Environ()
+		}
+		env := make([]string, 0, len(command.Env)+1)
+		for _, value := range command.Env {
+			key, _, _ := strings.Cut(value, "=")
+			if !strings.EqualFold(key, "EXT_SCOPE_SETTINGS") {
+				env = append(env, value)
+			}
+		}
+		settings, err := json.Marshal(extra)
+		if err != nil {
+			return nil, err
+		}
+		command.Env = append(env, "EXT_SCOPE_SETTINGS="+string(settings))
 	}
 	var output boundedOutput
 	command.Stdout = &output

@@ -1,9 +1,7 @@
-// Package plugin is the Go entry point to the ext plugin engine. One API, two
-// builds: with the ext_cengine tag and cgo (Linux, macOS, Windows with
-// MinGW-w64) the contract validation, sessions, guests, package integrity and
-// process launch run in the shared C engine in lib/plugin; in any other build
-// the same API is served by the pure-Go implementation in this module, so
-// CGO_ENABLED=0 programs keep working. CEngine reports which build this is.
+// Package plugin is the Go entry point to the ext plugin engine. Hosts use
+// canonical C sessions: linked C with ext_cengine and cgo, or the shared library
+// through purego otherwise. No-cgo hosts require that library at runtime.
+// Guest authoring remains language-native in the default build.
 //
 // The data model (descriptors, requests, responses, errors, backends) is
 // defined in pkg/ext-go/engine and re-exported here so a program imports this package alone.

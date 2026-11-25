@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host"
+	"github.com/webong/ext/pkg/ext-go/cengine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 )
 

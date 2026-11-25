@@ -7,3 +7,5 @@ require github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0
 require github.com/webong/ext/pkg/ext-go/engine v0.2.0 // indirect
 
 require github.com/webong/ext/pkg/ext-go/core v0.1.0 // indirect
+
+require github.com/webong/ext/pkg/ext-go/cengine v0.1.0 // indirect

@@ -32,8 +32,12 @@ typedef struct waiter {
   size_t payload_len;
 } waiter;
 
+typedef struct registry_target {struct registry_target *next; char *name, *version; void *token;} registry_target;
 struct ext_interface_host {
   ext_plugin_host *host;
+  int registry_only;
+  void *registry_parent;
+  registry_target *registered;
   ext_interface_host *event_sink;
   yyjson_val *graph_consumer, *graph_routes;
   ext_plugin_registry *registry;
@@ -110,9 +114,6 @@ static void notify_tagged(ext_interface_host *h, const char *kind, const char *t
     push(h, 0, kind, tag, data, len);
   pthread_mutex_unlock(&h->m);
 }
-static void notify(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len) {
-  notify_tagged(h, kind, NULL, data, len);
-}
 
 /* A call's tag is at most 64 of [A-Za-z0-9._:-], so it goes into an event as it is. */
 static int tag_ok(const char *t) {
@@ -128,8 +129,8 @@ static int tag_ok(const char *t) {
 
 /* ask queues an event and waits for its answer, at most timeout_ms (0: the host's event timeout).
  * It returns 1 when answered, with the waiter filled in; 0 when not answered in time or closing. */
-static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len, uint32_t timeout_ms,
-               waiter *out) {
+static int ask_cancel(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len, uint32_t timeout_ms,
+               const ext_plugin_cancel *cancel, const char *tag, waiter *out) {
   int64_t limit = h->event_timeout_ms;
   if (timeout_ms && timeout_ms < limit)
     limit = timeout_ms;
@@ -141,13 +142,13 @@ static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, siz
     return 0;
   }
   out->ticket = ++h->next_ticket;
-  if (!push(h, out->ticket, kind, NULL, data, len)) {
+  if (!push(h, out->ticket, kind, tag, data, len)) {
     pthread_mutex_unlock(&h->m);
     return 0;
   }
   out->next = h->waiters;
   h->waiters = out;
-  while (!out->done && !h->closing) {
+  while (!out->done && !h->closing && !ext_plugin_cancel_is_signaled(cancel)) {
     int64_t left = deadline - mono_ms();
     if (left <= 0)
       break;
@@ -162,6 +163,47 @@ static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, siz
   pthread_mutex_unlock(&h->m);
   return answered;
 }
+
+static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len, uint32_t timeout_ms, waiter *out) {
+  return ask_cancel(h, kind, data, len, timeout_ms, NULL, NULL, out);
+}
+
+/* External transports execute in the binding. The C host owns the protocol,
+ * admission and lifecycle; no foreign callback pointer crosses the ABI. */
+static ext_plugin_status event_exchange(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len,
+                                        const ext_plugin_call_options *options, ext_plugin_emit emit, void *context) {
+  waiter w;
+  int answered = ask_cancel(h, kind, data, len, options->timeout_ms, options->cancel, options->value, &w);
+  ext_plugin_status rc;
+  if (ext_plugin_cancel_is_signaled(options->cancel)) rc = EXT_PLUGIN_CANCELED;
+  else if (!answered) rc = EXT_PLUGIN_TIMEOUT;
+  else if (w.is_error || !w.payload) {
+    rc = EXT_PLUGIN_IO;
+    yyjson_doc *doc = w.payload ? yyjson_read(w.payload,w.payload_len,0) : NULL;
+    const char *code = doc ? yyjson_get_str(yyjson_obj_get(yyjson_doc_get_root(doc),"code")) : NULL;
+    if (code && !strcmp(code,"timeout")) rc=EXT_PLUGIN_TIMEOUT;
+    else if (code && !strcmp(code,"canceled")) rc=EXT_PLUGIN_CANCELED;
+    else if (code && !strcmp(code,"unsupported")) rc=EXT_PLUGIN_UNSUPPORTED;
+    if(doc)yyjson_doc_free(doc);
+  }
+  else rc = emit(context, (const uint8_t *)w.payload, w.payload_len);
+  free(w.payload);
+  return rc;
+}
+static ext_plugin_status event_connect(void *user, const ext_plugin_call_options *options, ext_plugin_emit emit, void *context) {
+  return event_exchange(user, "backend_connect", (const uint8_t *)"null", 4, options, emit, context);
+}
+static ext_plugin_status event_invoke(void *user, const uint8_t *request, size_t len,
+                                     const ext_plugin_call_options *options, ext_plugin_emit emit, void *context) {
+  return event_exchange(user, "backend_invoke", request, len, options, emit, context);
+}
+static void event_close(void *user) {
+  ext_interface_host *h = user;
+  pthread_mutex_lock(&h->m);
+  push(h, 0, "backend_close", NULL, NULL, 0);
+  pthread_mutex_unlock(&h->m);
+}
+static void event_release(void *user) { (void)user; }
 
 /* ---- the callbacks the engine calls ---- */
 
@@ -193,9 +235,16 @@ static int32_t authorize_cb(void *user, const uint8_t *json, size_t len) {
   ext_interface_host *h = user;
   return policy(h, h->authorize_event, "authorize", json, len);
 }
+static int32_t authorize_context_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
+  ext_interface_host *h = user;
+  if (!h->authorize_event) return 0;
+  waiter w;
+  int answered = ask_cancel(h, "authorize", json, len, o->timeout_ms, o->cancel, o->value, &w);
+  free(w.payload);
+  return answered && w.allow ? 0 : 1;
+}
 static void observe_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
-  (void)o;
-  notify(user, "observe", json, len);
+  notify_tagged(user, "observe", o ? o->value : NULL, json, len);
 }
 /* The progress of one call, with the call's tag. */
 typedef struct {
@@ -231,14 +280,14 @@ static int32_t reverse_authorize_cb(void *user, const ext_plugin_call_options *o
     json = (const uint8_t *)envelope;
   }
   waiter w;
-  int answered = ask(h->event_sink ? h->event_sink : h, "reverse_authorize", json, size, o ? o->timeout_ms : 0, &w);
+  int answered = ask_cancel(h->event_sink ? h->event_sink : h, "reverse_authorize", json, size, o ? o->timeout_ms : 0, o ? o->cancel : NULL, !h->event_sink && o ? o->value : NULL, &w);
   free(envelope); free(w.payload);
   return answered && w.allow ? 0 : 1;
 }
 static ext_plugin_status reverse_cb(void *user, const ext_plugin_call_options *o, const uint8_t *request,
                                     size_t len, ext_plugin_reverse_emit emit, void *sink) {
   waiter w;
-  if (!ask(user, "reverse", request, len, o ? o->timeout_ms : 0, &w)) {
+  if (!ask_cancel(user, "reverse", request, len, o ? o->timeout_ms : 0, o ? o->cancel : NULL, o ? o->value : NULL, &w)) {
     free(w.payload);
     return EXT_PLUGIN_TIMEOUT;
   }
@@ -314,6 +363,7 @@ static void free_routes(ext_interface_host *h) {
   if (h->registry) ext_plugin_registry_destroy(h->registry);
   for (size_t i = 0; i < h->target_count; i++) ext_interface_host_release(h->targets[i]);
   free(h->targets);
+  if (h->registry_parent) ext_interface_host_release(h->registry_parent);
 }
 
 static ext_plugin_status bind_routes(ext_interface_host *h, yyjson_val *config,
@@ -370,6 +420,13 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
   size_t descriptor_len = 0;
   const char **arguments = NULL, **environment = NULL;
   size_t argument_count = 0, environment_count = 0;
+  const char *object = yyjson_get_str(yyjson_obj_get(config,"object"));
+  if (object && !strcmp(object,"registry")) {
+    h->registry_only = 1;
+    s = ext_plugin_registry_create(&h->registry);
+    if (s) goto fail;
+    *out = h; return EXT_PLUGIN_OK;
+  }
   yyjson_val *backend = yyjson_obj_get(config, "backend");
   const char *kind = yyjson_get_str(yyjson_obj_get(backend, "kind"));
   if (!mode_of(config, "verify", &h->verify_event) || !mode_of(config, "authorize", &h->authorize_event) ||
@@ -413,6 +470,11 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
     launch.environment = environment, launch.environment_count = environment_count;
     ext_plugin_backend_options b = {sizeof b, EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch, sizeof launch};
     s = ext_plugin_host_create(&options, &b, &h->host);
+  } else if (!strcmp(kind, "events")) {
+    ext_plugin_backend_extension_context ext = {sizeof ext, EXT_PLUGIN_BACKEND_CONCURRENT | EXT_PLUGIN_BACKEND_FRAMES,
+      h, event_connect, event_invoke, event_close, event_release};
+    ext_plugin_backend_options b = {sizeof b, EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &ext, sizeof ext};
+    s = ext_plugin_host_create(&options, &b, &h->host);
   } else if (!strcmp(kind, "shared_library")) {
     ext_plugin_shared_library_options lo = {sizeof lo, yyjson_get_str(yyjson_obj_get(backend, "path"))};
     ext_plugin_backend_extension_context ext;
@@ -428,13 +490,14 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
   }
   if (s)
     goto fail;
-  if (yyjson_get_bool(yyjson_obj_get(config, "observe"))) {
-    ext_plugin_host_hooks hooks = {sizeof hooks, h, NULL, NULL, observe_cb};
+  {
+    ext_plugin_host_hooks hooks = {sizeof hooks, h, NULL, authorize_context_cb,
+      yyjson_get_bool(yyjson_obj_get(config, "observe")) ? observe_cb : NULL};
     if ((s = ext_plugin_host_set_hooks(h->host, &hooks)))
       goto fail;
   }
   yyjson_val *services = yyjson_obj_get(config, "services");
-  if (services || yyjson_obj_get(config, "routes")) {
+  if (services || yyjson_obj_get(config, "routes") || yyjson_obj_get(config,"registry")) {
     ext_plugin_host_services sv = {sizeof sv, h, reverse_authorize_cb, reverse_cb, 0, 0, 0, NULL};
     if ((services && !yyjson_is_obj(services)) || !uint32_of(services, "timeout_ms", &sv.timeout_ms) ||
         !uint32_of(services, "max_payload_bytes", &sv.max_payload_bytes) ||
@@ -442,7 +505,14 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
       s = EXT_PLUGIN_INVALID;
       goto fail;
     }
+    if (yyjson_obj_get(config,"registry")) {
+      ext_interface_host *owner = NULL;
+      s = ext_interface_host_borrow(yyjson_obj_get(config,"registry"),&owner,&h->registry_parent);
+      if (!s && !owner->registry_only) s=EXT_PLUGIN_INVALID;
+      if (!s) {sv.handle=NULL;s=ext_plugin_registry_attach(owner->registry,h->host,&sv);}
+    } else {
     s = yyjson_obj_get(config, "routes") ? bind_routes(h, config, &sv) : ext_plugin_host_set_services(h->host, &sv);
+    }
     if (s)
       goto fail;
   }
@@ -455,11 +525,7 @@ fail:
   free(descriptor);
   free(arguments);
   free(environment);
-  if (h->host) ext_plugin_host_destroy(h->host);
-  free_routes(h);
-  pthread_cond_destroy(&h->c);
-  pthread_mutex_destroy(&h->m);
-  free(h);
+  ext_interface_host_free(h);
   return s;
 }
 
@@ -468,6 +534,17 @@ void ext_interface_host_shutdown(ext_interface_host *h) {
   h->closing = 1;
   pthread_cond_broadcast(&h->c);
   pthread_mutex_unlock(&h->m);
+  if (h->registry_only) {
+    pthread_mutex_lock(&h->m);
+    registry_target *entry = h->registered; h->registered = NULL;
+    while (entry) {
+      registry_target *next = entry->next;
+      ext_plugin_registry_unregister(h->registry,entry->name,entry->version);
+      ext_interface_host_release(entry->token);
+      free(entry->name);free(entry->version);free(entry);entry=next;
+    }
+    pthread_mutex_unlock(&h->m);
+  }
   if (h->host) ext_plugin_host_close(h->host);
 }
 
@@ -599,12 +676,45 @@ static ext_plugin_status answer(ext_interface_host *h, yyjson_val *in, char **ou
 
 ext_plugin_status ext_interface_host_call(ext_interface_host *h, const char *op, yyjson_val *in, char **out,
                                           size_t *out_len) {
+  if (h->registry_only) {
+    const char *name=yyjson_get_str(yyjson_obj_get(in,"name")), *version=yyjson_get_str(yyjson_obj_get(in,"version"));
+    if (!name || !version) return EXT_PLUGIN_INVALID;
+    pthread_mutex_lock(&h->m);
+    ext_plugin_status result=EXT_PLUGIN_UNSUPPORTED;
+    if (!strcmp(op,"register")) {
+      ext_interface_host *target=NULL; void *token=NULL;
+      result=ext_interface_host_borrow(yyjson_obj_get(in,"target"),&target,&token);
+      if (!result && (!target->host || target->registry_only)) result=EXT_PLUGIN_INVALID;
+      registry_target *entry=NULL;
+      if (!result) {entry=calloc(1,sizeof *entry);if (!entry)result=EXT_PLUGIN_NOMEM;}
+      if (!result) {entry->name=strdup(name);entry->version=strdup(version);if(!entry->name||!entry->version)result=EXT_PLUGIN_NOMEM;}
+      if (!result) result=ext_plugin_registry_register(h->registry,name,version,target->host);
+      if (!result) {entry->token=token;entry->next=h->registered;h->registered=entry;}
+      else {if(token)ext_interface_host_release(token);if(entry){free(entry->name);free(entry->version);free(entry);}}
+    } else if (!strcmp(op,"unregister")) {
+      result=ext_plugin_registry_unregister(h->registry,name,version);
+      if (!result) for(registry_target **p=&h->registered;*p;p=&(*p)->next) {
+        registry_target *entry=*p;
+        if(!strcmp(entry->name,name)&&!strcmp(entry->version,version)) {
+          *p=entry->next;ext_interface_host_release(entry->token);free(entry->name);free(entry->version);free(entry);break;
+        }
+      }
+    } else if (!strcmp(op,"route")) {
+      ext_plugin_registry_edge edge={sizeof edge,name,version,yyjson_get_str(yyjson_obj_get(in,"operation")),
+        yyjson_get_str(yyjson_obj_get(in,"target_name")),yyjson_get_str(yyjson_obj_get(in,"target_version")),yyjson_get_str(yyjson_obj_get(in,"target_operation"))};
+      result=ext_plugin_registry_route(h->registry,&edge);
+    }
+    pthread_mutex_unlock(&h->m);
+    return result ? result : literal("null",out,out_len);
+  }
   uint32_t timeout = 30000;
   if (!uint32_of(in, "timeout_ms", &timeout))
     return EXT_PLUGIN_INVALID;
   if (!timeout)
     timeout = 1;
-  ext_plugin_call_options o = {sizeof o, timeout, NULL, NULL};
+  const char *call_tag = yyjson_get_str(yyjson_obj_get(in, "tag"));
+  if (call_tag && !tag_ok(call_tag)) return EXT_PLUGIN_INVALID;
+  ext_plugin_call_options o = {sizeof o, timeout, NULL, (void *)call_tag};
   if (!strcmp(op, "events"))
     return take_events(h, in, out, out_len);
   if (!strcmp(op, "answer"))
@@ -650,6 +760,25 @@ ext_plugin_status ext_interface_host_call(ext_interface_host *h, const char *op,
       return EXT_PLUGIN_NOMEM;
     *out = json, *out_len = len;
     return EXT_PLUGIN_OK;
+  }
+  if (!strcmp(op, "backend_progress") || !strcmp(op, "backend_reverse")) {
+    size_t len = 0;
+    char *frame = written(yyjson_obj_get(in, "frame"), &len);
+    if (!frame) return EXT_PLUGIN_INVALID;
+    ext_plugin_status s;
+    ext_plugin_buffer b = {0};
+    if (!strcmp(op, "backend_progress")) {
+      int delivered = 0;
+      s = ext_plugin_host_backend_progress(h->host, (const uint8_t *)frame, len, &delivered);
+      free(frame);
+      return s ? s : literal(delivered ? "true" : "false", out, out_len);
+    }
+    ext_plugin_reverse_ticket *ticket = NULL;
+    s = ext_plugin_host_backend_reverse_admit(h->host, (const uint8_t *)frame, len, &ticket, &b);
+    free(frame);
+    if (!s && ticket) s = ext_plugin_host_backend_reverse_run(h->host, ticket, o.cancel, &b);
+    if (s) { ext_plugin_buffer_free(&b); return s; }
+    return hand_out(&b, out, out_len);
   }
   if (!strcmp(op, "invoke") || !strcmp(op, "call")) {
     size_t n = 0;

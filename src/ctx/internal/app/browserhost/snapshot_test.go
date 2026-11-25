@@ -147,6 +147,22 @@ func TestBrowserInvocationUsesDeclaredDependencies(t *testing.T) {
 			var dependencies []string
 			if declared {
 				dependencies = []string{"credential:vault@2.0"}
+				source := t.TempDir()
+				manifest := "api_version = \"2.0\"\nname = \"vault\"\nruntime = \"computer\"\nsurfaces = \"shell\"\nexecutable = \"guest\"\ncapabilities = \"share,validate,doctor\"\nshare_spaces = \"credential\"\nselectable = \"false\"\nself_contained = \"true\"\n"
+				if err := adapter.WriteKeyValueManifest(source, manifest); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(source, "guest"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				dependency, err := owner.Install(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := owner.Trust(dependency); err != nil {
+					t.Fatal(err)
+				}
+
 			}
 			script := `printf '%s|%s|%s' "${EXT_DEPENDENCY_CREDENTIAL-}" "${ext_dependency_network-}" "${EXT_DEPENDENCY_OTHER-}"`
 			installQueryFixture(t, owner, "fixture", 0, false, script, false, dependencies...)
@@ -163,5 +179,22 @@ func TestBrowserInvocationUsesDeclaredDependencies(t *testing.T) {
 				t.Fatalf("dependency handoff: %q %v; want %q", out, err, want)
 			}
 		})
+	}
+}
+
+func TestBrowserSnapshotRejectsUnexpectedFile(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "adapters")
+	owner := adapter.NewStore(home)
+	installQueryFixture(t, owner, "fixture", 0, false, "printf should-not-run", false)
+	sources, _, err := (Provider{AdapterHome: home}).Sources(context.Background(), browser.Options{Sources: []string{"fixture:default"}})
+	if err != nil || len(sources) != 1 {
+		t.Fatalf("sources: %v %v", sources, err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "unexpected"), []byte("not a package"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := sources[0].Invoke(context.Background(), "share", []string{"cookie", "query"}, nil)
+	if err == nil || len(out) != 0 {
+		t.Fatalf("unexpected file admitted: %q %v", out, err)
 	}
 }

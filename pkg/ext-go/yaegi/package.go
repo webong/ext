@@ -10,7 +10,7 @@ import (
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
-// OpenPackage opens an installed package's go-source entrypoint as a session.
+// PackageOptions prepares verified source loading for a caller-selected host.
 // entrypoint names it; empty selects the first entrypoint whose runtime is
 // Runtime. The entrypoint's artifact must be a tree.
 //
@@ -19,10 +19,10 @@ import (
 // read once and held to the artifact's digest. session.Connect is replaced.
 // The caller still owns package trust and operation authorization
 // (session.Authorize).
-func OpenPackage(ctx context.Context, installed store.Installed, entrypoint string, options Options, session plugin.Options) (*plugin.Session, error) {
+func PackageOptions(installed store.Installed, entrypoint string, options Options, session plugin.Options) (plugin.Options, error) {
 	artifact, err := selectSource(installed.Manifest, entrypoint)
 	if err != nil {
-		return nil, err
+		return plugin.Options{}, err
 	}
 	verify := session.Verify
 	session.Verify = func(ctx context.Context, d plugin.Descriptor) error {
@@ -41,7 +41,7 @@ func OpenPackage(ctx context.Context, installed store.Installed, entrypoint stri
 		}
 		return Open(ctx, dir, artifact.SHA256, options)
 	}
-	return plugin.Open(ctx, installed.Manifest.Descriptor, session)
+	return session, nil
 }
 
 func selectSource(m packagekit.Manifest, name string) (packagekit.Artifact, error) {

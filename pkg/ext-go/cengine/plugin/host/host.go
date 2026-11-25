@@ -1,7 +1,8 @@
 // Package host opens an installed package as a running plugin and calls it by
-// dotted method name. It composes store (verified content), process (launch)
-// and the plugin session (handshake, admission); it chooses no install
-// location and grants no authority beyond the descriptor the caller reviewed.
+// dotted method name. It composes the store (verified content), the C engine's
+// process runtime (launch, stderr capture, drain) and its session (handshake,
+// admission); it chooses no install location and grants no authority beyond the
+// descriptor the caller reviewed.
 package host
 
 import (
@@ -9,12 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-
+	native "github.com/webong/ext/pkg/ext-go/cengine/plugin"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
 // DefaultTimeout bounds handshake and calls without an earlier caller deadline.
@@ -34,10 +36,11 @@ type Options struct {
 	Verify func(context.Context) error
 	// Launch overrides how the package starts, for example to run source files
 	// under a runtime the consumer manages (Path is that runtime, Args begin
-	// with the script). Dir defaults to the package directory, not the caller's
-	// working directory: a plugin that runs commands for the user needs Dir set
-	// explicitly. When nil, the
-	// package's first entrypoint artifact is started with no arguments.
+	// with the script). When nil, the package's first entrypoint artifact is
+	// started with no arguments. Dir defaults to the package directory, not the
+	// caller's working directory: a plugin that runs commands for the user needs
+	// Dir set explicitly. This is the same type contract/host takes; the engine
+	// does not use KillGrace.
 	Launch *process.Command
 	// Authorize runs before every call. When nil, any operation the reviewed
 	// descriptor declares is allowed.
@@ -61,10 +64,9 @@ type Options struct {
 	Registry *Registry
 }
 
-// Process is one plugin process behind a plugin session.
+// Process is one plugin process behind a C engine session.
 type Process struct {
-	session *plugin.Session
-	proc    *process.Process
+	session *native.Session
 }
 
 // Open re-verifies the installed package, starts it and completes the
@@ -96,6 +98,14 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 		return nil, err
 	}
 	launch.Env = env
+	path, err := filepath.Abs(launch.Path)
+	if err != nil {
+		return nil, err
+	}
+	dir, err := filepath.Abs(launch.Dir)
+	if err != nil {
+		return nil, err
+	}
 	authorize := options.Authorize
 	if authorize == nil {
 		authorize = func(context.Context, plugin.Request) error { return nil }
@@ -104,14 +114,18 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 	if timeout == 0 {
 		timeout = DefaultTimeout
 	}
-	result := &Process{}
-	reverse := options.Reverse
-	if options.Registry != nil {
-		if reverse, err = options.Registry.reverseOptions(result, reverse); err != nil {
-			return nil, err
-		}
+	lib, err := native.Default()
+	if err != nil {
+		return nil, err
 	}
-	session, err := plugin.Open(ctx, installed.Manifest.Descriptor, plugin.Options{
+	open := lib.OpenProcess
+	if options.Registry != nil {
+		if options.Registry.err != nil {
+			return nil, options.Registry.err
+		}
+		open = options.Registry.r.OpenProcess
+	}
+	session, err := open(ctx, installed.Manifest.Descriptor, native.Launch{Executable: path, Arguments: launch.Args, Environment: launch.Env, Directory: dir, StderrBytes: launch.StderrBytes}, plugin.Options{
 		Verify: func(ctx context.Context, _ plugin.Descriptor) error {
 			if err := installed.Verify(); err != nil {
 				return err
@@ -121,23 +135,14 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 			}
 			return nil
 		},
-		Connect: func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
-			proc, err := process.Start(ctx, launch)
-			if err != nil {
-				return nil, err
-			}
-			result.proc = proc
-			return proc, nil
-		},
 		Authorize: authorize,
 		Timeout:   timeout,
-		Reverse:   reverse,
+		Reverse:   options.Reverse,
 	})
 	if err != nil {
 		return nil, err
 	}
-	result.session = session
-	return result, nil
+	return &Process{session: session}, nil
 }
 
 // Done is closed once the plugin session has ended, whether by Close, an abort or
@@ -183,12 +188,7 @@ func (p *Process) CallProgress(ctx context.Context, method string, params any, r
 }
 
 // Stderr returns bounded, untrusted diagnostic output from the child.
-func (p *Process) Stderr() string {
-	if p.proc == nil {
-		return ""
-	}
-	return p.proc.Stderr()
-}
+func (p *Process) Stderr() string { return p.session.Stderr() }
 
 // Close drains admitted calls for DrainTimeout, then aborts the child.
 func (p *Process) Close() error {

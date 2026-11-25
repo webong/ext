@@ -23,11 +23,13 @@ import (
 
 const AddressEnv = "EXT_SCOPE_ADDR"
 const TokenEnv = "EXT_SCOPE_TOKEN"
+const SettingsEnv = "EXT_SCOPE_SETTINGS"
 const MaxBytes = 1 << 20
 
 type Request struct {
-	Args  []string `json:"args"`
-	Input []byte   `json:"input,omitempty"`
+	Args     []string          `json:"args"`
+	Input    []byte            `json:"input,omitempty"`
+	Settings map[string]string `json:"settings,omitempty"`
 }
 type Result struct {
 	Exit   int    `json:"exit"`
@@ -268,7 +270,16 @@ func Relay(ctx context.Context, args []string, input io.Reader, out, stderr io.W
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	_ = conn.SetDeadline(time.Now().Add(35 * time.Second))
-	if err := json.NewEncoder(conn).Encode(map[string]any{"token": token, "request": Request{Args: args, Input: data}}); err != nil {
+	request := Request{Args: args, Input: data}
+	if raw := os.Getenv(SettingsEnv); raw != "" {
+		if len(raw) > MaxBytes {
+			return 1, errors.New("broker settings exceed limit")
+		}
+		if err := json.Unmarshal([]byte(raw), &request.Settings); err != nil {
+			return 1, fmt.Errorf("invalid broker settings: %w", err)
+		}
+	}
+	if err := json.NewEncoder(conn).Encode(map[string]any{"token": token, "request": request}); err != nil {
 		return 1, err
 	}
 	var result Result
@@ -292,7 +303,7 @@ func (s *Scope) WithEnvironment(values []string, id plugin.Identity) []string {
 	out := make([]string, 0, len(values)+2)
 	for _, value := range values {
 		key, _, _ := strings.Cut(value, "=")
-		if !strings.EqualFold(key, AddressEnv) && !strings.EqualFold(key, TokenEnv) {
+		if !strings.EqualFold(key, AddressEnv) && !strings.EqualFold(key, TokenEnv) && !strings.EqualFold(key, SettingsEnv) {
 			out = append(out, value)
 		}
 	}

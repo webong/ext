@@ -42,13 +42,6 @@ func New(session Session) (*Relay, error) {
 	return &Relay{session: session}, nil
 }
 
-func Open(ctx context.Context, selected plugin.Descriptor, options plugin.Options) (*Relay, error) {
-	s, err := plugin.Open(ctx, selected, options)
-	if err != nil {
-		return nil, err
-	}
-	return New(s)
-}
 func (r *Relay) Handshake(ctx context.Context) (plugin.Descriptor, error) {
 	if err := ctx.Err(); err != nil {
 		return plugin.Descriptor{}, err

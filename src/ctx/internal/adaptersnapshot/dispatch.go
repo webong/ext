@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/webong/ext/src/ctx/internal/launch"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,11 +23,7 @@ func dispatch(ctx context.Context, s *commandscope.Scope, consumer plugin.Identi
 	if len(args) > 0 && args[0] == "ctx" {
 		args = args[1:]
 	}
-	if len(args) != 4 || args[0] != "credential" || args[1] != "get" || args[3] != "--stdout" || len(request.Input) != 0 {
-		return commandscope.Result{}, plugin.ErrDenied
-	}
-	name, item, ok := strings.Cut(args[2], ":")
-	if !ok || name == "" || item == "" || len(item) > 2048 || strings.ContainsAny(item, "\x00\r\n") {
+	if len(request.Input) != 0 {
 		return commandscope.Result{}, plugin.ErrDenied
 	}
 	source, err := s.Load(consumer)
@@ -35,6 +33,26 @@ func dispatch(ctx context.Context, s *commandscope.Scope, consumer plugin.Identi
 	a, err := adapter.LoadDirectory(source.Directory)
 	if err != nil {
 		return commandscope.Result{}, err
+	}
+	if len(args) == 2 && args[0] == "real" {
+		if len(request.Settings) != 0 {
+			return commandscope.Result{}, plugin.ErrDenied
+		}
+		if !slices.Contains(a.Manifest.ComputerCommands, args[1]) {
+			return commandscope.Result{}, plugin.ErrDenied
+		}
+		path, err := launch.FindReal(args[1])
+		if err != nil {
+			return commandscope.Result{}, err
+		}
+		return commandscope.Result{Output: []byte(path + "\n")}, nil
+	}
+	if len(args) != 4 || args[0] != "credential" || args[1] != "get" || args[3] != "--stdout" {
+		return commandscope.Result{}, plugin.ErrDenied
+	}
+	name, item, ok := strings.Cut(args[2], ":")
+	if !ok || name == "" || item == "" || len(item) > 2048 || strings.ContainsAny(item, "\x00\r\n") {
+		return commandscope.Result{}, plugin.ErrDenied
 	}
 	dep, ok := a.Manifest.Dependencies["credential"]
 	if !ok || dep.Adapter != name {
@@ -65,6 +83,15 @@ func dispatch(ctx context.Context, s *commandscope.Scope, consumer plugin.Identi
 		return commandscope.Result{}, err
 	}
 	command.Env = s.WithEnvironment(adapterenv.Dependencies(adapterenv.Host(command.Env), target.Manifest.Dependencies), provider)
+	// Native selectors belong to the selected adapter's own environment namespace.
+	// Neither routing tokens nor process-loader settings can be overridden.
+	prefix := "EXT_" + strings.ToUpper(target.Manifest.Name) + "_"
+	for key, value := range request.Settings {
+		if !strings.HasPrefix(key, prefix) || strings.HasPrefix(key, "EXT_SCOPE_") || strings.HasPrefix(key, "EXT_HOST_") || strings.HasPrefix(key, "EXT_DEPENDENCY_") || strings.HasPrefix(key, "EXT_ADAPTER_") || key == "EXT_EXECUTABLE" || key == "EXT_PRODUCT_PREFIX" || key == "EXT_BIN_DIR" || strings.ContainsAny(key, "=\x00") || strings.ContainsRune(value, 0) {
+			return commandscope.Result{}, plugin.ErrDenied
+		}
+		command.Env = append(command.Env, key+"="+value)
+	}
 	command.WaitDelay = 2 * time.Second
 	output, stderr := &bounded{}, &bounded{}
 	command.Stdout, command.Stderr = output, stderr

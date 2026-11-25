@@ -38,13 +38,13 @@ const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 var pluginRequires = map[string][]string{
 	"pkg/ext-go/engine":                 {"pkg/ext-go/core"},
 	"pkg/ext-go/cgoengine":              {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
-	"pkg/ext-go/c2goengine":             {"pkg/ext-go/core", "pkg/ext-go/engine"},
+	"pkg/ext-go/c2goengine":             {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
 	"pkg/ext-go/wasm":                   {"pkg/ext-go/core", "pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":              {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":                  {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/core":                   {},
 	"pkg/ext-go/cengine":                {"pkg/ext-go/core", "pkg/ext-go/engine"},
-	"src/ctn/inference":                 {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
+	"src/ctn/inference":                 {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine", "res/int"},
 	"src/ctn/model":                     {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
 	"src/ctn/perception":                {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
 	"src/ctn/realtime":                  {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
@@ -218,7 +218,11 @@ func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
 	root := repoRoot(t)
 	for _, name := range []string{"host", "host/store"} {
-		pure := exportedAPI(t, filepath.Join(root, "pkg/ext-go/engine/plugin", name))
+		base := "pkg/ext-go/engine/plugin"
+		if name == "host" {
+			base = "pkg/ext-go/cengine/plugin"
+		}
+		pure := exportedAPI(t, filepath.Join(root, base, name))
 		engine := exportedAPI(t, filepath.Join(root, "pkg/ext-go/cgoengine/plugin", name))
 		for line := range pure {
 			if !engine[line] {
@@ -360,7 +364,7 @@ func TestSwitcherAndCSideKnowNoLibrary(t *testing.T) {
 	}
 	for dir, own := range map[string]string{"pkg/ext-go/core/driver": pluginPrefix + "/core/driver", "pkg/ext-go/cengine": pluginPrefix + "/cengine/"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
-			if walkErr == nil && entry.IsDir() && (path == filepath.Join(root, "pkg/ext-go/cengine/cguest/backend") || path == filepath.Join(root, "pkg/ext-go/cengine/cguest/guest") || path == filepath.Join(root, "pkg/ext-go/cengine/ledger")) {
+			if walkErr == nil && entry.IsDir() && (path == filepath.Join(root, "pkg/ext-go/cengine/cguest/backend") || path == filepath.Join(root, "pkg/ext-go/cengine/cguest/guest") || path == filepath.Join(root, "pkg/ext-go/cengine/ledger") || path == filepath.Join(root, "pkg/ext-go/cengine/plugin")) {
 				return filepath.SkipDir
 			}
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {

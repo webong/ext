@@ -237,7 +237,9 @@ func (o *Object) handler(e Event) Handler {
 	if o.about.Events[e.Kind].Call && e.Tag != "" {
 		o.mu.Lock()
 		defer o.mu.Unlock()
-		return o.calls[e.Tag][e.Kind]
+		if h := o.calls[e.Tag][e.Kind]; h != nil {
+			return h
+		}
 	}
 	return o.handlers[e.Kind]
 }

@@ -22,7 +22,7 @@ func open(t *testing.T, authorize func(context.Context, plugin.Request) error) *
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := bridge.Open(context.Background(), plugintest.Descriptor(), plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: authorize, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) { return inprocess.New(g) }})
+	r, err := openRelay(context.Background(), plugintest.Descriptor(), plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: authorize, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) { return inprocess.New(g) }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func (*broken) Invoke(context.Context, plugin.Request) (plugin.Response, error) 
 func (b *broken) Close() error { b.closed.Add(1); return nil }
 func TestTransportFailureIsNotDomainFailure(t *testing.T) {
 	b := &broken{}
-	r, err := bridge.Open(context.Background(), plugintest.Descriptor(), plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: allow, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) { return b, nil }})
+	r, err := openRelay(context.Background(), plugintest.Descriptor(), plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: allow, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) { return b, nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,4 +128,12 @@ func TestReadFailureIsNotCleanEOF(t *testing.T) {
 	if err := bridge.ServeJSONLine(context.Background(), readError{}, open(t, allow)); err == nil {
 		t.Fatal("read failure became clean EOF")
 	}
+}
+
+func openRelay(ctx context.Context, d plugin.Descriptor, o plugin.Options) (*bridge.Relay, error) {
+	s, err := plugin.Open(ctx, d, o)
+	if err != nil {
+		return nil, err
+	}
+	return bridge.New(s)
 }

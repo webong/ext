@@ -95,6 +95,23 @@ func describedPlugin(t *testing.T) (*library.Described, string) {
 	return d, dir
 }
 
+// A shell broker must be discoverable as an object, with an answerable dispatch event.
+func TestCommandScopeDescription(t *testing.T) {
+	d, _ := describedPlugin(t)
+	scope, ok := d.Description.Objects["command_scope"]
+	if !ok {
+		t.Fatal("command_scope is not a described object")
+	}
+	for _, op := range []string{"view", "dispatch", "events", "answer", "sequence"} {
+		if _, ok := scope.Operations[op]; !ok {
+			t.Errorf("missing scope operation %s", op)
+		}
+	}
+	if scope.Events["dispatch"].Answer != "result" {
+		t.Fatal("dispatch must accept a result answer")
+	}
+}
+
 // TestEveryDescribedOperationIsAnswered holds lib/plugin's description and its engine to each other:
 // each operation the description lists, called with an empty object, gets an answer or a code other
 // than unsupported, and an operation it does not list never reaches the library.
@@ -110,14 +127,24 @@ func TestEveryDescribedOperationIsAnswered(t *testing.T) {
 	}
 	root := t.TempDir()
 	objects := map[string]any{
-		"store":   map[string]any{"root": root},
-		"layered": map[string]any{"roots": []string{root}},
+		"store":          map[string]any{"root": root},
+		"package_writer": map[string]any{"root": t.TempDir()},
+		"layered":        map[string]any{"roots": []string{root}},
 	}
 	for kind, about := range d.Description.Objects {
 		var o *library.Object
 		switch kind {
 		case "library":
 			o = d.Library()
+		case "execution_graph", "command_scope":
+			// Valid dependency graphs are exercised by the native graph and broker
+			// acceptance tests. Empty config must reach C and be rejected there.
+			_, err := d.Open(kind, nil, nil)
+			var code *library.CodeError
+			if !errors.As(err, &code) || code.Name != "invalid" {
+				t.Fatalf("%s invalid config: %v", kind, err)
+			}
+			continue
 		case "host":
 			continue // a host's operations run a plugin: TestADescribedHost
 		default:

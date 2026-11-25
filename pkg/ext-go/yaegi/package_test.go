@@ -56,7 +56,7 @@ func install(t *testing.T) store.Installed {
 func TestOpenPackage(t *testing.T) {
 	installed := install(t)
 	verified := 0
-	session, err := yaegi.OpenPackage(context.Background(), installed, "", yaegi.Options{}, plugin.Options{
+	session, err := openPackage(context.Background(), installed, "", yaegi.Options{}, plugin.Options{
 		Verify:    func(context.Context, plugin.Descriptor) error { verified++; return nil },
 		Authorize: func(context.Context, plugin.Request) error { return nil },
 	})
@@ -80,7 +80,7 @@ func TestOpenPackage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(installed.Directory, "guest", "guest.go"), []byte("package main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err = yaegi.OpenPackage(context.Background(), installed, "main", yaegi.Options{}, plugin.Options{
+	_, err = openPackage(context.Background(), installed, "main", yaegi.Options{}, plugin.Options{
 		Verify: func(context.Context, plugin.Descriptor) error {
 			t.Fatal("caller verify ran on a changed package")
 			return nil
@@ -94,11 +94,20 @@ func TestOpenPackage(t *testing.T) {
 
 func TestOpenPackageSelectsGoSource(t *testing.T) {
 	installed := install(t)
-	if _, err := yaegi.OpenPackage(context.Background(), installed, "other", yaegi.Options{}, plugin.Options{}); !errors.Is(err, plugin.ErrNotFound) {
+	if _, err := openPackage(context.Background(), installed, "other", yaegi.Options{}, plugin.Options{}); !errors.Is(err, plugin.ErrNotFound) {
 		t.Fatalf("missing entrypoint: %v", err)
 	}
 	installed.Manifest.Entrypoints[0].Runtime = "process"
-	if _, err := yaegi.OpenPackage(context.Background(), installed, "", yaegi.Options{}, plugin.Options{}); !errors.Is(err, plugin.ErrNotFound) {
+	if _, err := openPackage(context.Background(), installed, "", yaegi.Options{}, plugin.Options{}); !errors.Is(err, plugin.ErrNotFound) {
 		t.Fatalf("no go-source entrypoint: %v", err)
 	}
+}
+
+// The fixture oracle is chosen by the test; the backend no longer owns a host.
+func openPackage(ctx context.Context, p store.Installed, entry string, o yaegi.Options, session plugin.Options) (*plugin.Session, error) {
+	opts, err := yaegi.PackageOptions(p, entry, o, session)
+	if err != nil {
+		return nil, err
+	}
+	return plugin.Open(ctx, p.Manifest.Descriptor, opts)
 }

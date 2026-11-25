@@ -52,7 +52,8 @@ static void expect(uint64_t h, const char *op, const char *in, const char *conta
 typedef struct {
   uint64_t host;
   volatile int stop, deny_authorize;
-  int verify, authorize, progress, reverse_authorize, reverse, tagged;
+  int verify, authorize, progress, reverse_authorize, reverse, tagged, connects, invokes;
+  const char *descriptor;
 } answerer;
 
 static uint64_t ticket_after(const char *p) { return strtoull(p, NULL, 10); }
@@ -71,9 +72,15 @@ static void *answer_events(void *arg) {
     for (const char *p = events; (p = strstr(p, "\"ticket\":")); p++) {
       uint64_t ticket = ticket_after(p + 9);
       const char *kind = strstr(p, "\"kind\":\"") + 8;
-      char reply[256];
+      char reply[8192], transport[4096];
       const char *body = NULL;
-      if (!strncmp(kind, "verify\"", 7))
+      if (!strncmp(kind,"backend_connect\"",16)) {
+        a->connects++;
+        snprintf(transport,sizeof transport,"\"payload\":%s",a->descriptor);body=transport;
+      } else if (!strncmp(kind,"backend_invoke\"",15)) {
+        a->invokes++;
+        body="\"payload\":{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"payload\":\"transport-answer\"}";
+      } else if (!strncmp(kind, "verify\"", 7))
         a->verify++, body = "\"allow\":true";
       else if (!strncmp(kind, "authorize\"", 10))
         a->authorize++, body = a->deny_authorize ? "\"allow\":false" : "\"allow\":true";
@@ -105,6 +112,25 @@ static const char conformance[] =
     "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},"
     "\"contracts\":[{\"name\":\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},"
     "{\"name\":\"wait\"},{\"name\":\"private-error\"},{\"name\":\"public-error\"}]}]}";
+
+static void event_backend(void) {
+  char config[4096], input[256];
+  snprintf(config,sizeof config,"{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"events\"},\"verify\":\"event\",\"authorize\":\"event\"}",conformance);
+  answerer a={0};a.descriptor=conformance;a.host=open_json(config,EXT_PLUGIN_OK);
+  pthread_t thread;pthread_create(&thread,NULL,answer_events,&a);
+  ext_plugin_free(call(a.host,"start",NULL,EXT_PLUGIN_OK));
+  expect(a.host,"call","{\"call\":{\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":\"echo\"}}","transport-answer");
+  uint64_t registry=open_json("{\"object\":\"registry\"}",EXT_PLUGIN_OK);
+  snprintf(input,sizeof input,"{\"name\":\"ext.conformance\",\"version\":\"v1\",\"target\":%llu}",(unsigned long long)a.host);
+  ext_plugin_free(call(registry,"register",input,EXT_PLUGIN_OK));
+  ext_plugin_free(call(registry,"register",input,EXT_PLUGIN_EXISTS));
+  ext_plugin_free(call(registry,"unregister",input,EXT_PLUGIN_OK));
+  ext_plugin_free(call(registry,"unregister",input,EXT_PLUGIN_NOT_FOUND));
+  CHECK(ext_plugin_close(registry)==EXT_PLUGIN_OK,"close event registry");
+  CHECK(ext_plugin_close(a.host)==EXT_PLUGIN_OK,"close event host");
+  pthread_join(thread,NULL);
+  CHECK(a.connects==1 && a.invokes==1 && a.verify==1 && a.authorize==1,"event backend lifecycle");
+}
 
 #define REVERSE_DESCRIPTOR                                                                          \
   "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"reverse/guest\",\"revision\":\"r1\"},"   \
@@ -361,6 +387,7 @@ int main(int argc, char **argv) {
   open_json("not json", EXT_PLUGIN_INVALID);
 
   hosts();
+  event_backend();
   routing_lifetime();
   execution_graph();
 

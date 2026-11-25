@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )

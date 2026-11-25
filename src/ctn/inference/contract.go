@@ -10,6 +10,7 @@ package inference
 
 import (
 	"context"
+	native "github.com/webong/ext/pkg/ext-go/cengine/plugin"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream"
 	"github.com/webong/ext/res/int/inference"
@@ -28,13 +29,17 @@ var ContractRef = plugin.ContractRef{Name: ContractName, Version: ContractVersio
 // depend on the integration module instead of importing the engine directly.
 type Identity = plugin.Identity
 type DescriptorType = plugin.Descriptor
-type Session = plugin.Session
+type Session = native.Session
 type Options = plugin.Options
 type Request = plugin.Request
 type Backend = plugin.Backend
 
-func Open(ctx context.Context, d plugin.Descriptor, opts plugin.Options) (*plugin.Session, error) {
-	return plugin.Open(ctx, d, opts)
+func Open(ctx context.Context, d plugin.Descriptor, opts plugin.Options) (*Session, error) {
+	lib, err := native.Default()
+	if err != nil {
+		return nil, err
+	}
+	return lib.Open(ctx, d, opts)
 }
 
 // Operation names for the inference.provider/v1 contract. Surfaces are

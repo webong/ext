@@ -31,7 +31,7 @@ func main() {
 	}
 	var endpoint plugin.Endpoint = g
 	if *reverse != "" {
-		r, err := bridge.Open(context.Background(), plugintest.Descriptor(), plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: func(context.Context, plugin.Request) error { return nil }, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) {
+		r, err := openRelay(context.Background(), plugintest.Descriptor(), plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: func(context.Context, plugin.Request) error { return nil }, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) {
 			cmd := exec.Command(*reverse)
 			cmd.Env = []string{}
 			reader, err := cmd.StdoutPipe()
@@ -69,4 +69,12 @@ func (c *conn) Close() error {
 	_ = c.ReadCloser.Close()
 	_ = c.cmd.Process.Kill()
 	return c.cmd.Wait()
+}
+
+func openRelay(ctx context.Context, d plugin.Descriptor, o plugin.Options) (*bridge.Relay, error) {
+	s, err := plugin.Open(ctx, d, o)
+	if err != nil {
+		return nil, err
+	}
+	return bridge.New(s)
 }

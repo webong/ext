@@ -11,9 +11,9 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 )
 
-// The pure-Go build serves reverse calls and progress through pkg/ext-go
-// unchanged, so a program can use them with the engine API alone.
-func TestPureGoSessionServesReverseCallsAndProgress(t *testing.T) {
+// The shared-library driver serves reverse calls and progress through the C
+// host, even when the Go program is built without cgo.
+func TestSharedLibrarySessionServesReverseCallsAndProgress(t *testing.T) {
 	svc := plugin.ContractRef{Name: "host.svc", Version: "v1"}
 	work := plugin.ContractRef{Name: "work", Version: "v1"}
 	d := plugin.Descriptor{

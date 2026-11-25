@@ -277,7 +277,7 @@ ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *hand
     ext_interface_graph *graph = NULL;
     if (!(s = ext_interface_graph_open(c, &graph)) && (s = add(K_GRAPH, graph, handle)))
       ext_interface_graph_free(graph);
-  } else if (object && !strcmp(object, "host")) {
+  } else if (object && (!strcmp(object, "host") || !strcmp(object,"registry"))) {
     ext_interface_host *host = NULL;
     if (!(s = ext_interface_host_open(c, &host)) && (s = add(K_HOST, host, handle))) {
       ext_interface_host_shutdown(host);

@@ -182,13 +182,22 @@
         "list_unverified": {"input": {"type": "object"}, "output": {"type": "array"}}
       }
     },
+    "registry": {
+      "config": {"type":"object","required":["object"],"properties":{"object":{"const":"registry"}}},
+      "operations": {
+        "register": {"input":{"type":"object","required":["name","version","target"]},"output":{}},
+        "unregister": {"input":{"type":"object","required":["name","version"]},"output":{}},
+        "route": {"input":{"type":"object","required":["name","version","operation","target_name","target_version","target_operation"]},"output":{}}
+      }
+    },
     "host": {
       "about": "A session with one plugin over a child process or a C ABI shared library. Its callbacks are events.",
       "config": {"type": "object", "required": ["object", "descriptor", "backend", "verify", "authorize"], "properties": {
         "object": {"const": "host"},
         "descriptor": {"type": "object"},
-        "backend": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["process", "shared_library"]}, "executable": {"type": "string"}, "arguments": {"type": "array", "items": {"type": "string"}}, "environment": {"type": "array", "items": {"type": "string"}}, "working_directory": {"type": "string"}, "stderr_bytes": {"type": "integer"}, "path": {"type": "string"}}},
+        "backend": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["process", "shared_library", "events"]}, "executable": {"type": "string"}, "arguments": {"type": "array", "items": {"type": "string"}}, "environment": {"type": "array", "items": {"type": "string"}}, "working_directory": {"type": "string"}, "stderr_bytes": {"type": "integer"}, "path": {"type": "string"}}},
         "requirements": {"type": "array"},
+        "registry": {"type":"integer"},
         "routes": {"type": "array", "items": {"type": "object", "required": ["contract", "operation", "target"]}},
         "verify": {"enum": ["allow", "event"]},
         "authorize": {"enum": ["allow", "event"]},
@@ -196,9 +205,11 @@
         "services": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}, "max_payload_bytes": {"type": "integer"}, "max_in_flight": {"type": "integer"}}},
         "event_timeout_ms": {"type": "integer"}}},
       "operations": {
+        "backend_progress": {"input": {"type": "object", "required": ["frame"]}, "output": {"type": "boolean"}},
+        "backend_reverse": {"input": {"type": "object", "required": ["frame"]}, "output": {"type": "object"}},
         "process_id": {"about": "Live child PID locator; closed unless ready, unsupported for non-process backends. Not a durable process identity.","input": {"type": "object"},"output": {"type": "integer"}},
         "start": {"input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}}}, "output": {}},
-        "call": {"about": "A call the engine fills in (identity, deadline, id). With progress, its progress events carry the call's tag.", "input": {"type": "object", "required": ["call"], "properties": {"call": {"type": "object", "required": ["contract", "operation"]}, "timeout_ms": {"type": "integer"}, "tag": {"type": "string"}, "progress": {"type": "object", "properties": {"events_per_second": {"type": "integer"}, "bytes_per_second": {"type": "integer"}}}}}, "output": {"type": "object"}, "raises": ["progress"]},
+        "call": {"about": "A call the engine fills in (identity, deadline, id). With progress, its progress events carry the call's tag.", "input": {"type": "object", "required": ["call"], "properties": {"call": {"type": "object", "required": ["contract", "operation"]}, "timeout_ms": {"type": "integer"}, "tag": {"type": "string"}, "progress": {"type": "object", "properties": {"events_per_second": {"type": "integer"}, "bytes_per_second": {"type": "integer"}}}}}, "output": {"type": "object"}, "raises": ["progress", "authorize", "observe", "backend_invoke", "reverse_authorize", "reverse"]},
         "invoke": {"input": {"type": "object", "required": ["request"], "properties": {"request": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
         "drain": {"input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}}}, "output": {}},
         "state": {"input": {"type": "object"}, "output": {"enum": ["created", "ready", "draining", "closed", "failed"]}},
@@ -208,18 +219,18 @@
         "sequence": {"input": {"type": "object"}, "output": {"type": "integer"}}
       },
       "events": {
+        "backend_connect": {"answer": "result", "data": {}, "default_error": {"code": "operation_failed", "message": "backend connection failed"}},
+        "backend_invoke": {"call": true, "answer": "result", "data": {"type": "object"}, "default_error": {"code": "operation_failed", "message": "backend invocation failed"}},
+        "backend_close": {"answer": "none", "data": {}},
         "verify": {"about": "The verify policy, when verify is event: the descriptor the host is about to admit.", "answer": "allow", "data": {"type": "object"}},
-        "authorize": {"about": "The authorize policy, when authorize is event: every request before it is sent.", "answer": "allow", "data": {"type": "object"}},
-        "reverse_authorize": {"about": "A reverse call the plugin makes, before it is served (with services).", "answer": "allow", "data": {"type": "object"}},
-        "reverse": {"about": "A reverse call to serve: answered with a payload or a public error.", "answer": "result", "data": {"type": "object"}, "default_error": {"code": "operation_failed", "message": "the host's handler failed"}},
+        "authorize": {"about": "The authorize policy, when authorize is event: every request before it is sent.", "call": true, "answer": "allow", "data": {"type": "object"}},
+        "reverse_authorize": {"about": "A reverse call the plugin makes, before it is served (with services).", "call": true, "answer": "allow", "data": {"type": "object"}},
+        "reverse": {"about": "A reverse call to serve: answered with a payload or a public error.", "call": true, "answer": "result", "data": {"type": "object"}, "default_error": {"code": "operation_failed", "message": "the host's handler failed"}},
         "progress": {"about": "A progress or log event of the call whose tag it carries.", "answer": "none", "call": true, "data": {"type": "object"}},
-        "observe": {"about": "An observer event (with observe).", "answer": "none", "data": {"type": "object"}},
+        "observe": {"about": "An observer event (with observe).", "call": true, "answer": "none", "data": {"type": "object"}},
         "dropped": {"about": "How many events were dropped since the last delivery: the queue was full.", "answer": "none", "data": {"type": "integer"}}
       }
-    }
-  },
-  "events": {
-    "about": "Objects with events answer events, answer and sequence. An event is {seq, ticket, kind, tag?, data}; ticket is not 0 for one that asks, and an asking event not answered in time is a denial. answer allow is {ticket, allow}; answer result is {ticket, payload} or {ticket, error}. seq counts queued events from 1; once an operation returns, every event it raised has a seq no greater than what sequence then says. events fails with closed or not_found once the object is closed.",
+    },
     "command_scope": {
       "about": "Reviewed dependency snapshots owned by one command broker. Application policy receives authenticated consumer identity; an environment address never grants package approval.",
       "config": {
@@ -290,5 +301,8 @@
         }
       }
     }
+  },
+  "events": {
+    "about": "Objects with events answer events, answer and sequence. An event is {seq, ticket, kind, tag?, data}; ticket is not 0 for one that asks, and an asking event not answered in time is a denial. answer allow is {ticket, allow}; answer result is {ticket, payload} or {ticket, error}. seq counts queued events from 1; once an operation returns, every event it raised has a seq no greater than what sequence then says. events fails with closed or not_found once the object is closed."
   }
 }

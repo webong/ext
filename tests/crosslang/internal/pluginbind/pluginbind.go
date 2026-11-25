@@ -314,6 +314,76 @@ func (x *Library) TrustState(in LibraryTrustStateInput) (string, error) {
 	return out, err
 }
 
+// CommandScope is a command_scope object of ext_plugin. Reviewed dependency snapshots owned by one
+// command broker. Application policy receives authenticated consumer identity; an environment
+// address never grants package approval.
+type CommandScope struct{ o *library.Object }
+
+// CommandScopeHandlers serve the events of a command_scope. A nil one is no handler.
+type CommandScopeHandlers struct {
+	// Dispatch answers dispatch with a payload, or an error passed on as the public error when it
+	// marshals to an object with a code.
+	Dispatch func(data json.RawMessage) (any, error)
+}
+
+func (h CommandScopeHandlers) handlers() library.Handlers {
+	m := library.Handlers{}
+	if f := h.Dispatch; f != nil {
+		m["dispatch"] = f
+	}
+	return m
+}
+
+// OpenCommandScope opens a command_scope, with handlers for its events; an event without one is denied (or, when
+// it asks nothing, dropped).
+func (x *Library) OpenCommandScope(config json.RawMessage, handlers CommandScopeHandlers) (*CommandScope, error) {
+	o, err := x.d.Open("command_scope", config, handlers.handlers())
+	if err != nil {
+		return nil, err
+	}
+	return &CommandScope{o}, nil
+}
+
+// Close closes the command_scope.
+func (x *CommandScope) Close() error { return x.o.Close() }
+
+// Handle is the command_scope's handle, as another object's config names it.
+func (x *CommandScope) Handle() uint64 { return x.o.Handle() }
+
+// Answer runs answer on the command_scope.
+func (x *CommandScope) Answer(in json.RawMessage) error {
+	return x.o.CallWith("answer", raw(in), nil, nil)
+}
+
+// Dispatch runs dispatch on the command_scope.
+func (x *CommandScope) Dispatch(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("dispatch", raw(in), &out, nil)
+	return out, err
+}
+
+// Events runs events on the command_scope.
+func (x *CommandScope) Events(in json.RawMessage) ([]json.RawMessage, error) {
+	var out []json.RawMessage
+	err := x.o.CallWith("events", raw(in), &out, nil)
+	return out, err
+}
+
+// Sequence runs sequence on the command_scope.
+func (x *CommandScope) Sequence(in json.RawMessage) (int64, error) {
+	var out int64
+	err := x.o.CallWith("sequence", raw(in), &out, nil)
+	return out, err
+}
+
+// View runs view on the command_scope. Host-only snapshot directory, selected consumer tokens and
+// resolved bindings. Never expose all tokens to a guest.
+func (x *CommandScope) View(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("view", raw(in), &out, nil)
+	return out, err
+}
+
 // ExecutionGraph is a execution_graph object of ext_plugin. Owns a reviewed process-provider graph
 // and its private copies. Application owns source writer coordination and policy. Close stops
 // consumers before providers; copies survive active calls and are removed last.
@@ -416,6 +486,14 @@ type HostHandlers struct {
 	// Authorize answers authorize: nil allows. The authorize policy, when authorize is event: every
 	// request before it is sent.
 	Authorize func(data json.RawMessage) error
+	// BackendClose is told of backend_close.
+	BackendClose func(data json.RawMessage)
+	// BackendConnect answers backend_connect with a payload, or an error passed on as the public error
+	// when it marshals to an object with a code.
+	BackendConnect func(data json.RawMessage) (any, error)
+	// BackendInvoke answers backend_invoke with a payload, or an error passed on as the public error
+	// when it marshals to an object with a code.
+	BackendInvoke func(data json.RawMessage) (any, error)
 	// Dropped is told of dropped. How many events were dropped since the last delivery: the queue was
 	// full.
 	Dropped func(data json.RawMessage)
@@ -439,6 +517,15 @@ func (h HostHandlers) handlers() library.Handlers {
 	m := library.Handlers{}
 	if f := h.Authorize; f != nil {
 		m["authorize"] = func(d json.RawMessage) (any, error) { return nil, f(d) }
+	}
+	if f := h.BackendClose; f != nil {
+		m["backend_close"] = func(d json.RawMessage) (any, error) { f(d); return nil, nil }
+	}
+	if f := h.BackendConnect; f != nil {
+		m["backend_connect"] = f
+	}
+	if f := h.BackendInvoke; f != nil {
+		m["backend_invoke"] = f
 	}
 	if f := h.Dropped; f != nil {
 		m["dropped"] = func(d json.RawMessage) (any, error) { f(d); return nil, nil }
@@ -482,6 +569,20 @@ func (x *Host) Answer(in json.RawMessage) error {
 	return x.o.CallWith("answer", raw(in), nil, nil)
 }
 
+// BackendProgress runs backend_progress on the host.
+func (x *Host) BackendProgress(in json.RawMessage) (bool, error) {
+	var out bool
+	err := x.o.CallWith("backend_progress", raw(in), &out, nil)
+	return out, err
+}
+
+// BackendReverse runs backend_reverse on the host.
+func (x *Host) BackendReverse(in json.RawMessage) (json.RawMessage, error) {
+	var out json.RawMessage
+	err := x.o.CallWith("backend_reverse", raw(in), &out, nil)
+	return out, err
+}
+
 // Call runs call on the host. A call the engine fills in (identity, deadline, id). With progress,
 // its progress events carry the call's tag.
 func (x *Host) Call(in HostCallInput) (json.RawMessage, error) {
@@ -494,12 +595,42 @@ func (x *Host) Call(in HostCallInput) (json.RawMessage, error) {
 type HostCallHandlers struct {
 	// Progress is told of progress. A progress or log event of the call whose tag it carries.
 	Progress func(data json.RawMessage)
+	// Authorize answers authorize: nil allows. The authorize policy, when authorize is event: every
+	// request before it is sent.
+	Authorize func(data json.RawMessage) error
+	// Observe is told of observe. An observer event (with observe).
+	Observe func(data json.RawMessage)
+	// BackendInvoke answers backend_invoke with a payload, or an error passed on as the public error
+	// when it marshals to an object with a code.
+	BackendInvoke func(data json.RawMessage) (any, error)
+	// ReverseAuthorize answers reverse_authorize: nil allows. A reverse call the plugin makes, before
+	// it is served (with services).
+	ReverseAuthorize func(data json.RawMessage) error
+	// Reverse answers reverse with a payload, or an error passed on as the public error when it
+	// marshals to an object with a code. A reverse call to serve: answered with a payload or a public
+	// error.
+	Reverse func(data json.RawMessage) (any, error)
 }
 
 func (h HostCallHandlers) handlers() library.Handlers {
 	m := library.Handlers{}
 	if f := h.Progress; f != nil {
 		m["progress"] = func(d json.RawMessage) (any, error) { f(d); return nil, nil }
+	}
+	if f := h.Authorize; f != nil {
+		m["authorize"] = func(d json.RawMessage) (any, error) { return nil, f(d) }
+	}
+	if f := h.Observe; f != nil {
+		m["observe"] = func(d json.RawMessage) (any, error) { f(d); return nil, nil }
+	}
+	if f := h.BackendInvoke; f != nil {
+		m["backend_invoke"] = f
+	}
+	if f := h.ReverseAuthorize; f != nil {
+		m["reverse_authorize"] = func(d json.RawMessage) (any, error) { return nil, f(d) }
+	}
+	if f := h.Reverse; f != nil {
+		m["reverse"] = f
 	}
 	return m
 }
@@ -630,6 +761,39 @@ func (x *PackageWriter) Close() error { return x.o.Close() }
 
 // Handle is the package_writer's handle, as another object's config names it.
 func (x *PackageWriter) Handle() uint64 { return x.o.Handle() }
+
+// Registry is a registry object of ext_plugin.
+type Registry struct{ o *library.Object }
+
+// OpenRegistry opens a registry.
+func (x *Library) OpenRegistry(config RegistryConfig) (*Registry, error) {
+	o, err := x.d.Open("registry", config, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Registry{o}, nil
+}
+
+// Close closes the registry.
+func (x *Registry) Close() error { return x.o.Close() }
+
+// Handle is the registry's handle, as another object's config names it.
+func (x *Registry) Handle() uint64 { return x.o.Handle() }
+
+// Register runs register on the registry.
+func (x *Registry) Register(in json.RawMessage) error {
+	return x.o.CallWith("register", raw(in), nil, nil)
+}
+
+// Route runs route on the registry.
+func (x *Registry) Route(in json.RawMessage) error {
+	return x.o.CallWith("route", raw(in), nil, nil)
+}
+
+// Unregister runs unregister on the registry.
+func (x *Registry) Unregister(in json.RawMessage) error {
+	return x.o.CallWith("unregister", raw(in), nil, nil)
+}
 
 // Store is a store object of ext_plugin. An installed package store at one root.
 type Store struct{ o *library.Object }
@@ -840,6 +1004,7 @@ type HostConfig struct {
 	Descriptor     json.RawMessage     `json:"descriptor"`
 	EventTimeoutMS int64               `json:"event_timeout_ms,omitempty"`
 	Observe        bool                `json:"observe,omitempty"`
+	Registry       int64               `json:"registry,omitempty"`
 	Requirements   []json.RawMessage   `json:"requirements,omitempty"`
 	Routes         []json.RawMessage   `json:"routes,omitempty"`
 	Services       *HostConfigServices `json:"services,omitempty"`
@@ -902,6 +1067,10 @@ type LayeredLoadOutput struct {
 // PackageWriterConfig is the JSON object the description gives for it.
 type PackageWriterConfig struct {
 	Root string `json:"root"`
+}
+
+// RegistryConfig is the JSON object the description gives for it.
+type RegistryConfig struct {
 }
 
 // StoreConfigLimits is the JSON object the description gives for it.

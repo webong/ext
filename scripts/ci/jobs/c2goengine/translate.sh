@@ -25,6 +25,7 @@ fi
 if [ "$RUNNER_OS" != Windows ]; then
 (
 EXT_C2GO_RACE="${MATRIX_RACE:-}" scripts/c2goengine-translate.sh
+bash scripts/ledger-c2go.sh
 )
 ci_import_env
 fi

@@ -140,3 +140,20 @@ package of the module except `internal/ccgo`.
 
 The checks of `enginetest` for all that exist in `cgoengine` only; moving them behind the harness
 and binding the rest is the same work again for each.
+
+## Ledger driver
+
+`ledger.Bind()` uses the translated `lib/ledger` portable profile. Generate it
+with `go run . -library ledger` in `tools`, then build with
+`-tags ext_ledger_c2go`. `-publish <directory>` stages the translation and driver
+without build tags, for a fetched package. Nothing is published by this command.
+
+The source list is `ledger_portable_sources` in the C library's CMake file.
+Memory/file storage, watches, validation, transaction fingerprints and recorder
+projections execute translated C. Native collection and process supervision
+return `unsupported`; Windows and non-64-bit translation return an unavailable
+driver error. The current supported targets are Linux/macOS on amd64/arm64.
+
+`bash scripts/ledger-c2go.sh` builds and tests the native portable profile,
+regenerates the translation, and requires all translated ledger checks to run.
+The c2go CI cells run it on their supported POSIX targets.

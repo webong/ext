@@ -2,3 +2,4 @@
 # not committed.
 /internal/ccgo/generated_*.go
 /internal/ccgo/inputs.sha256
+/internal/ledgerccgo/generated_*.go

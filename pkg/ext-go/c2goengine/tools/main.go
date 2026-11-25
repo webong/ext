@@ -75,12 +75,34 @@ var coreSources = regexp.MustCompile(`(?s)set\(core_sources\s+([^)]*)\)`)
 
 func main() {
 	log := func(format string, args ...any) { fmt.Fprintf(os.Stderr, "c2goengine: "+format+"\n", args...) }
+	library := flag.String("library", "plugin", "C library to translate: plugin or ledger")
 	out := flag.String("out", "", "file to write (default internal/ccgo/generated_<goos>_<goarch>.go in the module)")
 	publish := flag.String("publish", "", "also write the c2go driver's Go directory here: the translation and the binding beside it, for this platform")
 	flag.Parse()
 	root, err := repositoryRoot()
 	if err != nil {
 		log("%v", err)
+		os.Exit(1)
+	}
+	if *library == "ledger" {
+		if *out == "" {
+			*out = filepath.Join(root, "pkg/ext-go/c2goengine/internal/ledgerccgo", fmt.Sprintf("generated_%s_%s.go", runtime.GOOS, runtime.GOARCH))
+		}
+		if err := generateLedger(root, *out); err != nil {
+			log("%v", err)
+			os.Exit(1)
+		}
+		if *publish != "" {
+			pkg := filepath.Join(root, "pkg/ext-go/c2goengine/internal/ledgerccgo")
+			if _, err := publishTaggedTranslation(pkg, *publish, runtime.GOOS, runtime.GOARCH, "ext_ledger_c2go"); err != nil {
+				log("%v", err)
+				os.Exit(1)
+			}
+		}
+		return
+	}
+	if *library != "plugin" {
+		log("unknown library %q", *library)
 		os.Exit(1)
 	}
 	pkg := filepath.Join(root, "pkg", "ext-go", "c2goengine", "internal", "ccgo")
@@ -383,8 +405,11 @@ func checkRuntimeVersion(root, libc string) error {
 // line, so the name alone constrains it. A project that fetches several targets gets one file per
 // target and nothing clashes, and it needs no build tag. Test files are not published.
 func publishTranslation(pkg, dir, goos, goarch string) (int, error) {
+	return publishTaggedTranslation(pkg, dir, goos, goarch, "ext_c2go")
+}
+func publishTaggedTranslation(pkg, dir, goos, goarch, tag string) (int, error) {
 	ctx := build.Default
-	ctx.GOOS, ctx.GOARCH, ctx.BuildTags, ctx.CgoEnabled = goos, goarch, []string{"ext_c2go"}, false
+	ctx.GOOS, ctx.GOARCH, ctx.BuildTags, ctx.CgoEnabled = goos, goarch, []string{tag}, false
 	entries, err := os.ReadDir(pkg)
 	if err != nil {
 		return 0, err

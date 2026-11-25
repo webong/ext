@@ -134,6 +134,7 @@ int ll_change_decode(const lj_value *v, ll_change **out);
 
 /* ---- rules (rules.json) ---- */
 int ll_check_name(const char *s, size_t n);
+int ll_check_attributes(const lj_value *attributes);
 int ll_qualified(const ll_s *ns, const ll_s *name);
 int ll_check_tx(const ll_tx *t, const ext_ledger_store_options *o);
 ext_ledger_store_options ll_options_defaults(const ext_ledger_store_options *o);
@@ -226,7 +227,7 @@ static __inline int ll_flag_cas(volatile int *p, int expected, int desired) {
 static inline int ll_flag_load(const volatile int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
 static inline void ll_flag_store(volatile int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELEASE); }
 static inline int ll_flag_cas(volatile int *p, int expected, int desired) {
-  return __atomic_compare_exchange_n(p, &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+  return __atomic_compare_exchange(p, &expected, &desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
 }
 #endif
 

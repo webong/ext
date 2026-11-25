@@ -344,12 +344,17 @@ int ext_ledger_recorder_open(ext_ledger_store *store, const ext_ledger_context *
 
 int ext_ledger_recorder_open_machine(ext_ledger_store *store, const ext_ledger_context *ctx, ext_ledger_recorder **out) {
   if (out) *out = NULL;
+#ifdef EXT_LEDGER_PORTABLE
+  (void)store; (void)ctx;
+  return EXT_LEDGER_UNSUPPORTED;
+#else
   char *env = ll_machine_environment();
   if (!env) return EXT_LEDGER_IO;
   int rc = ext_ledger_recorder_open(store, ctx, env, strlen(env), out);
   free(env);
   if (!rc) (*out)->env.machine = 1;
   return rc;
+#endif
 }
 
 void ext_ledger_recorder_close(ext_ledger_recorder *r) {

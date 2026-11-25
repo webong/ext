@@ -228,6 +228,48 @@ final class StoreTests {
         same(19, PackageStore.MISSING, "MISSING");
     }
 
+    static void writer() throws Exception {
+        try (Scratch scratch = new Scratch(); PackageStore store = new PackageStore(scratch.string("home/plugins"))) {
+            String home = scratch.string("home");
+            Path lock = scratch.path("home/.package-write.lock");
+            String source = pack(scratch.path("source"), "example/writer", "r1", "example.read", "ok", false);
+            IOException marker = new IOException("scope failure");
+            try (PackageWriter writer = new PackageWriter(home)) {
+                require(writer != null, "writer acquired");
+                store.install(source);
+                require(store.load("example/writer").length > 0, "load under writer");
+                fails(PackageStore.EXISTS, () -> new PackageWriter(home).close(), "same-process contention");
+                Process child = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-Djava.library.path=" + System.getProperty("java.library.path"),
+                        "-cp", System.getProperty("java.class.path"), GuestTests.class.getName(), "--writer-probe", home)
+                        .inheritIO().start();
+                if (!child.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                    child.destroyForcibly();
+                    throw new AssertionError("writer child timed out");
+                }
+                same(0, child.exitValue(), "child contention");
+                throw marker;
+            } catch (IOException e) { require(e == marker, "original callback error preserved"); }
+            require(!Files.exists(lock), "exception releases writer");
+            try (PackageWriter writer = new PackageWriter(home)) {
+                require(writer != null, "reacquired writer");
+                store.remove("example/writer");
+            }
+            PackageWriter original = new PackageWriter(home);
+            Files.move(lock, scratch.path("home/old-lock"));
+            try (PackageWriter replacement = new PackageWriter(home)) {
+                require(replacement != null, "replacement acquired");
+                fails(PackageStore.MISMATCH, original::close, "replacement ownership");
+                original.close();
+                require(Files.exists(lock), "replacement remains");
+                fails(PackageStore.EXISTS, () -> new PackageWriter(home).close(), "replacement contention");
+            }
+            PackageWriter once = new PackageWriter(home);
+            once.close(); once.close();
+            fails(PackageStore.INVALID, () -> new PackageWriter(home + "\0elsewhere").close(), "NUL path");
+        }
+    }
+
     static void lifecycle() throws Exception {
         try (Scratch scratch = new Scratch()) {
             Path root = scratch.path("store");

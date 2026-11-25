@@ -53,6 +53,8 @@ final class NativeEngine {
             throws GuestException;
 
     static native void storeClose(long handle);
+    static native long storeWriterAcquire(byte[] home) throws GuestException;
+    static native void storeWriterClose(long handle) throws GuestException;
 
     static native byte[] storePut(long handle, int how, byte[] source, int flags) throws GuestException;
 

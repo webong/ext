@@ -129,9 +129,15 @@ export interface PackageStoreCopyOptions {
  * directory that is not valid, or an artifact over a limit), MISMATCH (a digest that differs, or an upgrade
  * that changes the id or contracts), EXISTS (an install over an installed id) or NOT_FOUND. A missing root is
  * an empty store, made by the first install. Calls on one store are serialized; several processes mutating one
- * root are the caller's to serialize.
+ * root coordinate through withWriter or an explicitly owned PackageWriter.
  */
+export interface PackageWriter {
+ /** Releases once, reporting ownership mismatch without removing a replacement lock. */
+ close(): void;
+}
 export interface PackageStore {
+ /** Hold the native EXT_HOME writer across the callback; await every operation within it. */
+ withWriter<T>(home: string, operation: (store: PackageStore) => T | PromiseLike<T>): Promise<T>;
  /** Copies the package in the directory `source`, never over an installed id; resolves with the installed plugin.json, as the source had it. */
  install(source: string, options?: PackageStoreCopyOptions): Promise<string>;
  /** Replaces an installed package with a new revision of the same id and contracts. */
@@ -202,6 +208,8 @@ export function loadEngine(addonPath: string): {
  Registry: { new(): Registry };
  Instances: { new<T>(options: InstanceOptions<T>): Instances<T> };
  Streams: { new(options: StreamOptions): Streams };
+ PackageWriter: { new(home: string): PackageWriter };
+ withPackageWriter<T>(home: string, operation: () => T | PromiseLike<T>): Promise<T>;
  PackageStore: { new(root: string, limits?: PackageStoreLimits): PackageStore };
  LayeredPackageStore: { new(roots: string[], limits?: PackageStoreLimits): LayeredPackageStore };
  service(operation: string, input: unknown): unknown;

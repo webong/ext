@@ -219,15 +219,20 @@ func matchContracts(selected, actual []Contract) error {
 }
 
 type Requirement struct {
+	// Provider selects a package ID across revisions, exclusive with Identity.
+	Provider string
 	// Identity optionally pins the complete identity, never a partial match.
 	Identity  *Identity
 	Contract  ContractRef
 	Operation string
 }
 
-// Select rejects ambiguity rather than choosing a provider by name or order.
+// Select rejects ambiguity rather than applying an implicit provider preference.
 // All candidates are validated; invalid discovery data is never silently used.
 func Select(candidates []Descriptor, want Requirement) (Descriptor, error) {
+	if want.Provider != "" && (!identifier.MatchString(want.Provider) || want.Identity != nil) {
+		return Descriptor{}, ErrInvalid
+	}
 	if err := want.Contract.Validate(); err != nil {
 		return Descriptor{}, err
 	}
@@ -244,6 +249,9 @@ func Select(candidates []Descriptor, want Requirement) (Descriptor, error) {
 	for _, d := range candidates {
 		if err := d.Validate(); err != nil {
 			return Descriptor{}, err
+		}
+		if want.Provider != "" && d.Identity.ID != want.Provider {
+			continue
 		}
 		if want.Identity != nil && d.Identity != *want.Identity {
 			continue

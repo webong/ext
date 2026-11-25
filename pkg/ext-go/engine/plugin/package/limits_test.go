@@ -109,13 +109,16 @@ func TestResolveMatchesSelect(t *testing.T) {
 					Contract:  plugin.ContractRef{Name: fmt.Sprintf("c%d", rng.Intn(4)), Version: "v1"},
 					Operation: fmt.Sprintf("o%d", rng.Intn(2)),
 				}
-				if rng.Intn(2) == 0 {
+				switch rng.Intn(3) {
+				case 0:
 					id := manifests[rng.Intn(n)].Descriptor.Identity
 					d.Identity = &id
+				case 1:
+					d.Provider = manifests[rng.Intn(n)].Descriptor.Identity.ID
 				}
 				duplicate := false
 				for _, other := range manifests[i].Requires {
-					if other.Contract == d.Contract && other.Operation == d.Operation && (other.Identity == nil) == (d.Identity == nil) && (d.Identity == nil || *other.Identity == *d.Identity) {
+					if other.Contract == d.Contract && other.Operation == d.Operation && other.Provider == d.Provider && (other.Identity == nil) == (d.Identity == nil) && (d.Identity == nil || *other.Identity == *d.Identity) {
 						duplicate = true
 					}
 				}
@@ -132,7 +135,7 @@ func TestResolveMatchesSelect(t *testing.T) {
 		var wantErr error
 		for _, m := range manifests {
 			for _, r := range m.Requires {
-				if _, err := plugin.Select(descriptors, plugin.Requirement{Contract: r.Contract, Operation: r.Operation, Identity: r.Identity}); err != nil && wantErr == nil {
+				if _, err := plugin.Select(descriptors, plugin.Requirement{Contract: r.Contract, Operation: r.Operation, Identity: r.Identity, Provider: r.Provider}); err != nil && wantErr == nil {
 					wantErr = err
 				}
 			}
@@ -161,7 +164,7 @@ func TestResolveMatchesSelect(t *testing.T) {
 			t.Fatalf("round %d: %d bindings for %d requirements, %d in order", round, len(plan.Bindings), total, len(plan.Order))
 		}
 		for _, b := range plan.Bindings {
-			want, err := plugin.Select(descriptors, plugin.Requirement{Contract: b.Requirement.Contract, Operation: b.Requirement.Operation, Identity: b.Requirement.Identity})
+			want, err := plugin.Select(descriptors, plugin.Requirement{Contract: b.Requirement.Contract, Operation: b.Requirement.Operation, Identity: b.Requirement.Identity, Provider: b.Requirement.Provider})
 			if err != nil || want.Identity != b.Provider {
 				t.Fatalf("round %d: provider %v, Select %v (%v)", round, b.Provider, want.Identity, err)
 			}

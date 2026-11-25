@@ -124,6 +124,7 @@ fi
 if wants_host python; then
   echo "== the Python host ($("$python" --version 2>&1))"
   "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
+  "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_writer.py' -v
 fi
 if wants_host ruby; then
   echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"

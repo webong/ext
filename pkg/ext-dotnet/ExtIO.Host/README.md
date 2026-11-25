@@ -47,6 +47,24 @@ var result = host.Call("ext.echo", "v1", "echo", new JsonObject { ["value"] = 7 
   `reverse_unavailable`, and a call that would re-enter a host on its call chain `denied`. A disposed
   host leaves the registry; the native registry is freed once neither it nor any host can use it.
 
+Package mutations can coordinate with the CLI and other hosts through the native
+writer handle. Hold it across the entire read/modify/write operation:
+
+```csharp
+using (var writer = engine.PackageWriter(extHome))
+{
+    // Read and update installed packages and approvals here.
+}
+```
+
+This acquires `EXT_HOME/.package-write.lock` without waiting. Contention raises
+`HostException` with status `exists`; an abandoned lock is never removed by age.
+`Dispose` is idempotent and reports `mismatch` if another directory replaced the
+owned lock, preserving that replacement. Always use a `using` scope: finalization
+is only a fallback, and abrupt process termination leaves the lock in place.
+The engine must expose the described `package_writer` object (older engines report
+`unsupported` when opening a writer).
+
 Calls may come from several threads; the engine serializes a host's calls for a process or a
 shared library. The engine runs policies on the thread making the call, so they are
 `UnmanagedCallersOnly` callbacks on that thread. `Dispose` closes the session, waits for the calls

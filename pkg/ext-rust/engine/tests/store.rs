@@ -674,3 +674,73 @@ fn an_entrypoint_is_resolved_for_a_reviewed_package_on_a_platform() {
     fs::write(dir.join("bin/linux"), "tampered").unwrap();
     assert_eq!(resolve(&reviewed, "linux", "arm64"), Err(Error::MISMATCH));
 }
+
+#[test]
+fn writer_scope_coordinates_store_mutations() {
+    use ext_plugin_engine::store::Writer;
+    let scratch = Scratch::new();
+    let home = scratch.join("home");
+    let source = scratch.0.join("source");
+    package(&source, "example/writer", "v1", "example", "hello", false);
+    let store = Store::open(&scratch.join("home/plugins"), Limits::default()).unwrap();
+    store
+        .with_writer(&home, |locked| {
+            assert_eq!(Writer::acquire(&home).unwrap_err(), Error::EXISTS);
+            locked.install(source.to_str().unwrap(), false)?;
+            locked.load("example/writer")?;
+            Ok(())
+        })
+        .unwrap();
+    assert!(!Path::new(&home).join(".package-write.lock").exists());
+    let error = store.with_writer(&home, |_| Err::<(), _>(Error::DENIED));
+    assert_eq!(error, Err(Error::DENIED));
+    let panic = std::panic::catch_unwind(|| {
+        let _writer = Writer::acquire(&home).unwrap();
+        panic!("scoped failure");
+    });
+    assert!(panic.is_err());
+    store
+        .with_writer(&home, |locked| locked.remove("example/writer"))
+        .unwrap();
+    let writer = Writer::acquire(&home).unwrap();
+    let lock = Path::new(&home).join(".package-write.lock");
+    fs::rename(&lock, lock.with_extension("old")).unwrap();
+    let replacement = Writer::acquire(&home).unwrap();
+    assert_eq!(writer.close(), Err(Error::MISMATCH));
+    assert!(lock.exists());
+    replacement.close().unwrap();
+}
+
+#[test]
+fn writer_child_contention() {
+    use ext_plugin_engine::store::Writer;
+    const KEY: &str = "EXT_RUST_WRITER_CHILD_HOME";
+    if let Ok(home) = std::env::var(KEY) {
+        assert_eq!(Writer::acquire(&home).unwrap_err(), Error::EXISTS);
+        return;
+    }
+    let scratch = Scratch::new();
+    let home = scratch.join("home");
+    let _writer = Writer::acquire(&home).unwrap();
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "writer_child_contention"])
+        .env(KEY, &home)
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
+#[test]
+fn writer_encodes_paths() {
+    use ext_plugin_engine::store::Writer;
+    let scratch = Scratch::new();
+    let home = scratch.join("unicode-é");
+    Writer::acquire(&home).unwrap().close().unwrap();
+    #[cfg(unix)]
+    {
+        let home = scratch.join("quote\"slash\\tab\t");
+        Writer::acquire(&home).unwrap().close().unwrap();
+        assert!(Path::new(&home).is_dir());
+    }
+    assert_eq!(Writer::acquire("bad\0path").unwrap_err(), Error::INVALID);
+}

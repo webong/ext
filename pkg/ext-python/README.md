@@ -155,3 +155,30 @@ library, and the reverse services and the shared registry cases (`registry-cases
 the engine's scripted guests (`EXT_REVERSE_TEST_GUEST`, `EXT_REGISTRY_TEST_GUEST`). `scripts/host-cases.sh` builds the engine and both guests and runs it, on Linux, macOS and
 Windows (the engine built with MinGW-w64 or MSVC).
 
+
+### Coordinating package writes
+
+With a C library that exposes `package_writer`, hold a native writer across your
+package planning, publication and approval changes:
+
+```python
+from ext_io import host
+
+engine = host.Engine()
+with engine.package_writer("/path/to/ext-home"):
+    # Perform your package/trust workflow through the engine here.
+    pass
+```
+
+The argument is the Ext home, not its `packages` subdirectory. The C handle uses
+the same `.package-write.lock` directory as the CLI and CTX. Acquisition fails
+immediately with `HostError.status == "exists"` for a competing or stale lock;
+there is no automatic recovery or waiting. Context exit releases it, including
+when your code raises. An abrupt process exit leaves a stale lock; establish that
+the old writer has stopped before removing it. Close checks directory identity
+and refuses to delete a replacement owned by another writer. This coordinates
+cooperating clients only; store and trust APIs do not lock implicitly. Guest
+imports remain independent of the native engine.
+
+`scripts/host-cases.sh` includes the Python writer regressions alongside the
+shared host/session cases when Python is selected.

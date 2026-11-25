@@ -96,6 +96,9 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 	requirements := make([]map[string]any, 0, len(options.Requirements))
 	for _, r := range options.Requirements {
 		value := map[string]any{"contract": r.Contract, "operation": r.Operation}
+		if r.Provider != "" {
+			value["provider"] = r.Provider
+		}
 		if r.Identity != nil {
 			value["identity"] = r.Identity
 		}

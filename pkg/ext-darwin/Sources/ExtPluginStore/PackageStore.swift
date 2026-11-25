@@ -111,6 +111,32 @@ public struct ResolvedEntrypoint: Equatable, Decodable {
     }
 }
 
+/// Owns EXT_HOME's native cross-process package writer lock. Acquisition fails
+/// immediately on contention; stale locks are never recovered by age.
+public final class PackageWriter: @unchecked Sendable {
+    private let mutex = NSLock()
+    private var handle: OpaquePointer?
+
+    public init(home: String) throws {
+        var opened: OpaquePointer?
+        try withEngineString(home) { try check(ext_plugin_store_writer_acquire($0, &opened)) }
+        handle = opened
+    }
+
+    /// Releases once. A replacement lock is preserved and reported as mismatch.
+    public func close() throws {
+        mutex.lock()
+        defer { mutex.unlock() }
+        guard let owned = handle else { return }
+        handle = nil
+        let status = ext_plugin_store_writer_release(owned)
+        ext_plugin_store_writer_free(owned)
+        try check(status)
+    }
+
+    deinit { try? close() }
+}
+
 /// The engine's package store: install, upgrade, replace, remove and load reviewed
 /// `ext.package/v1` packages under a root the application supplies (see `ext_store_*`
 /// in lib/plugin/include/ext_plugin_host.h). A package is its `plugin.json` manifest and the
@@ -118,7 +144,7 @@ public struct ResolvedEntrypoint: Equatable, Decodable {
 /// The store copies and re-verifies content; it never runs it or grants authority, and
 /// it has no default location. A missing root is an empty store, made (owner-only) by
 /// the first install. The engine serializes calls on one store; several processes
-/// mutating one root are the application's to serialize.
+/// mutating one root coordinate through withWriter(home:) or PackageWriter.
 ///
 /// Failures are `PackageStoreError`s. The whole-root reports (`list`, `verify`,
 /// `listUnverified`) return the engine's JSON as it is, as `load` returns `plugin.json`,
@@ -139,6 +165,17 @@ public final class PackageStore: @unchecked Sendable {
     }
 
     deinit { ext_plugin_store_close(handle) }
+
+    /// Hold the native writer across all reads, dependency checks and updates in
+    /// the callback. Pass EXT_HOME, not the store directory. Unwinding releases it.
+    public func withWriter<T>(home: String, _ operation: (PackageStore) throws -> T) throws -> T {
+        let writer = try PackageWriter(home: home)
+        let result: T
+        do { result = try operation(self) }
+        catch { try? writer.close(); throw error }
+        try writer.close()
+        return result
+    }
 
     private typealias Put = (OpaquePointer?, UnsafePointer<CChar>?, UInt32, UnsafeMutablePointer<ext_plugin_buffer>?) -> ext_plugin_status
 

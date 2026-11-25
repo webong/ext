@@ -108,6 +108,8 @@ internal sealed unsafe class NativeApi
     public const uint BackendExtensionContext = 3;
     public const uint BackendProcessLaunch = 5;
 
+    public readonly delegate* unmanaged<byte*, nuint, ulong*, int> ObjectOpen;
+    public readonly delegate* unmanaged<ulong, int> ObjectClose;
     public readonly delegate* unmanaged<uint> AbiVersionOf;
     public readonly delegate* unmanaged<ExtHostOptions*, ExtBackendOptions*, nint*, int> Create;
     public readonly delegate* unmanaged<nint, ExtCallOptions*, int> Start;
@@ -138,6 +140,11 @@ internal sealed unsafe class NativeApi
             ? address
             : throw new DllNotFoundException($"{path} is not an ext engine library: {name} is missing");
 
+        // Optional for compatibility with engines predating the described object API.
+        NativeLibrary.TryGetExport(library, "ext_plugin_open", out var objectOpen);
+        NativeLibrary.TryGetExport(library, "ext_plugin_close", out var objectClose);
+        ObjectOpen = (delegate* unmanaged<byte*, nuint, ulong*, int>)objectOpen;
+        ObjectClose = (delegate* unmanaged<ulong, int>)objectClose;
         AbiVersionOf = (delegate* unmanaged<uint>)Export("ext_plugin_host_abi_version");
         var abi = AbiVersionOf();
         if (abi != AbiVersion)

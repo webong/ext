@@ -1700,8 +1700,53 @@ static napi_value close_store(napi_env env, napi_callback_info info) {
   settle_store(box);
   return undefined(env);
 }
+/* Writer handles are used only on the JS thread. The scoped JS helper retains
+ * the external across awaited store jobs; collection is a fallback release. */
+static const napi_type_tag writer_tag = {0x25b846124fce4981ULL, 0x9ab1448a06de3990ULL};
+typedef struct { uint64_t handle; } writer_box;
+static ext_plugin_status release_writer(writer_box *box) {
+  uint64_t handle = box->handle;
+  box->handle = 0;
+  return handle ? ext_plugin_close(handle) : EXT_PLUGIN_OK;
+}
+static void destroy_writer(napi_env env, void *data, void *hint) {
+  (void)env; (void)hint;
+  release_writer(data);
+  free(data);
+}
+static napi_value open_writer(napi_env env, napi_callback_info info) {
+  size_t count = 1, len = 0;
+  napi_value arg, out;
+  if (napi_get_cb_info(env, info, &count, &arg, NULL, NULL) != napi_ok || count != 1)
+    return failure(env, "invalid writer config");
+  char *config = string(env, arg, &len);
+  if (!config) return failure(env, "invalid writer config");
+  writer_box *box = calloc(1, sizeof(*box));
+  ext_plugin_status s = box ? ext_plugin_open(config, len, &box->handle) : EXT_PLUGIN_NOMEM;
+  free(config);
+  if (s) { free(box); return failure_status(env, s); }
+  if (napi_create_external(env, box, destroy_writer, NULL, &out) != napi_ok) {
+    release_writer(box); free(box); return failure(env, "allocation failed");
+  }
+  if (napi_type_tag_object(env, out, &writer_tag) != napi_ok)
+    return failure(env, "allocation failed");
+  return out;
+}
+static napi_value close_writer(napi_env env, napi_callback_info info) {
+  size_t count = 1;
+  napi_value arg;
+  writer_box *box = NULL;
+  if (napi_get_cb_info(env, info, &count, &arg, NULL, NULL) != napi_ok ||
+      count != 1 || !external(env, arg, &writer_tag, (void **)&box))
+    return failure(env, "invalid writer");
+  ext_plugin_status s = release_writer(box);
+  return s ? failure_status(env, s) : undefined(env);
+}
+
 static napi_value init(napi_env env, napi_value exports) {
   const napi_property_descriptor properties[] = {
+      {"openWriter", NULL, open_writer, NULL, NULL, NULL, napi_default, NULL},
+      {"closeWriter", NULL, close_writer, NULL, NULL, NULL, napi_default, NULL},
       {"createHost", NULL, create_host, NULL, NULL, NULL, napi_default, NULL},
       {"createGuest", NULL, create_guest, NULL, NULL, NULL, napi_default, NULL},
       {"createRegistry", NULL, create_registry, NULL, NULL, NULL, napi_default,

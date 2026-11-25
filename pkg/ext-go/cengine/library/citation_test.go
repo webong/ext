@@ -51,6 +51,8 @@ func TestCitation(t *testing.T) {
 		t.Errorf("linux/amd64 cgo: %+v, %v", a, err)
 	}
 	for name, bad := range map[string]string{
+		"a second document":  citation() + " {}",
+		"trailing garbage":   citation() + " garbage",
 		"an unknown field":   citation(`"version"`, `"extra":1,"version"`),
 		"a plain http url":   citation("https://example.com/a", "http://example.com/a"),
 		"a short digest":     citation(strings.Repeat("a", 64), "abc"),

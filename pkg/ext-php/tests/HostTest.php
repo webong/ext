@@ -499,4 +499,48 @@ final class HostTest extends TestCase
         $source = null;
         gc_collect_cycles();
     }
+    public function testPackageWriter(): void
+    {
+        $engine = self::engine();
+        if ($engine === null) { return; }
+        $home = sys_get_temp_dir() . '/ext-php-writer-' . bin2hex(random_bytes(6));
+        mkdir($home, 0700);
+        $path = $home . '/.package-write.lock';
+        try {
+            $writer = $engine->packageWriter($home);
+            self::assertThrows(\Error::class, static fn() => clone $writer);
+            $error = self::assertThrows(HostError::class, fn() => $engine->packageWriter($home));
+            self::assertSame('exists', $error->status);
+            $code = 'require $argv[1]; try { $w=(new ExtIO\\Host\\Engine())->packageWriter($argv[2]); exit(3); } catch (ExtIO\\Host\\HostError $e) { exit($e->status === "exists" ? 0 : 4); }';
+            [$status, $out, $err] = Subprocess::run([PHP_BINARY, '-r', $code, __DIR__ . '/../autoload.php', $home], '');
+            self::assertSame(0, $status, $out . $err);
+            $writer->close();
+            $writer->close();
+            self::assertFalse(is_dir($path));
+            $error = self::assertThrows(\RuntimeException::class, fn() => $engine->withPackageWriter($home, static function (): void {
+                throw new \RuntimeException('application failure');
+            }));
+            self::assertSame('application failure', $error->getMessage());
+            self::assertFalse(is_dir($path));
+            $writer = $engine->packageWriter($home);
+            rename($path, $home . '/old-writer');
+            $other = $engine->packageWriter($home);
+            $error = self::assertThrows(HostError::class, fn() => $writer->close());
+            self::assertSame('mismatch', $error->status);
+            self::assertTrue(is_dir($path));
+            $other->close();
+            rmdir($home . '/old-writer');
+            mkdir($path, 0700); // CLI-created or stale directory: never steal it.
+            $error = self::assertThrows(HostError::class, fn() => $engine->packageWriter($home));
+            self::assertSame('exists', $error->status);
+            rmdir($path);
+            self::assertSame(7, $engine->withPackageWriter($home, static fn() => 7));
+        } finally {
+            unset($writer, $other);
+            if (is_dir($path)) { rmdir($path); }
+            if (is_dir($home . '/old-writer')) { rmdir($home . '/old-writer'); }
+            rmdir($home);
+        }
+    }
+
 }

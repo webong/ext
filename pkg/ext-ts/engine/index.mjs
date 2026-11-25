@@ -218,7 +218,22 @@ export function loadEngine(addonPath){
    if(!Number.isSafeInteger(value)||value<0)throw new TypeError(name+' must be a non-negative integer');
    return value;
  };
+ class PackageWriter{
+   #handle;
+   constructor(home){this.#handle=native.openWriter(json({object:'package_writer',root:text(home,'home')}));}
+   close(){native.closeWriter(this.#handle);}
+ }
+ async function withPackageWriter(home,operation){
+   if(typeof operation!=='function')throw new TypeError('writer callback required');
+   const writer=new PackageWriter(home);
+   try{return await operation();}finally{writer.close();}
+ }
  class PackageStore{
+   withWriter(home,operation){
+     if(typeof operation!=='function')return Promise.reject(new TypeError('writer callback required'));
+     return withPackageWriter(home,()=>operation(this));
+   }
+
    #handle;#closed=false;#maxArchiveBytes;
    constructor(root,limits={}){
      if(typeof root!=='string'||root==='')throw new TypeError('root required');
@@ -305,7 +320,7 @@ export function loadEngine(addonPath){
    check:value=>{native.service('endpoint.check',json(value));},
    validate:(value,policy)=>{native.service('endpoint.validate',json({endpoint:value,policy}));},
  };
- return {Host,Guest,Registry,Instances,Streams,PackageStore,LayeredPackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
+ return {Host,Guest,Registry,Instances,Streams,PackageWriter,withPackageWriter,PackageStore,LayeredPackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
    directoryDigest:async root=>JSON.parse(await native.integrity('digest',root,'null')),
    verifyArtifacts:async(manifest,root)=>{await native.integrity('verify',root,json(manifest));}};
 }

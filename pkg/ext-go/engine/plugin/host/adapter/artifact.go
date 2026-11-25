@@ -64,7 +64,7 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 	if !validTarget.MatchString(goos) || !validTarget.MatchString(goarch) {
 		return errors.New("package target needs an operating system and architecture")
 	}
-	adapter, err := LoadDirectoryForOS(directory, goos)
+	adapter, err := LoadDirectoryForTarget(directory, Target{OS: goos, Arch: goarch})
 	if err != nil {
 		return err
 	}

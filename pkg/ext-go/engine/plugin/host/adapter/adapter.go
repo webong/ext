@@ -138,17 +138,25 @@ func LoadDirectory(directory string) (*Adapter, error) {
 
 // LoadDirectoryForOS validates a package for a specific target operating system.
 func LoadDirectoryForOS(directory, goos string) (*Adapter, error) {
-	return loadDirectory(directory, goos, true)
+	return LoadDirectoryForTarget(directory, Target{OS: goos, Arch: runtime.GOARCH})
 }
 
 // LoadSource validates the plugin.json template of an adapter source directory
 // without requiring its executable to exist yet: a Go adapter is built before it
 // can run. Everything else is checked as LoadDirectoryForOS does.
 func LoadSource(directory, goos string) (*Adapter, error) {
-	return loadDirectory(directory, goos, false)
+	return loadDirectory(directory, Target{OS: goos, Arch: runtime.GOARCH}, false)
 }
 
-func loadDirectory(directory, goos string, requireExecutable bool) (*Adapter, error) {
+// LoadDirectoryForTarget validates a package for an explicit OS and architecture.
+func LoadDirectoryForTarget(directory string, target Target) (*Adapter, error) {
+	if !validTarget.MatchString(target.OS) || !validTarget.MatchString(target.Arch) {
+		return nil, errors.New("adapter target requires an operating system and architecture")
+	}
+	return loadDirectory(directory, target, true)
+}
+
+func loadDirectory(directory string, target Target, requireExecutable bool) (*Adapter, error) {
 	absolute, err := filepath.Abs(directory)
 	if err != nil {
 		return nil, err
@@ -168,12 +176,13 @@ func loadDirectory(directory, goos string, requireExecutable bool) (*Adapter, er
 	if err != nil {
 		return nil, fmt.Errorf("adapter manifest %s: %w", filepath.Join(absolute, ManifestFileName), err)
 	}
-	return adapterFromValues(values, pm, absolute, goos, requireExecutable)
+	return adapterFromValues(values, pm, absolute, target, requireExecutable)
 }
 
 // adapterFromValues derives the adapter's Manifest from the key/value form of its
 // package document, applies the defaults, and validates it against directory.
-func adapterFromValues(values map[string]string, pm packagekit.Manifest, absolute, goos string, requireExecutable bool) (*Adapter, error) {
+func adapterFromValues(values map[string]string, pm packagekit.Manifest, absolute string, target Target, requireExecutable bool) (*Adapter, error) {
+	goos := target.OS
 	manifest := Manifest{
 		APIVersion:           values["api_version"],
 		Name:                 values["name"],
@@ -205,15 +214,12 @@ func adapterFromValues(values map[string]string, pm packagekit.Manifest, absolut
 		DefaultProvider:      values["default_provider"] == "true",
 		SelfContained:        values["self_contained"] == "true",
 	}
-	for _, platform := range []string{"darwin", "linux", "windows"} {
-		dependencies, err := parseDependencies(values["dependencies_"+platform], manifest.Name)
-		if err != nil {
-			return nil, err
-		}
-		if platform == goos {
-			manifest.Dependencies = dependencies
-		}
+	dependencies, err := declaredDependencies(pm, values, goos, target.Arch)
+	if err != nil {
+		return nil, err
 	}
+	manifest.Dependencies = dependencies
+
 	if raw := values["browser_query_priority"]; raw != "" {
 		priority, err := strconv.Atoi(raw)
 		if err != nil || priority < 0 || priority > 1000 {

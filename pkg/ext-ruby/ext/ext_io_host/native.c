@@ -33,6 +33,8 @@
 
 typedef struct {
   uint32_t (*abi_version)(void);
+  ext_plugin_status (*object_open)(const char *, size_t, uint64_t *);
+  ext_plugin_status (*object_close)(uint64_t);
   ext_plugin_status (*create)(const ext_plugin_host_options *, const ext_plugin_backend_options *, ext_plugin_host **);
   ext_plugin_status (*start)(ext_plugin_host *, const ext_plugin_call_options *);
   ext_plugin_status (*call)(ext_plugin_host *, const uint8_t *, size_t, const ext_plugin_call_options *, ext_plugin_buffer *);
@@ -58,7 +60,7 @@ typedef struct {
   void (*registry_destroy)(ext_plugin_registry *);
 } engine_api;
 
-static VALUE mNative, cEngine, cHost, cRegistry, eHostError;
+static VALUE mNative, cEngine, cHost, cRegistry, cWriter, eHostError;
 static ID id_new, id_call, id_policy_key;
 
 static const char *const status_names[] = {
@@ -180,9 +182,51 @@ static VALUE engine_open(VALUE klass, VALUE rpath) {
   RESOLVE(registry_attach, "ext_plugin_registry_attach");
   RESOLVE(registry_destroy, "ext_plugin_registry_destroy");
 #undef RESOLVE
+  /* Optional on older host libraries; only package_writer needs these. */
+  *(void **)(&api->object_open) = library_symbol(lib, "ext_plugin_open");
+  *(void **)(&api->object_close) = library_symbol(lib, "ext_plugin_close");
   obj = TypedData_Make_Struct(klass, engine_t, &engine_type, e);
   e->api = api;
   return obj;
+}
+
+/* A close-only described writer. Acquisition is fail-fast, not a lock wait.
+ * These short filesystem operations retain the GVL so handle ownership cannot
+ * be interrupted between C acquisition/release and the Ruby object's update. */
+typedef struct { const engine_api *api; uint64_t handle; } writer_t;
+static void writer_free(void *ptr) {
+  writer_t *w = ptr;
+  if (w->handle) w->api->object_close(w->handle);
+  xfree(w);
+}
+static const rb_data_type_t writer_type = {
+  "ExtIO::Host::Native::PackageWriter",
+  {NULL, writer_free, NULL, NULL, {0}},
+  0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
+static VALUE engine_package_writer(VALUE self, VALUE config) {
+  engine_t *e;
+  TypedData_Get_Struct(self, engine_t, &engine_type, e);
+  if (!e->api->object_open || !e->api->object_close)
+    raise_status(EXT_PLUGIN_UNSUPPORTED, "package writer interface");
+  StringValue(config);
+  writer_t *w;
+  VALUE obj = TypedData_Make_Struct(cWriter, writer_t, &writer_type, w);
+  w->api = e->api;
+  w->handle = 0;
+  ext_plugin_status status = e->api->object_open(RSTRING_PTR(config), (size_t)RSTRING_LEN(config), &w->handle);
+  if (status) raise_status(status, "package writer acquire");
+  return obj;
+}
+static VALUE writer_close(VALUE self) {
+  writer_t *w;
+  TypedData_Get_Struct(self, writer_t, &writer_type, w);
+  if (!w->handle) return Qnil;
+  uint64_t handle = w->handle;
+  w->handle = 0;
+  ext_plugin_status status = w->api->object_close(handle);
+  if (status) raise_status(status, "package writer release");
+  return Qnil;
 }
 
 /* ---- hosts ---- */
@@ -1071,6 +1115,11 @@ RUBY_FUNC_EXPORTED void Init_native(void) {
   rb_define_singleton_method(cEngine, "open", engine_open, 1);
   rb_define_method(cEngine, "process", engine_process, 8);
   rb_define_method(cEngine, "shared_library", engine_shared_library, 4);
+  rb_define_method(cEngine, "package_writer", engine_package_writer, 1);
+  cWriter = rb_define_class_under(mNative, "PackageWriter", rb_cObject);
+  rb_undef_alloc_func(cWriter);
+  rb_define_method(cWriter, "close", writer_close, 0);
+
 
   cHost = rb_define_class_under(mNative, "Host", rb_cObject);
   rb_undef_alloc_func(cHost);

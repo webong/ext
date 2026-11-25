@@ -8,6 +8,16 @@ using System.Text;
 using System.Text.Json.Nodes;
 using ExtIO.Host;
 
+if (args.Length == 2 && args[0] == "--writer-child")
+{
+    try
+    {
+        using var writer = new Engine().PackageWriter(args[1]);
+        return 0;
+    }
+    catch (HostException e) { return e.Status == "exists" ? 18 : 1; }
+}
+
 var fixtures = args.Length > 0 ? args[0] : Path.Combine(AppContext.BaseDirectory, "../../../../../../lib/plugin/testdata/v1");
 var required = Environment.GetEnvironmentVariable("EXT_HOST_REQUIRED") == "1";
 foreach (var name in new[] { "EXT_HOST_LIBRARY", "EXT_GO_GUEST", "EXT_GO_SHARED" })
@@ -67,6 +77,43 @@ static T Throws<T>(Action f, string what) where T : Exception
 }
 
 static bool Same(JsonNode? a, JsonNode? b) => JsonNode.DeepEquals(a, b);
+
+Test("package writer ownership and scoped cleanup", () =>
+{
+    var root = Path.Combine(Path.GetTempPath(), "ext-dotnet-writer-" + Guid.NewGuid());
+    var path = Path.Combine(root, ".package-write.lock");
+    try
+    {
+        Throws<InvalidOperationException>(() =>
+        {
+            using var writer = engine.PackageWriter(root);
+            Check(Directory.Exists(path), "writer creates shared lock");
+            Check(Throws<HostException>(() => engine.PackageWriter(root), "contention").Status == "exists", "contention status");
+            var start = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
+            if (Path.GetFileNameWithoutExtension(Environment.ProcessPath!) == "dotnet")
+                start.ArgumentList.Add(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            start.ArgumentList.Add("--writer-child");
+            start.ArgumentList.Add(root);
+            using var child = System.Diagnostics.Process.Start(start)!;
+            if (!child.WaitForExit(10000)) { child.Kill(true); throw new Exception("writer child timed out"); }
+            Check(child.ExitCode == 18, "child sees native writer contention");
+            throw new InvalidOperationException("scope failure");
+        }, "scope failure");
+        Check(!Directory.Exists(path), "exception releases lock");
+        var owned = engine.PackageWriter(root);
+        Directory.Move(path, path + ".old");
+        Directory.CreateDirectory(path);
+        Check(Throws<HostException>(owned.Dispose, "replacement").Status == "mismatch", "replacement status");
+        owned.Dispose();
+        Check(Directory.Exists(path), "replacement preserved");
+        Check(Throws<HostException>(() => engine.PackageWriter(root), "stale lock").Status == "exists", "stale lock not recovered");
+        Directory.Delete(path);
+        var again = engine.PackageWriter(root);
+        Parallel.Invoke(again.Dispose, again.Dispose);
+        Check(!Directory.Exists(path), "concurrent dispose releases once");
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+});
 
 // Every case of host-cases.json, on both reference guests.
 var spec = Fixture("host-cases.json");

@@ -25,6 +25,16 @@ func ResolvePackages(manifests []packagekit.Manifest) (packagekit.Plan, error) {
 	return out, err
 }
 
+// ResolvePackagesFor resolves requirements for an explicit operating system and architecture.
+func ResolvePackagesFor(manifests []packagekit.Manifest, os, arch string) (packagekit.Plan, error) {
+	if manifests == nil {
+		manifests = []packagekit.Manifest{}
+	}
+	var out packagekit.Plan
+	err := cgoengine.EngineValue("package.resolve_for", map[string]any{"packages": manifests, "os": os, "arch": arch}, &out)
+	return out, err
+}
+
 // SelectEntrypoint chooses the named entrypoint for the environment.
 func SelectEntrypoint(m packagekit.Manifest, name string, env packagekit.Environment) (packagekit.LaunchSelection, error) {
 	var out packagekit.LaunchSelection

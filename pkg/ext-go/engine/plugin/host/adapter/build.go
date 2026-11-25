@@ -115,7 +115,7 @@ func BuildGoPackage(options GoBuildOptions) (string, error) {
 		}
 		return "", fmt.Errorf("build Go adapter: %w\n%s", err, strings.TrimSpace(string(buildOutput)))
 	}
-	if _, err := LoadDirectoryForOS(staging, goos); err != nil {
+	if _, err := LoadDirectoryForTarget(staging, Target{OS: goos, Arch: goarch}); err != nil {
 		return "", fmt.Errorf("built adapter is invalid: %w", err)
 	}
 	if err := PackageDirectory(staging, output, goos, goarch); err != nil {

@@ -1,10 +1,10 @@
-# Zig binding to the CTX C engine
+# Zig binding to the Ext C engine
 
 Build with Zig 0.17.0 and a prebuilt C engine:
 
 ```sh
 zig build --build-file pkg/ext-zig/engine/build.zig \
-  -Dengine-include=/absolute/ctx/lib/plugin/include \
+  -Dengine-include=/absolute/ext/lib/plugin/include \
   -Dengine-lib=/absolute/lib/plugin/build test
 ```
 
@@ -41,7 +41,23 @@ differs, or an upgrade that changes the id or contracts), `error.Exists` (an ins
 an installed id) and `error.NotFound`. `install`, `upgrade`, `replace`, `load` and `ids`
 return a `Buffer` that is freed with `deinit`; `ids` is a JSON array of strings. A missing
 root is an empty store, made by the first install; calls on one `Store` are serialized by
-the engine, several processes mutating one root are yours to serialize.
+the engine. Coordinate several processes using `PackageWriter`:
+
+```zig
+var writer = try engine.PackageWriter.init(ext_home);
+defer writer.deinit();
+var installed = try store.install(source, .{});
+defer installed.deinit();
+// Include dependency checks and approval changes in the same scope.
+try writer.close(); // Explicit close reports ownership/release failures.
+```
+
+Pass EXT_HOME, not the package-store directory. The native lock interoperates with
+the CLI and every other binding. Acquisition fails immediately with `error.Exists`
+on contention; stale locks are never recovered by age. `close` is idempotent and
+preserves a replacement lock, reporting `error.Mismatch`. Do not copy the owned
+handle or close it concurrently. `deinit` is the cleanup fallback for error paths;
+abrupt termination leaves the lock behind.
 
 `Store.list`, `verify` and `listUnverified` are the whole-root reports, and `Layered` is
 the read-only view over several roots in priority order (`init` with a slice of

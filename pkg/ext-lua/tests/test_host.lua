@@ -61,6 +61,50 @@ local function expect_host_error(f, status, what)
   return err
 end
 
+case("package writer scoped cleanup and ownership", function()
+  local root = os.tmpname()
+  os.remove(root)
+  local lock = root .. "/.package-write.lock"
+  local function remove_dir(path)
+    if package.config:sub(1, 1) == "\\" then
+      os.execute('rmdir "' .. path .. '"')
+    else assert(os.remove(path)) end
+  end
+  local ok, err = pcall(function()
+    local marker = {}
+    local success, failure = pcall(function()
+      engine:with_package_writer(root, function()
+        expect_host_error(function() engine:package_writer(root) end, "exists")
+        local code = string.format(
+          "package.path=%q..package.path; local h=require('ext_io.host'); local ok,e=pcall(function() h.Engine():package_writer(%q) end); io.write(not ok and h.is_host_error(e) and e.status or 'unexpected')",
+          t.ROOT .. "/?.lua;" .. t.ROOT .. "/?/init.lua;", root)
+        local command = string.format("%q -e %q", t.interpreter(), code)
+        if package.config:sub(1, 1) == "\\" then command = '"' .. command .. '"' end
+        local child = assert(io.popen(command))
+        local out = child:read("*a")
+        child:close()
+        t.eq(out, "exists", "cross-process contention")
+        error(marker)
+      end)
+    end)
+    t.eq(success, false)
+    t.eq(failure, marker)
+    local a, b, c = engine:with_package_writer(root, function() return 7, nil, 9 end)
+    t.eq(a, 7); t.eq(b, nil); t.eq(c, 9)
+    local writer = engine:package_writer(root)
+    assert(os.rename(lock, lock .. ".old"))
+    local replacement = engine:package_writer(root)
+    expect_host_error(function() writer:close() end, "mismatch")
+    writer:close()
+    expect_host_error(function() engine:package_writer(root) end, "exists")
+    replacement:close()
+    remove_dir(lock .. ".old")
+    engine:package_writer(root):close()
+  end)
+  remove_dir(root)
+  if not ok then error(err, 0) end
+end)
+
 case("a missing library is reported", function()
   t.raises(function() host.Engine("/does/not/exist/libext_plugin_host.so") end)
 end)

@@ -342,8 +342,16 @@ func channelStderr(_ *libc.TLS, h uintptr, buf uintptr, capacity uintptr) uintpt
 	return uintptr(n)
 }
 
+// The child is reaped only in channelDestroy, after the host releases it.
+func channelProcessID(_ *libc.TLS, h uintptr) uint64 {
+	if c := channelByHandle(h); c != nil && c.cmd.Process != nil {
+		return uint64(c.cmd.Process.Pid)
+	}
+	return 0
+}
+
 // channelOps mirrors ext_channel_ops; the function values stay referenced from here.
-type channelOps struct{ isAbsolute, open, wait, read, write, kill, destroy, stderr uintptr }
+type channelOps struct{ isAbsolute, open, wait, read, write, kill, destroy, stderr, processID uintptr }
 
 var (
 	fIsAbsolute = channelIsAbsolute
@@ -354,12 +362,13 @@ var (
 	fKill       = channelKill
 	fDestroy    = channelDestroy
 	fStderr     = channelStderr
+	fProcessID  = channelProcessID
 	installed   channelOps
 )
 
 func funcPointer[F any](f *F) uintptr { return *(*uintptr)(unsafe.Pointer(f)) }
 
 func init() {
-	installed = channelOps{funcPointer(&fIsAbsolute), funcPointer(&fOpen), funcPointer(&fWait), funcPointer(&fRead), funcPointer(&fWrite), funcPointer(&fKill), funcPointer(&fDestroy), funcPointer(&fStderr)}
+	installed = channelOps{funcPointer(&fIsAbsolute), funcPointer(&fOpen), funcPointer(&fWait), funcPointer(&fRead), funcPointer(&fWrite), funcPointer(&fKill), funcPointer(&fDestroy), funcPointer(&fStderr), funcPointer(&fProcessID)}
 	ext_channel_ops_table = uintptr(unsafe.Pointer(&installed))
 }

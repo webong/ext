@@ -31,7 +31,7 @@ func TestResolveEntrypointRequiresTrustAndPrefersPlatform(t *testing.T) {
 		Artifacts:  artifacts,
 		Entrypoints: []packagekit.Entrypoint{
 			{Name: "main", Runtime: "argv", Artifact: "generic", Protocols: []string{"example/v1"}},
-			{Name: "main." + runtime.GOOS, Runtime: "argv", Artifact: "native", Protocols: []string{"example/v1"}},
+			{Name: "main." + runtime.GOOS, Runtime: "process", Artifact: "native", Protocols: []string{"example/v1"}},
 		},
 	}
 	if err := store.WriteManifest(source, manifest); err != nil {

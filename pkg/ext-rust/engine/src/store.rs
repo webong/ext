@@ -5,7 +5,7 @@
 //! The store copies and re-verifies content; it never runs it or grants
 //! authority. A missing root is an empty store, made by the first install.
 //! Calls on one [`Store`] are serialized by the engine; several processes
-//! mutating one root are the application's to serialize.
+//! mutating one root coordinate with [`Writer`] or [`Store::with_writer`].
 //!
 //! Failures are statuses: [`Error::INVALID`] for a package, id or directory that
 //! is not valid or an artifact over a limit, [`Error::MISMATCH`] for an artifact
@@ -49,6 +49,51 @@ pub struct Platform<'a> {
     pub arch: Option<&'a str>,
 }
 
+/// Owns EXT_HOME's cross-process package writer lock. Drop releases it; use
+/// [`Writer::close`] to observe release errors. Acquisition never waits or
+/// recovers abandoned locks by age. A replaced lock is never deleted.
+#[derive(Debug)]
+pub struct Writer {
+    handle: u64,
+}
+impl Writer {
+    pub fn acquire(home: &str) -> Result<Self, Error> {
+        // Encode a JSON string without adding a serializer dependency to the binding.
+        let mut config = String::from("{\"object\":\"package_writer\",\"root\":\"");
+        for ch in home.chars() {
+            match ch {
+                '\"' => config.push_str("\\\""),
+                '\\' => config.push_str("\\\\"),
+                '\0'..='\u{1f}' => {
+                    use std::fmt::Write;
+                    write!(&mut config, "\\u{:04x}", ch as u32).unwrap();
+                }
+                _ => config.push(ch),
+            }
+        }
+        config.push_str("\"}");
+        let mut handle = 0;
+        check(unsafe { ffi::ext_plugin_open(config.as_ptr().cast(), config.len(), &mut handle) })?;
+        Ok(Self { handle })
+    }
+    /// Consumes the handle even if native release reports an ownership mismatch.
+    pub fn close(mut self) -> Result<(), Error> {
+        self.release()
+    }
+    fn release(&mut self) -> Result<(), Error> {
+        let handle = std::mem::take(&mut self.handle);
+        if handle == 0 {
+            return Ok(());
+        }
+        check(unsafe { ffi::ext_plugin_close(handle) })
+    }
+}
+impl Drop for Writer {
+    fn drop(&mut self) {
+        let _ = self.release();
+    }
+}
+
 /// An open package store. Dropping it releases the engine's handle.
 pub struct Store {
     handle: *mut c_void,
@@ -76,6 +121,25 @@ impl Store {
             max_archive_bytes: limits.max_archive_bytes,
         })
     }
+    /// Coordinates a complete store read/modify/write operation with other hosts.
+    /// `home` is the shared EXT_HOME, not this store's package directory. The
+    /// callback may use other stores and trust records under that same home.
+    /// Errors and unwinding release ownership; a successful callback reports
+    /// any release failure. Nested acquisition of the same home returns EXISTS.
+    pub fn with_writer<T>(
+        &self,
+        home: &str,
+        operation: impl FnOnce(&Self) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let writer = Writer::acquire(home)?;
+        let result = operation(self);
+        let released = writer.close();
+        match result {
+            Err(error) => Err(error),
+            Ok(value) => released.map(|()| value),
+        }
+    }
+
     fn put(&self, call: Put, source: &str, preserve_executable: bool) -> Result<Vec<u8>, Error> {
         let source = cstring(source)?;
         let flags = if preserve_executable {

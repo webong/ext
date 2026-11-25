@@ -37,6 +37,7 @@ static void compat_setfuncs(lua_State *L, const luaL_Reg *l) {
 #define luaL_setfuncs(L, l, n) compat_setfuncs(L, l)
 #endif
 
+#define WRITER_MT "ext_io.host.PackageWriter"
 #define ENGINE_MT "ext_io.host.Engine"
 #define HOST_MT "ext_io.host.Host"
 #define REGISTRY_MT "ext_io.host.Registry"
@@ -45,6 +46,8 @@ static void compat_setfuncs(lua_State *L, const luaL_Reg *l) {
 /* The engine functions a host uses, resolved from one loaded library. An engine is never
  * unloaded, as ctypes never unloads one: a host's callbacks and buffers belong to it. */
 typedef struct {
+  ext_plugin_status (*object_open)(const char *, size_t, uint64_t *);
+  ext_plugin_status (*object_close)(uint64_t);
   uint32_t (*abi_version)(void);
   ext_plugin_status (*create)(const ext_plugin_host_options *, const ext_plugin_backend_options *, ext_plugin_host **);
   ext_plugin_status (*start)(ext_plugin_host *, const ext_plugin_call_options *);
@@ -230,6 +233,8 @@ static int core_open(lua_State *L) {
   RESOLVE(registry_attach, "ext_plugin_registry_attach");
   RESOLVE(registry_destroy, "ext_plugin_registry_destroy");
 #undef RESOLVE
+  *(void **)(&api->object_open) = library_symbol(lib, "ext_plugin_open");
+  *(void **)(&api->object_close) = library_symbol(lib, "ext_plugin_close");
   ud = (engine_ud *)lua_newuserdata(L, sizeof *ud);
   ud->api = api; /* never freed: the library stays loaded, and so does its table */
   luaL_getmetatable(L, ENGINE_MT);
@@ -786,7 +791,45 @@ static int host_destroyed(lua_State *L) {
   return 1;
 }
 
+typedef struct {
+  const engine_api *api;
+  uint64_t handle;
+} writer_ud;
+
+static ext_plugin_status writer_release(writer_ud *w) {
+  uint64_t handle = w->handle;
+  w->handle = 0;
+  return handle ? w->api->object_close(handle) : EXT_PLUGIN_OK;
+}
+static int writer_close(lua_State *L) {
+  ext_plugin_status s = writer_release((writer_ud *)luaL_checkudata(L, 1, WRITER_MT));
+  return s ? raise_status(L, s, "package writer close") : 0;
+}
+static int writer_gc(lua_State *L) {
+  writer_release((writer_ud *)luaL_checkudata(L, 1, WRITER_MT));
+  return 0;
+}
+static int engine_package_writer(lua_State *L) {
+  const engine_api *api = check_engine(L)->api;
+  size_t len;
+  const char *config = luaL_checklstring(L, 2, &len);
+  writer_ud *w;
+  ext_plugin_status s;
+  if (!api->object_open || !api->object_close)
+    return raise_status(L, EXT_PLUGIN_UNSUPPORTED, "package writer");
+  /* Allocate and attach finalization before acquiring a native resource. */
+  w = (writer_ud *)lua_newuserdata(L, sizeof *w);
+  w->api = api;
+  w->handle = 0;
+  luaL_getmetatable(L, WRITER_MT);
+  lua_setmetatable(L, -2);
+  s = api->object_open(config, len, &w->handle);
+  return s ? raise_status(L, s, "package writer open") : 1;
+}
+static const luaL_Reg writer_methods[] = {{"close", writer_close}, {NULL, NULL}};
+
 static const luaL_Reg engine_methods[] = {
+    {"package_writer", engine_package_writer},
     {"process", engine_process},
     {"shared_library", engine_shared_library},
     {"registry", engine_registry},
@@ -833,6 +876,13 @@ static void metatable(lua_State *L, const char *name, const luaL_Reg *methods, i
 EXPORT int luaopen_ext_io_host_core(lua_State *L) {
   static const luaL_Reg functions[] = {{"open", core_open}, {NULL, NULL}};
   size_t i;
+  metatable(L, WRITER_MT, writer_methods, 0);
+  luaL_getmetatable(L, WRITER_MT);
+  lua_pushcfunction(L, writer_gc);
+  lua_setfield(L, -2, "__gc");
+  lua_pushcfunction(L, writer_close);
+  lua_setfield(L, -2, "__close");
+  lua_pop(L, 1);
   metatable(L, ENGINE_MT, engine_methods, 0);
   metatable(L, HOST_MT, host_methods, 1);
   metatable(L, REGISTRY_MT, registry_methods, 0);

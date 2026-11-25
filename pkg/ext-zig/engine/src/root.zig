@@ -277,11 +277,35 @@ pub const EntrypointRequest = struct {
     os: ?[:0]const u8 = null,
     arch: ?[:0]const u8 = null,
 };
+/// Owns EXT_HOME's cross-process package writer. Never copy this handle; serialize
+/// access. Use `defer writer.deinit()` for cleanup and `close()` to observe release
+/// failures. Contention is Exists; no stale-lock recovery is inferred.
+pub const PackageWriter = struct {
+    raw: ?*ffi.ext_plugin_store_writer,
+    pub fn init(home: [:0]const u8) Error!PackageWriter {
+        if (std.mem.indexOfScalar(u8, home, 0) != null) return error.Invalid;
+        var raw: ?*ffi.ext_plugin_store_writer = null;
+        try check(ffi.ext_plugin_store_writer_acquire(home.ptr, &raw));
+        return .{ .raw = raw };
+    }
+    /// Consumes ownership even on mismatch; never deletes another writer's lock.
+    pub fn close(self: *PackageWriter) Error!void {
+        const raw = self.raw orelse return;
+        self.raw = null;
+        const status = ffi.ext_plugin_store_writer_release(raw);
+        ffi.ext_plugin_store_writer_free(raw);
+        try check(status);
+    }
+    pub fn deinit(self: *PackageWriter) void {
+        self.close() catch {};
+    }
+};
+
 /// The engine's package store: install, upgrade, replace, remove and load
 /// reviewed `ext.package/v1` packages under a root the caller supplies, as the Go
 /// store does. A missing root is an empty store, made by the first install. The
 /// engine serializes calls on one store; several processes mutating one root are
-/// the caller's to serialize. Failures are statuses: `error.Invalid` for a
+/// coordinated by PackageWriter. Failures are statuses: `error.Invalid` for a
 /// package, id or directory that is not valid or an artifact over a limit,
 /// `error.Mismatch` for a digest that differs or an upgrade that changes the id
 /// or the contracts, `error.Exists` for an install over an installed id and
@@ -791,6 +815,7 @@ const libc = struct {
     extern fn fread([*c]u8, usize, usize, *FILE) usize;
     extern fn fwrite([*c]const u8, usize, usize, *FILE) usize;
     extern fn mkdir([*c]const u8, c_uint) c_int;
+    extern fn rename([*c]const u8, [*c]const u8) c_int;
     extern fn mkdtemp([*c]u8) ?[*:0]u8;
     extern fn system([*c]const u8) c_int;
 };
@@ -1055,6 +1080,44 @@ fn writePackage(a: std.mem.Allocator, dir: [:0]const u8, id: []const u8, revisio
     const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"{s}\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}]}},\"artifacts\":[{{\"name\":\"main\",\"path\":\"src/main.py\",\"sha256\":\"{s}\"}}]}}", .{ id, revision, contract, hex });
     try writeFile(try printZ(a, "{s}/plugin.json", .{dir}), manifest);
 }
+test "package writers coordinate mutations and preserve replacement ownership" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var template = "/tmp/ext-zig-writer-XXXXXX".*;
+    const base = std.mem.span(libc.mkdtemp(&template) orelse return error.IO);
+    const cleanup = try printZ(a, "rm -rf '{s}'", .{base});
+    defer _ = libc.system(cleanup.ptr);
+    const home = try printZ(a, "{s}/home", .{base});
+    const lock = try printZ(a, "{s}/.package-write.lock", .{home});
+    var store = try Store.init(try printZ(a, "{s}/plugins", .{home}), .{});
+    defer store.deinit();
+    const source = try printZ(a, "{s}/source", .{base});
+    try writePackage(a, source, "example/writer", "v1", "example.read", "ok");
+    {
+        var writer = try PackageWriter.init(home);
+        defer writer.deinit();
+        try std.testing.expectError(error.Exists, PackageWriter.init(home));
+        var installed = try store.install(source, .{});
+        defer installed.deinit();
+        var loaded = try store.load("example/writer");
+        defer loaded.deinit();
+        try std.testing.expectEqualStrings(installed.bytes(), loaded.bytes());
+        try store.remove("example/writer");
+    }
+    var writer = try PackageWriter.init(home);
+    defer writer.deinit();
+    try std.testing.expectEqual(@as(c_int, 0), libc.rename(lock.ptr, (try printZ(a, "{s}/old", .{home})).ptr));
+    var replacement = try PackageWriter.init(home);
+    defer replacement.deinit();
+    try std.testing.expectError(error.Mismatch, writer.close());
+    try writer.close();
+    try std.testing.expectError(error.Exists, PackageWriter.init(home));
+    try replacement.close();
+    try replacement.close();
+    try std.testing.expectError(error.Invalid, PackageWriter.init("bad\x00path"));
+}
+
 test "the package store installs, upgrades, replaces and removes" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

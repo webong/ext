@@ -86,6 +86,29 @@ end
 local Engine = {}
 host.Engine_mt = { __index = Engine, __name = "ext_io.host.Engine" }
 
+local Writer = {}
+local Writer_mt = { __index = Writer, __name = "ext_io.host.PackageWriter" }
+function Writer:close() return guard(self._writer.close, self._writer) end
+Writer_mt.__close = Writer.close
+
+--- Acquire the native EXT_HOME writer lock without waiting. Close after all mutations.
+function Engine:package_writer(root)
+  if type(root) ~= "string" then error("package writer root must be a string", 2) end
+  return setmetatable({ _writer = guard(self._engine.package_writer, self._engine,
+    json.encode({ object = "package_writer", root = root })) }, Writer_mt)
+end
+
+--- Scoped cleanup on all supported Lua versions; preserves all callback return values.
+function Engine:with_package_writer(root, fn)
+  if type(fn) ~= "function" then error("package writer callback must be a function", 2) end
+  local writer = self:package_writer(root)
+  local function pack(...) return { n = select("#", ...), ... } end
+  local result = pack(pcall(fn, writer))
+  writer:close()
+  if not result[1] then error(result[2], 0) end
+  return (table.unpack or unpack)(result, 2, result.n)
+end
+
 local function encode(value)
   if type(value) == "string" then return value end
   return json.encode(value)

@@ -499,3 +499,54 @@ class RegistryTest < Minitest::Test
     GC.start
   end
 end
+
+class PackageWriterTest < Minitest::Test
+  def setup
+    why = HostSupport.load
+    raise why if why && HostSupport::REQUIRED
+    skip why if why
+    skip "set EXT_HOST_LIBRARY" unless HostSupport.need("EXT_HOST_LIBRARY")
+    require "tmpdir"
+    @engine = HostSupport.engine
+  end
+
+  def test_writer_scope_contention_and_ownership
+    Dir.mktmpdir("ext-ruby-writer") do |home|
+      lock = File.join(home, ".package-write.lock")
+      error = assert_raises(RuntimeError) do
+        @engine.package_writer(home) do
+          assert_equal "exists", assert_raises(ExtIO::Host::HostError) { @engine.package_writer(home) }.status
+          assert_raises(Errno::EEXIST) { Dir.mkdir(lock) }
+          raise "application failure"
+        end
+      end
+      assert_equal "application failure", error.message
+      refute File.exist?(lock)
+      assert_equal 7, @engine.package_writer(home) { 7 }
+      writer = @engine.package_writer(home)
+      File.rename(lock, File.join(home, "old-writer"))
+      other = @engine.package_writer(home)
+      assert_equal "mismatch", assert_raises(ExtIO::Host::HostError) { writer.close }.status
+      assert File.directory?(lock)
+      other.close
+      other.close
+      refute File.exist?(lock)
+      Dir.rmdir(File.join(home, "old-writer"))
+      Dir.mkdir(lock)
+      assert_equal "exists", assert_raises(ExtIO::Host::HostError) { @engine.package_writer(home) }.status
+      Dir.rmdir(lock)
+    end
+  end
+
+  def test_abrupt_child_exit_leaves_lock
+    Dir.mktmpdir("ext-ruby-writer") do |home|
+      lib = File.expand_path("../lib", __dir__)
+      code = 'require "ext_io/host"; writer = ExtIO::Host::Engine.new.package_writer(ARGV[0]); Process.exit!(0)'
+      out, err, status = Open3.capture3(RbConfig.ruby, "-I", lib, "-e", code, home)
+      assert status.success?, "#{out} #{err}"
+      assert_equal "exists", assert_raises(ExtIO::Host::HostError) { @engine.package_writer(home) }.status
+      assert File.directory?(File.join(home, ".package-write.lock"))
+      Dir.rmdir(File.join(home, ".package-write.lock"))
+    end
+  end
+end

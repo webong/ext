@@ -24,7 +24,7 @@ stage="$(mktemp -d "${TMPDIR:-/tmp}/ext-c2go.XXXXXX")"
 echo "== translate lib/plugin for $goos/$goarch"
 publish=()
 if [[ -n "$version" ]]; then publish=(-publish "$stage/$name/go"); fi
-(cd pkg/ext-go/c2goengine/tools && GOWORK=off go run . "${publish[@]}")
+(cd pkg/ext-go/c2goengine/tools && GOWORK=off go run . ${publish[@]+"${publish[@]}"})
 
 echo "== the translation with its binding, held to the differential checks"
 # shellcheck disable=SC2086 # an optional flag

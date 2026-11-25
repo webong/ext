@@ -64,6 +64,8 @@ final class Engine
         } ext_plugin_backend_extension_context;
         typedef struct { uint32_t struct_size; const char *path; } ext_plugin_shared_library_options;
         uint32_t ext_plugin_host_abi_version(void);
+        ext_plugin_status ext_plugin_open(const char *, size_t, uint64_t *);
+        ext_plugin_status ext_plugin_close(uint64_t);
         ext_plugin_status ext_plugin_host_create(const ext_plugin_host_options *, const ext_plugin_backend_options *, ext_plugin_host **out);
         ext_plugin_status ext_plugin_host_start_with_options(ext_plugin_host *, const ext_plugin_call_options *);
         ext_plugin_status ext_plugin_host_call(ext_plugin_host *, const char *, size_t, const ext_plugin_call_options *, ext_plugin_buffer *);
@@ -130,6 +132,23 @@ final class Engine
         $abi = $this->ffi->ext_plugin_host_abi_version();
         if ($abi !== self::ABI_VERSION) {
             throw new \FFI\Exception("ext engine ABI $abi, this class needs " . self::ABI_VERSION);
+        }
+    }
+
+    /** Acquire the native package writer for an Ext home, not its packages directory. */
+    public function packageWriter(string $root): PackageWriter
+    {
+        return new PackageWriter($this, $root);
+    }
+
+    /** Hold the native writer across a workflow, releasing even when it throws. */
+    public function withPackageWriter(string $root, callable $action): mixed
+    {
+        $writer = $this->packageWriter($root);
+        try {
+            return $action();
+        } finally {
+            $writer->close();
         }
     }
 

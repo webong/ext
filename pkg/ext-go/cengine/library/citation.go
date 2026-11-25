@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -86,6 +87,10 @@ func ParseCitation(data []byte) (Citation, error) {
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&c); err != nil {
 		return Citation{}, fmt.Errorf("citation: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return Citation{}, fmt.Errorf("citation: expected exactly one JSON document")
 	}
 	return c, c.Validate()
 }

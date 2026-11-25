@@ -9,6 +9,37 @@ import XCTest
 /// Rust, Node and Zig bindings run the same scenarios, and this checks that the Swift
 /// binding reaches the same behavior.
 final class PackageStoreTests: XCTestCase {
+    func testPackageWriterScopeAndOwnership() throws {
+        let work = try scratch()
+        let home = work.path("home")
+        let lock = work.path("home/.package-write.lock")
+        let store = try PackageStore(root: work.path("home/plugins"))
+        let source = try package(work.url("source"), "example/writer", body: "hello")
+        let value = try store.withWriter(home: home) { locked in
+            XCTAssertThrowsError(try PackageWriter(home: home)) {
+                XCTAssertEqual($0 as? PackageStoreError, .exists)
+            }
+            try locked.install(source)
+            _ = try locked.load("example/writer")
+            return 7
+        }
+        XCTAssertEqual(value, 7)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: lock))
+        XCTAssertThrowsError(try store.withWriter(home: home) { _ in throw PackageStoreError.denied }) {
+            XCTAssertEqual($0 as? PackageStoreError, .denied)
+        }
+        try store.withWriter(home: home) { try $0.remove("example/writer") }
+        let writer = try PackageWriter(home: home)
+        try FileManager.default.moveItem(atPath: lock, toPath: lock + ".old")
+        let replacement = try PackageWriter(home: home)
+        XCTAssertThrowsError(try writer.close()) { XCTAssertEqual($0 as? PackageStoreError, .mismatch) }
+        try writer.close()
+        XCTAssertThrowsError(try PackageWriter(home: home)) { XCTAssertEqual($0 as? PackageStoreError, .exists) }
+        try replacement.close()
+        try replacement.close()
+        XCTAssertThrowsError(try PackageWriter(home: home + "\0other")) { XCTAssertEqual($0 as? PackageStoreError, .invalid) }
+    }
+
     // MARK: Fixtures
 
     /// A scratch directory that goes away with the test.

@@ -85,6 +85,19 @@ module ExtIO
         raise LoadError, "the ext engine library was not found: set EXT_HOST_LIBRARY to libext_plugin_host, or pass its path (#{error&.message})"
       end
 
+      # Acquire the C package writer for an Ext home (not its packages dir).
+      # With a block, return its value and release in ensure, including on error.
+      def package_writer(root)
+        writer = @engine.package_writer(JSON.generate({"object" => "package_writer", "root" => root.to_s}))
+        return writer unless block_given?
+
+        begin
+          yield writer
+        ensure
+          writer.close
+        end
+      end
+
       # A host for a JSON-line guest started as +executable+ (an absolute path, no shell).
       # +environment+ is a list of NAME=value entries added to a scrubbed base of PATH; the
       # child's stderr is kept up to +stderr_bytes+ (Host#stderr). +verify+ sees the descriptor

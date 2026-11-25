@@ -20,7 +20,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * as "%2f". The store copies and re-verifies content; it never runs it or grants authority, and
  * it has no default location. A missing root is an empty store, made (owner-only) by the first
  * install. Calls on one store are serialized by the engine and the class is safe to share between
- * threads; several processes mutating one root are the application's to serialize.
+ * threads; use {@link PackageWriter} to coordinate several processes mutating one home.
  *
  * <p>A failure is a {@link GuestException} whose {@link GuestException#status() status} is one of
  * the constants here: {@link #INVALID} for a package, id or directory that is not valid, a

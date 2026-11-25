@@ -27,7 +27,7 @@ import weakref
 
 from ..plugin import RemoteError
 
-__all__ = ["Engine", "Host", "HostError", "Registry", "RemoteError", "ReverseCall", "STATUS_NAMES"]
+__all__ = ["Engine", "Host", "HostError", "Registry", "RemoteError", "ReverseCall", "STATUS_NAMES", "PackageWriter"]
 
 _ABI_VERSION = 2
 _BACKEND_EXTENSION_CONTEXT = 3
@@ -186,6 +186,15 @@ def _strings(values):
 
 class Engine:
     """The C engine, loaded from ``path``, ``EXT_HOST_LIBRARY`` or the loader path."""
+
+    def package_writer(self, root):
+        """Acquire the C package writer for an Ext home (not its packages subdir).
+
+        Use as a context manager across planning, publication and trust changes.
+        Competing/stale locks raise HostError('exists'); they are never stolen.
+        This requires a C library exposing the described package_writer object.
+        """
+        return PackageWriter(self, root)
 
     def __init__(self, path=None):
         lib = ctypes.CDLL(_library_path(path))
@@ -511,3 +520,48 @@ class Registry:
         if getattr(self, "_handle", None) is not None and not sys.is_finalizing():
             self._lib.ext_plugin_registry_destroy(self._handle)
             self._handle = None
+
+
+class PackageWriter:
+    """A cooperating native package writer. Close explicitly or use ``with``.
+
+    Other writers must use the same Ext home. Store and trust operations do not
+    acquire this lock implicitly. A crash leaves the directory for manual
+    recovery; close refuses to delete a replacement owned by another writer.
+    """
+
+    def __init__(self, engine, root):
+        lib = engine._lib
+        # Bind lazily so importing/using the existing guest and host APIs does
+        # not require the newer described interface until it is requested.
+        lib.ext_plugin_open.argtypes = [ctypes.c_char_p, ctypes.c_size_t,
+                                       ctypes.POINTER(ctypes.c_uint64)]
+        lib.ext_plugin_open.restype = ctypes.c_int32
+        lib.ext_plugin_close.argtypes = [ctypes.c_uint64]
+        lib.ext_plugin_close.restype = ctypes.c_int32
+        root = os.fspath(root)
+        if not isinstance(root, str):
+            raise TypeError("package writer root must be a text path")
+        config = _encode({"object": "package_writer", "root": root})
+        handle = ctypes.c_uint64()
+        status = lib.ext_plugin_open(config, len(config), ctypes.byref(handle))
+        if status:
+            raise HostError(status, "package writer acquire")
+        # Retain the library without retaining self. finalize invokes the
+        # callback at most once, including when close races with another close.
+        self._release = weakref.finalize(self, lambda: lib.ext_plugin_close(handle.value))
+
+    def close(self):
+        """Release once. A failed release still consumes the native handle."""
+        status = self._release()
+        if status:
+            raise HostError(status, "package writer release")
+
+    def __enter__(self):
+        if not self._release.alive:
+            raise HostError(5, "package writer already closed")
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False

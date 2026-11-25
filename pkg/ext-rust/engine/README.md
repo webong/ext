@@ -47,7 +47,25 @@ directory, or an artifact over a `Limits` bound), `Error::MISMATCH` (a digest th
 differs, or an upgrade that changes the id or contracts), `Error::EXISTS` (an install
 over an installed id) and `Error::NOT_FOUND`. A missing root is an empty store, made
 by the first install; calls on one `Store` are serialized by the engine, several
-processes mutating one root are yours to serialize. `tests/store.rs` covers it.
+processes coordinate using `store::Writer` or `Store::with_writer`. `tests/store.rs`
+covers store operations and cross-process writer contention.
+
+```rust,ignore
+store.with_writer(ext_home, |locked| {
+    // Keep dependency checks, package writes and trust updates in this scope.
+    locked.install(source, false)?;
+    locked.load("example/provider")
+})?;
+```
+
+Pass the shared `EXT_HOME`, not the `plugins` store subdirectory. For operations
+spanning multiple stores, `store::Writer::acquire(ext_home)` provides the same
+native lock as a guard. Drop releases it on errors or panic unwinding; `close()`
+consumes it and reports release errors. Acquisition fails immediately with
+`Error::EXISTS` when another writer holds the lock. Abandoned locks are not
+recovered by age. Release detects replacement ownership and preserves the other
+writer's lock. Abrupt termination leaves the lock behind. Low-level store calls
+remain available; callers must use a writer scope when sharing their home.
 
 `Store::list`, `verify` and `list_unverified` are the whole-root reports, and
 `store::Layered` is the read-only view over several roots in priority order (`open`,

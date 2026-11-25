@@ -178,3 +178,28 @@ The Go suite in `pkg/ext-go/engine/plugin/plugintest` (`TestRubyGuest`, `TestRub
 `test/conformance_guest.rb` through `process.Start` against the shared conformance fixtures; set
 `EXT_RUBY` to an interpreter's absolute path to choose one. CI (the `ext-ruby` area of `.github/ci/areas.json`) runs
 all of this on Ruby 3.1 through the latest.
+
+### Coordinating package writes
+
+`Engine#package_writer` holds the C engine's cooperating writer for an Ext home:
+
+```ruby
+engine = ExtIO::Host::Engine.new
+result = engine.package_writer("/path/to/ext-home") do
+  # Plan, publish and update approval in this scope.
+  :done
+end
+```
+
+The block result is returned, and `ensure` closes the native handle even when
+the block raises. Without a block, the returned handle must be closed explicitly
+with `close` (idempotent). Pass the Ext home, not its `packages` subdirectory.
+The C engine uses the same `.package-write.lock` directory as the CLI and CTX.
+Contention and stale directories raise `HostError` with status `exists`; locks
+are never stolen. Releasing a replacement owned by another writer fails with
+`mismatch` without removing it. An abrupt exit leaves a stale lock: establish
+that the former owner stopped before manual recovery. Store/trust calls do not
+lock implicitly. This requires a library exposing the `package_writer` object;
+older engines without the described interface report `unsupported` on this API.
+The host conformance suite includes block cleanup, contention, replacement
+ownership and abrupt-child-exit checks.

@@ -62,6 +62,11 @@ type Entrypoint struct {
 	Protocols []string `json:"protocols"`
 }
 type Dependency struct {
+	// OS and Arch condition this requirement on an explicit host target. Empty matches any.
+	OS   string `json:"os,omitempty"`
+	Arch string `json:"arch,omitempty"`
+	// Provider selects a package ID across revisions; it is exclusive with Identity.
+	Provider  string             `json:"provider,omitempty"`
 	Contract  plugin.ContractRef `json:"contract"`
 	Operation string             `json:"operation"`
 	Identity  *plugin.Identity   `json:"identity,omitempty"`
@@ -187,6 +192,12 @@ func (m Manifest) Validate() error {
 			return err
 		}
 		if !namePattern.MatchString(d.Operation) {
+			return plugin.ErrInvalid
+		}
+		if (d.OS != "" && !namePattern.MatchString(d.OS)) || (d.Arch != "" && !namePattern.MatchString(d.Arch)) {
+			return plugin.ErrInvalid
+		}
+		if d.Provider != "" && (!namePattern.MatchString(d.Provider) || d.Identity != nil) {
 			return plugin.ErrInvalid
 		}
 		if d.Identity != nil {
@@ -382,6 +393,19 @@ type Plan struct {
 // Resolve requires unique exact providers and rejects dependency cycles. It
 // returns provider-before-consumer order; it neither executes nor grants access.
 func Resolve(manifests []Manifest) (Plan, error) {
+	return resolveFor(manifests, "", "")
+}
+
+// ResolveFor resolves only requirements active for the explicit target. Every
+// manifest and requirement is validated, including inactive declarations.
+func ResolveFor(manifests []Manifest, os, arch string) (Plan, error) {
+	if !namePattern.MatchString(os) || !namePattern.MatchString(arch) {
+		return Plan{}, plugin.ErrInvalid
+	}
+	return resolveFor(manifests, os, arch)
+}
+
+func resolveFor(manifests []Manifest, os, arch string) (Plan, error) {
 	if len(manifests) > 1024 {
 		return Plan{}, plugin.ErrInvalid
 	}
@@ -421,8 +445,17 @@ func Resolve(manifests []Manifest) (Plan, error) {
 	dependencies := make([][]int, len(manifests))
 	for i, m := range manifests {
 		for _, r := range m.Requires {
+			if (r.OS != "" || r.Arch != "") && (os == "" || arch == "") {
+				return Plan{}, plugin.ErrInvalid
+			}
+			if (r.OS != "" && r.OS != os) || (r.Arch != "" && r.Arch != arch) {
+				continue
+			}
 			provider, count := 0, 0
 			for _, candidate := range offers[offer{r.Contract, r.Operation}] {
+				if r.Provider != "" && descriptors[candidate].Identity.ID != r.Provider {
+					continue
+				}
 				if r.Identity != nil && descriptors[candidate].Identity != *r.Identity {
 					continue
 				}

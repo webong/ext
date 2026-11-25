@@ -191,3 +191,26 @@ the reference guest as a process and as a C ABI library, then policies, envelope
 ownership. It needs FFI, `EXT_HOST_LIBRARY`, `EXT_GO_GUEST` and `EXT_GO_SHARED`; without them it
 says so and runs nothing (it fails instead with `EXT_HOST_REQUIRED=1`). `scripts/host-cases.sh`
 builds them all and runs it, on PHP 8.1 and 8.4 in CI (the `host-cases` area of `.github/ci/areas.json`).
+
+### Coordinating package writes
+
+A C library exposing `package_writer` lets PHP participate in the same writer
+boundary as the CLI and CTX:
+
+```php
+$engine = new ExtIO\Host\Engine();
+$result = $engine->withPackageWriter('/path/to/ext-home', function () use ($engine) {
+    // Plan, publish and update approval within this workflow.
+    return 'done';
+});
+```
+
+Use the Ext home, not its `packages` subdirectory. The scoped helper releases
+the native handle in `finally` and returns your callback's result. For explicit
+lifetime control, use `packageWriter($home)` and `close()` in your own `finally`.
+Close is idempotent. The C engine rejects contention and stale locks with
+`HostError::$status === 'exists'`, and rejects release of a replacement directory
+with `mismatch`. It never steals locks or recursively removes their contents.
+An abrupt process exit leaves a stale lock; confirm the owner stopped before
+manual removal. Store/trust calls do not lock implicitly, and all writers must
+cooperate. `scripts/host-cases.sh` runs these checks with the PHP host suite.

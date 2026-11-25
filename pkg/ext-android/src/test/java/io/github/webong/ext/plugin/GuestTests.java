@@ -12,6 +12,13 @@ public final class GuestTests {
     private static int failures;
 
     public static void main(String[] args) throws Exception {
+        if (args.length == 2 && args[0].equals("--writer-probe")) {
+            int result = StoreTests.status(() -> new PackageWriter(args[1]).close());
+            if (result != PackageStore.EXISTS) throw new AssertionError("writer contention: " + result);
+            return;
+        }
+        run("package writer: scope, contention and ownership", StoreTests::writer);
+
         run("descriptor is served by the engine", GuestTests::descriptor);
         run("echo keeps number text", GuestTests::echoKeepsNumbers);
         run("absent payload becomes null", GuestTests::absentPayload);

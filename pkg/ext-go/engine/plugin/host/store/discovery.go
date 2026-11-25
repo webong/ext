@@ -42,7 +42,7 @@ func (s *Store) ResolveEntrypoint(id, contract, version, protocol, reviewedDiges
 	bestScore := -1
 	var best Entrypoint
 	for _, entry := range p.Manifest.Entrypoints {
-		if entry.Runtime != "argv" || !containsProtocol(entry.Protocols, protocol) || !entryMatchesOS(entry.Name) {
+		if (entry.Runtime != "argv" && entry.Runtime != "process") || !containsProtocol(entry.Protocols, protocol) || !entryMatchesOS(entry.Name) {
 			continue
 		}
 		for _, artifact := range p.Manifest.Artifacts {

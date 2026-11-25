@@ -286,14 +286,16 @@ and it has no default location.
 import ExtPluginStore
 
 let store = try PackageStore(root: packagesDirectory.path)   // need not exist yet
-let manifest = try store.install(downloaded.path)             // plugin.json, byte for byte
-do {
-    try store.upgrade(newer.path)                             // same id and contracts, a new revision
-} catch PackageStoreError.mismatch {
-    // the id or the contracts changed; replace(_:) takes any contracts
+try store.withWriter(home: extHome) { store in
+    let manifest = try store.install(downloaded.path)             // plugin.json, byte for byte
+    do {
+        try store.upgrade(newer.path)                             // same id and contracts, a new revision
+    } catch PackageStoreError.mismatch {
+        // the id or the contracts changed; replace(_:) takes any contracts
+    }
+    let ids = try store.ids()                                     // ["com.example/greeter"]
+    let verified = try store.load("com.example/greeter")          // reads and verifies, returns plugin.json
 }
-let ids = try store.ids()                                     // ["com.example/greeter"]
-let verified = try store.load("com.example/greeter")          // reads and verifies, returns plugin.json
 
 // Read several roots as one, highest first. It never writes.
 let view = try LayeredPackageStore(roots: [userRoot.path, systemRoot.path])
@@ -329,13 +331,29 @@ let served = try view.load("com.example/greeter")             // ServedPackage(m
   missing set of roots, or the same root spelled two ways, is `invalid`.
 - `PackageStoreLimits` (zero takes the default: 4 GiB per artifact, 250000 files and 16 GiB per tree, and
   512 MiB per archive) bound what `install`, `upgrade`, `replace` and `installArchive` copy. One store serializes its own calls; several processes
-  mutating one root are the app's to serialize.
+  mutating one root coordinate through `withWriter(home:)` or `PackageWriter`.
 - Archive install: see below.
 - The store verifies bytes, never who published them (trust is separate, `ext_trust_*`), and the app must
   keep the root out of reach of other writers. It is host-side code, but it spawns nothing and takes only a
   mutex, so it ships in `CExtEngine`; the rest of the host (sessions, processes) does not. The tests run
   on macOS and in the iOS Simulator, not on a physical device. What an app may run from a package is
   still the policy below.
+
+Use a writer scope across the complete read/check/update operation:
+
+```swift
+try store.withWriter(home: extHome) { locked in
+    try locked.install(source)
+    // Update associated approvals under the same lock.
+}
+```
+
+`PackageWriter(home:)` supports operations spanning multiple stores; call `close()`
+explicitly to observe release errors. Deinitialization releases as a fallback.
+Pass `EXT_HOME`, not its package-store directory. Contention throws `.exists`
+immediately. Closing twice is harmless; a replaced lock throws `.mismatch` and
+is preserved. Abrupt termination leaves the lock; stale locks are never removed
+by age. The callback scope releases on thrown errors.
 
 ### Install from an archive
 
@@ -357,10 +375,13 @@ and a new owner-only file that a failed download removes. Failures are `ArchiveD
 for a refusal by the rules, `status`, `transport`, `io` and `store`.
 
 ```swift
+let writer = try PackageWriter(home: extHome)
+defer { try? writer.close() }                           // also release if the async call throws
 let downloader = ArchiveDownloader()                     // system trust; serverTrust: for a private CA
 try await downloader.install(URL(string: "https://example.com/greeter-1.2.0.tar.gz")!,
                              sha256: pinnedDigest, id: "com.example/greeter", into: store)
 let receipt = try store.receipt("com.example/greeter")  // revision and artifactSHA256
+try writer.close()
 ```
 
 ```sh

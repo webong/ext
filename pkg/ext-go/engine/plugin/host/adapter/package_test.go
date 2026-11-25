@@ -570,3 +570,51 @@ package_files = "policy.json"
 		t.Fatal("a sealed package was built")
 	}
 }
+
+func TestPackageShareDependenciesTarget(t *testing.T) {
+	directory := fixtureAdapter(t, t.TempDir(), "consumer", "computer")
+	pm, err := readPackage(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(pm.Metadata[MetadataKey], &meta); err != nil {
+		t.Fatal(err)
+	}
+	meta["share_dependencies"] = []string{"storage:provider", "storage:alternate"}
+	pm.Metadata[MetadataKey], err = json.Marshal(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pm.Requires = []packagekit.Dependency{
+		{Provider: "provider", Contract: plugin.ContractRef{Name: plugin.AdapterContractName, Version: APIVersion}, Operation: "share", OS: "linux", Arch: "arm64"},
+		{Provider: "alternate", Contract: plugin.ContractRef{Name: plugin.AdapterContractName, Version: APIVersion}, Operation: "share", OS: "linux", Arch: "amd64"},
+	}
+	raw, err := json.Marshal(pm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, ManifestFileName), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []struct{ arch, provider string }{{"arm64", "provider"}, {"amd64", "alternate"}} {
+		loaded, err := LoadDirectoryForTarget(directory, Target{OS: "linux", Arch: target.arch})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.Manifest.Dependencies["storage"].Adapter != target.provider {
+			t.Fatalf("%s selected %+v", target.arch, loaded.Manifest.Dependencies)
+		}
+	}
+	sealed, err := Seal(directory, Target{OS: "linux", Arch: "arm64"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sealed.Requires) != 2 || sealed.Requires[0] != pm.Requires[0] || sealed.Requires[1] != pm.Requires[1] {
+		t.Fatal("sealing changed dependency declarations")
+	}
+	loaded, err := LoadDirectoryForTarget(directory, Target{OS: "linux", Arch: "arm64"})
+	if err != nil || loaded.Manifest.Dependencies["storage"].Adapter != "provider" {
+		t.Fatalf("sealed dependency lost: %v %v", loaded, err)
+	}
+}

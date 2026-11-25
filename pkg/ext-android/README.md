@@ -127,7 +127,9 @@ re-verifies content; it never runs it or grants authority, and it has no default
 supplies the root (for example under `Context.getFilesDir()`).
 
 ```java
-try (PackageStore store = new PackageStore(new File(context.getFilesDir(), "packages").getPath())) {
+String extHome = new File(context.getFilesDir(), "ext").getPath();
+try (PackageWriter writer = new PackageWriter(extHome);
+     PackageStore store = new PackageStore(new File(extHome, "packages").getPath())) {
     byte[] manifest = store.install(sourceDir);          // plugin.json, byte for byte as the source had it
     store.upgrade(newerDir);                             // same id and contracts; the old copy survives a failure
     store.replace(otherDir);                             // installs or replaces, whatever the contracts
@@ -180,6 +182,24 @@ try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, system
 - The store holds reviewed content; it does not make downloaded native code launchable. See the store rules
   under Kotlin and Android.
 
+Coordinate package and approval updates with the CLI and other hosts using the
+portable native writer. Pass the shared `EXT_HOME`, not the package-store directory:
+
+```java
+try (PackageWriter writer = new PackageWriter(extHome)) {
+    store.install(source);
+    // Perform dependency checks and associated approval updates in this scope.
+}
+```
+
+Keep the writer alive across the complete read/check/update operation. Acquisition
+fails immediately with `GuestException` status `EXISTS` on contention.
+`close()` is thread-safe and idempotent; it preserves a replacement lock and reports
+`MISMATCH`. Use try-with-resources for deterministic release on exceptions. There is
+no finalizer-based cleanup; abrupt termination leaves a lock requiring deliberate
+recovery, and locks are never removed by age. This API ships with the portable store
+and does not require the process host.
+
 ### Install from an archive
 
 `installArchive` installs, or upgrades to, the package in a local zip, gzip-compressed tar or plain tar, pinned
@@ -190,7 +210,8 @@ path), installs what it extracted as it would a directory, and leaves a receipt.
 ```java
 File archive = new File(context.getCacheDir(), "greeter.zip");               // must not exist yet
 ArchiveDownload.download("https://example.com/greeter-1.2.0.zip", archive);  // off the main thread
-try (PackageStore store = new PackageStore(root, new StoreLimits(0, 0, 0, 64L << 20))) {
+try (PackageWriter writer = new PackageWriter(extHome);
+     PackageStore store = new PackageStore(root, new StoreLimits(0, 0, 0, 64L << 20))) {
     byte[] manifest = store.installArchive(archive.getPath(), pinnedSha256, "com.example/greeter", false);
     byte[] receipt = store.receipt("com.example/greeter");   // {"id","revision","artifact_sha256"}
 } finally {

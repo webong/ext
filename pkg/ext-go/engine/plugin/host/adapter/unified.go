@@ -27,13 +27,13 @@ import (
 //   - The launchers are artifacts and entrypoints: "main" runs the executable
 //     under the "argv" runtime, "main.windows" is the native Windows one.
 //   - Runtime assets are further artifacts (a file, or a tree for a directory).
-//   - Everything ctx itself interprets is one metadata object, MetadataKey.
-//     Its schema belongs to ctx; ext never reads it (see docs/adapter-api.md).
+//   - Adapter-specific behavior is one metadata object, MetadataKey. This
+//     library validates it for all consumers (see docs/adapter-api.md).
 const (
 	// ManifestFileName is the manifest at the top of an adapter directory.
 	ManifestFileName = "plugin.json"
 
-	// MetadataKey names the metadata object that carries what ctx interprets.
+	// MetadataKey retains the published name of the adapter metadata object.
 	MetadataKey = "ctx.adapter/v1"
 
 	// BrowserShareContract and BrowserManagementContract carry the browser
@@ -79,7 +79,8 @@ var metadataKinds = map[string]valueKind{
 	"commands": kindList, "computer_commands": kindList,
 	"computer_capabilities": kindList, "computer_hook_events": kindList,
 	"computer_hook_default_events": kindList, "share_spaces": kindList,
-	"override_env": kindList, "dependencies_darwin": kindList,
+	"share_dependencies": kindList,
+	"override_env":       kindList, "dependencies_darwin": kindList,
 	"dependencies_linux": kindList, "dependencies_windows": kindList,
 	"selectable": kindFlag, "default_provider": kindFlag,
 	"self_contained": kindFlag, "browser_query_auto": kindFlag,

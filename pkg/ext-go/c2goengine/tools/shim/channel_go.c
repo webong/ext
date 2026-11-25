@@ -13,6 +13,7 @@ typedef struct {
   void (*kill)(ext_channel *);
   void (*destroy)(ext_channel *);
   size_t (*stderr_copy)(ext_channel *, uint8_t *, size_t);
+  uint64_t (*process_id)(ext_channel *);
 } ext_channel_ops;
 
 const ext_channel_ops *ext_channel_ops_table;
@@ -37,3 +38,5 @@ void ext_channel_destroy(ext_channel *c) { ops.destroy(c); }
 size_t ext_channel_stderr(ext_channel *c, uint8_t *buffer, size_t capacity) {
   return ops.stderr_copy(c, buffer, capacity);
 }
+
+uint64_t ext_channel_process_id(ext_channel *c) { return ops.process_id(c); }

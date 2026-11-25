@@ -69,6 +69,27 @@ static ext_plugin_store_limits limits_of(jlong max_artifact_bytes, jint max_tree
   return limits;
 }
 
+JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeWriterAcquire(
+    JNIEnv *env, jclass cls, jbyteArray home) {
+  (void)cls;
+  char *path = c_string(env, home);
+  if (!path) return 0;
+  ext_plugin_store_writer *writer = NULL;
+  ext_plugin_status status = ext_plugin_store_writer_acquire(path, &writer);
+  free(path);
+  if (status) { throw_status(env, status); return 0; }
+  return (jlong)(intptr_t)writer;
+}
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeWriterClose(
+    JNIEnv *env, jclass cls, jlong handle) {
+  (void)cls;
+  if (!handle) return;
+  ext_plugin_store_writer *writer = (ext_plugin_store_writer *)(intptr_t)handle;
+  ext_plugin_status status = ext_plugin_store_writer_release(writer);
+  ext_plugin_store_writer_free(writer);
+  if (status) throw_status(env, status);
+}
+
 JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeOpen(
     JNIEnv *env, jclass cls, jbyteArray root, jlong max_artifact_bytes, jint max_tree_files,
     jlong max_tree_bytes) {

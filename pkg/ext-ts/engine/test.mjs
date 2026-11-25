@@ -542,3 +542,37 @@ test('guest registry: configuration',{skip:registrySkip},async()=>{
  assert.throws(()=>registry.unregister({name:'registry.b',version:'v1'}),e=>e.status===status.NOT_FOUND);
  assert.throws(()=>new engine.Host({executable:registryGuest,descriptor:{},verify:()=>true,authorize:()=>true,registry,reverse:{authorize:()=>true,handle:()=>({})}}),TypeError);
 });
+
+test('package writer holds ownership across async store mutations',async()=>{
+ const base=await mkdtemp(join(tmpdir(),'ext-node-writer-'));
+ const home=join(base,'home'),lock=join(home,'.package-write.lock');
+ const store=new engine.PackageStore(join(home,'plugins'));
+ try{
+  const source=await storePackage(join(base,'source'),{id:'example/writer',revision:'r1',body:'ok'});
+  const result=await store.withWriter(home,async locked=>{
+   await locked.install(source);
+   await new Promise(resolve=>setTimeout(resolve,5));
+   assert.throws(()=>new engine.PackageWriter(home),e=>e.status===status.EXISTS);
+   const code=`import {loadEngine} from ${JSON.stringify(new URL('./index.mjs',import.meta.url).href)};
+    const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
+    try{new engine.PackageWriter(${JSON.stringify(home)});process.exit(1);}catch(e){if(e.status!==18)throw e;}`;
+   execFileSync(process.execPath,['--input-type=module','-e',code]);
+   assert.equal(JSON.parse(await locked.load('example/writer')).descriptor.identity.id,'example/writer');
+   return 7;
+  });
+  assert.equal(result,7);
+  const marker=new Error('callback failure');
+  await assert.rejects(store.withWriter(home,async()=>{await Promise.resolve();throw marker;}),e=>e===marker);
+  await engine.withPackageWriter(home,()=>store.remove('example/writer'));
+  const writer=new engine.PackageWriter(home);
+  await rename(lock,lock+'.old');
+  const replacement=new engine.PackageWriter(home);
+  assert.throws(()=>writer.close(),e=>e.status===status.MISMATCH);
+  writer.close();
+  assert.throws(()=>new engine.PackageWriter(home),e=>e.status===status.EXISTS);
+  replacement.close();replacement.close();
+  assert.throws(()=>new engine.PackageWriter(home+'\0elsewhere'),TypeError);
+  await assert.rejects(store.withWriter(home,null),TypeError);
+  await store.withWriter(home,async()=>{});
+ }finally{store.close();await rm(base,{recursive:true,force:true});}
+});

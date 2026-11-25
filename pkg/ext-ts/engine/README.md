@@ -135,3 +135,21 @@ A stream the scope does not own, or one already removed, is reported as denied.
 Manager calls run on libuv workers and their callbacks on the JS thread, so, as with
 hosts, concurrently blocked calls are bounded by the libuv pool. Callbacks must not
 await another call on the same manager.
+
+Package mutations can coordinate across processes with the CLI's native writer:
+
+```js
+await store.withWriter(extHome, async locked => {
+  await locked.install(source);
+  return await locked.load('example/provider');
+});
+```
+
+The lock remains held until the callback's promise settles. Await every store
+operation inside that scope. Use `engine.withPackageWriter(extHome, async () =>
+{ /* operations across stores and trust records */ })` for a wider transaction,
+or `new engine.PackageWriter(extHome)` with explicit `close()` for manual ownership.
+Pass `EXT_HOME`, not its package-store subdirectory. Acquisition fails immediately
+with status `EXISTS` on contention. `close()` is idempotent; a replacement lock
+reports `MISMATCH` and is preserved. Garbage collection is only a fallback, and
+abrupt termination leaves the lock behind; it is never recovered by age.

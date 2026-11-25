@@ -188,6 +188,8 @@ pub struct StreamOptions {
     pub release: unsafe extern "C" fn(*mut c_void, *mut c_void),
 }
 extern "C" {
+    pub fn ext_plugin_open(config: *const c_char, len: usize, handle: *mut u64) -> Status;
+    pub fn ext_plugin_close(handle: u64) -> Status;
     pub fn ext_plugin_host_abi_version() -> u32;
     pub fn ext_plugin_host_create(
         o: *const HostOptions,

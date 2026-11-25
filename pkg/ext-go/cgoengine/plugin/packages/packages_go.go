@@ -13,6 +13,11 @@ func ResolvePackages(manifests []packagekit.Manifest) (packagekit.Plan, error) {
 	return packagekit.Resolve(manifests)
 }
 
+// ResolvePackagesFor resolves requirements for an explicit operating system and architecture.
+func ResolvePackagesFor(manifests []packagekit.Manifest, os, arch string) (packagekit.Plan, error) {
+	return packagekit.ResolveFor(manifests, os, arch)
+}
+
 // SelectEntrypoint chooses the named entrypoint for the environment.
 func SelectEntrypoint(m packagekit.Manifest, name string, env packagekit.Environment) (packagekit.LaunchSelection, error) {
 	return m.SelectEntrypoint(name, env)

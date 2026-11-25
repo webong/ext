@@ -142,6 +142,12 @@ public sealed unsafe class Engine
         return new Host(this, Encode(descriptor), &backend, verify, authorize, &extension);
     }
 
+    /// <summary>
+    /// Acquires EXT_HOME's fail-fast package writer lock. Dispose after the complete
+    /// read/modify/write operation. Existing locks are never recovered by age.
+    /// </summary>
+    public PackageWriter PackageWriter(string root) => new(Api, root);
+
     private static byte[] Encode(JsonNode descriptor) => Encoding.UTF8.GetBytes(descriptor.ToJsonString());
 
     /// <summary>NUL-terminated UTF-8 copies in native memory, freed together.</summary>

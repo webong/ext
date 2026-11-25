@@ -180,6 +180,24 @@ calling `start` or `call`, so the module calls them there with `lua_pcall`. A po
 host it decides for: a call to it from inside the policy raises `HostError` `invalid`. Lua has no
 threads, so calls are sequential; the engine still serializes a host's calls itself.
 
+Package mutations coordinate with the CLI and other hosts through the native writer:
+
+```lua
+engine:with_package_writer(ext_home, function(writer)
+  -- Read and update installed packages and approvals under the same lock.
+end)
+```
+
+`engine:package_writer(ext_home)` returns an explicitly owned handle with `:close()`;
+Lua 5.4 also supports `local writer <close> = engine:package_writer(ext_home)`.
+The callback helper works on earlier Lua versions too, releases on errors, and preserves
+all callback return values. The lock is `EXT_HOME/.package-write.lock`: acquisition
+fails immediately with `HostError` `exists` on contention. Closing twice is harmless;
+a replaced lock raises `mismatch` without deleting the replacement. Garbage collection
+is only a cleanup fallback, and abrupt termination leaves a lock requiring deliberate
+recovery. Existing locks are never recovered by age. Older engines without the described
+writer object report `unsupported`.
+
 Reverse calls and the guest registry use the engine's caller-thread mode (`ext_plugin_host_set_reverse_mode`),
 so their hooks run there too, on the Lua thread of the engine call that waits:
 

@@ -28,6 +28,7 @@ const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sh
        ext package install|upgrade <directory> --manifest <package-relative-path>
        ext package plan [--without <id> | --with <sealed-package-dir>]
        ext package install|upgrade --source <name>
+       ext package pack --descriptor <json> --protocol <contract/version> --binary <file> --output <directory> [--os target --arch target]
        ext package build|pack|index|test|doctor ...`
 
 // Run executes "ext package ..." with args (without "package") and returns the
@@ -68,6 +69,9 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "wrote package index %s\nsha256: %s\n", rest[0], digest)
 		return 0
 	case "build", "pack", "test", "doctor":
+		if sub == "pack" && len(rest) > 0 && strings.HasPrefix(rest[0], "--") {
+			return packExecutable(rest, stdout, stderr)
+		}
 		return (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
 	}
 	if sub == "ls" {

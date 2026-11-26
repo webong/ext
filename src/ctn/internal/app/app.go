@@ -54,7 +54,6 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  ctn model install <root-dir> <manifest-file> <artifacts-dir>")
 	fmt.Fprintln(w, "  ctn model remove <root-dir> <provider/name@version>")
 	fmt.Fprintln(w, "  ctn model verify <root-dir> <provider/name@version>")
-	fmt.Fprintln(w, "  ctn model provider package [--os OS --arch ARCH] ID VERSION BINARY OUTPUT_DIR")
 	fmt.Fprintln(w, "  ctn model provider install <sealed-package-dir>")
 	fmt.Fprintln(w, "  ctn model provider list")
 	fmt.Fprintln(w, "  ctn model provider trust|untrust ID")

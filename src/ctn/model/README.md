@@ -41,7 +41,8 @@ CTN CLI is another consumer of the same capability.
 CTN operates on installed and explicitly trusted provider packages:
 
 ```sh
-ext ctn model provider package onnxruntime 1.0.0 /path/to/provider /path/to/package
+ext package pack --descriptor /path/to/descriptor.json --protocol model.tensor/v1 \
+  --binary /path/to/provider --output /path/to/package
 ext install /path/to/package
 ext ctn model provider list
 ext package trust onnxruntime

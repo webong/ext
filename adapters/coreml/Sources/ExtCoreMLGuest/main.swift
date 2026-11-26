@@ -4,7 +4,7 @@ import ExtML
 import ExtPluginGuest
 import Foundation
 
-// Keep this identity in sync with `ext ctn model provider package`.
+// Keep this identity in sync with descriptor.json.
 private let pluginID = "coreml"
 private let pluginVersion = "1.0.0"
 private let maxTensorBytes = 16 << 20

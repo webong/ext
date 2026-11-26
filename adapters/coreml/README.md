@@ -8,7 +8,7 @@ this directory can be copied to another repository and built there. CTN
 chooses the installed provider and model.
 
 From this directory, build and seal the private guest on macOS. `package.sh`
-uses the installed `ext` command and writes a platform ZIP and `index.json`
+uses generic `ext package pack` with this adapter’s `descriptor.json` and writes a platform ZIP and `index.json`
 that can be served by an Ext package source:
 
 ```sh

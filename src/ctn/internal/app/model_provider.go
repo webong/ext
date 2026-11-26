@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -25,7 +24,7 @@ const modelTrustScope = mlplugin.Protocol
 
 func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "ctn: model provider needs package, install, list, trust, or untrust")
+		fmt.Fprintln(stderr, "ctn: model provider needs install, list, trust, or untrust")
 		return 2
 	}
 	if len(args) == 2 && (args[0] == "install" || args[0] == "trust" || args[0] == "untrust") {
@@ -81,28 +80,6 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 			}
 			fmt.Fprintf(stdout, "%s\t%s\t%s\t%s\n", item.Name(), item.Version(), status, digest)
 		}
-		return 0
-	case "package":
-		flags := flag.NewFlagSet("ctn model provider package", flag.ContinueOnError)
-		flags.SetOutput(stderr)
-		goos := flags.String("os", "", "target operating system")
-		goarch := flags.String("arch", "", "target architecture")
-		if err := flags.Parse(args[1:]); err != nil {
-			return 2
-		}
-		values := flags.Args()
-		if len(values) != 4 {
-			fmt.Fprintln(stderr, "ctn: model provider package needs ID VERSION BINARY OUTPUT_DIR")
-			return 2
-		}
-		manifest, err := mlplugin.PackageExecutable(mlplugin.ExecutablePackage{
-			ID: values[0], Version: values[1], Binary: values[2], OutputDir: values[3], OS: *goos, Arch: *goarch,
-		})
-		if err != nil {
-			fmt.Fprintln(stderr, err)
-			return 1
-		}
-		fmt.Fprintf(stdout, "%s\t%s\n", manifest.Name(), values[3])
 		return 0
 	case "install":
 		if len(args) != 2 {

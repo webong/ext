@@ -25,9 +25,8 @@ index="$out/index.json"
 
 swift build --configuration release --product ext-coreml-guest --package-path "$root"
 binary_dir="$(swift build --configuration release --package-path "$root" --show-bin-path)"
-"$ext" ctn model provider package --os darwin --arch "$arch" \
-  coreml 1.0.0 "$binary_dir/ext-coreml-guest" "$package"
-mv "$package/plugin.json" "$package/ext.json"
+"$ext" package pack --descriptor "$root/descriptor.json" --protocol model.tensor/v1 \
+  --os darwin --arch "$arch" --binary "$binary_dir/ext-coreml-guest" --output "$package"
 (cd "$package" && zip -q "$archive" ext.json provider)
 "$ext" package index "$index" "$archive"
 echo "$archive"

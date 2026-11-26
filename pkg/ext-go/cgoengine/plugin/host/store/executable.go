@@ -11,8 +11,10 @@ type ExecutablePackage struct {
 	Protocol   string
 	Binary     string
 	OutputDir  string
-	OS         string
-	Arch       string
+	// ManifestPath defaults to ManifestName for existing library callers.
+	ManifestPath string
+	OS           string
+	Arch         string
 }
 
 // SealExecutable shares the same package authoring helper in both Go store

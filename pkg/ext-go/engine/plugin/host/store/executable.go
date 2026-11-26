@@ -20,8 +20,10 @@ type ExecutablePackage struct {
 	Protocol   string
 	Binary     string
 	OutputDir  string
-	OS         string
-	Arch       string
+	// ManifestPath defaults to ManifestName for existing library callers.
+	ManifestPath string
+	OS           string
+	Arch         string
 }
 
 // SealExecutable publishes a package template without installing or trusting
@@ -104,7 +106,11 @@ func SealExecutable(options ExecutablePackage) (packagekit.Manifest, error) {
 		Artifacts:   []packagekit.Artifact{{Name: "main", Path: name, SHA256: digest, OS: options.OS, Arch: options.Arch}},
 		Entrypoints: []packagekit.Entrypoint{{Name: "main", Runtime: "argv", Artifact: "main", Protocols: []string{options.Protocol}}},
 	}
-	if err := WriteManifest(staging, manifest); err != nil {
+	manifestPath := options.ManifestPath
+	if manifestPath == "" {
+		manifestPath = ManifestName
+	}
+	if err := WriteManifestAt(staging, manifestPath, manifest); err != nil {
 		return packagekit.Manifest{}, err
 	}
 	if err := os.Rename(staging, options.OutputDir); err != nil {

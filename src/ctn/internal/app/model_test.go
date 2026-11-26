@@ -138,8 +138,8 @@ func TestModelRunThroughTrustedProviderPackage(t *testing.T) {
 	}
 	packageDir := filepath.Join(t.TempDir(), "package")
 	var stdout, stderr bytes.Buffer
-	if code := modelProviderCommand([]string{"package", "onnxruntime", "1.0.0", binary, packageDir}, &stdout, &stderr); code != 0 {
-		t.Fatalf("package = %d: %s", code, stderr.String())
+	if _, err := mlplugin.PackageExecutable(mlplugin.ExecutablePackage{ID: "onnxruntime", Version: "1.0.0", Binary: binary, OutputDir: packageDir}); err != nil {
+		t.Fatal(err)
 	}
 	stdout.Reset()
 	stderr.Reset()

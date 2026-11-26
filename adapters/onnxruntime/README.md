@@ -20,11 +20,12 @@ Use `win-x64` for Windows. The outputs are `Ext.ML.Linux.Guest` and
 tests each guest through CTN. The guest protocol and provider identity remain
 unchanged.
 
-Seal the executable as an Ext package (with the CTN command plugin installed):
+Seal the executable using Ext and this adapter’s descriptor:
 
 ```sh
-ext ctn model provider package --os linux --arch amd64 \
-  onnxruntime 1.0.0 out/linux-x64/Ext.ML.Linux.Guest out/onnxruntime.linux-amd64
+ext package pack --descriptor descriptor.json --protocol model.tensor/v1 \
+  --os linux --arch amd64 --binary out/linux-x64/Ext.ML.Linux.Guest \
+  --output out/onnxruntime.linux-amd64
 ext package install out/onnxruntime.linux-amd64
 ext package trust onnxruntime
 ```

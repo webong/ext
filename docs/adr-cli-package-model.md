@@ -105,8 +105,12 @@ manifest metadata from live observations that require an authorized invocation.
    store and approve them explicitly. Custom `EXT_ADAPTER_HOME` roots remain
    explicit isolated stores.
 2. Implemented: `package install|upgrade|list|inspect|verify|trust|untrust|remove`
-   manages packages. `build|pack|index|test|doctor` retains adapter-specific
-   operations through existing handlers. Archive installs use `--sha256` and
+   manages packages. `package pack --descriptor FILE --protocol CONTRACT/VERSION
+   --binary FILE --output DIRECTORY [--os OS --arch ARCH]` seals a compiled guest
+   using its declared identity and capabilities, without a product plugin. It
+   writes `ext.json`, hashes the executable and grants no installation trust.
+   Directory-based `pack` and `build|test|doctor` retain tool-adapter handlers;
+   `index` describes sealed archives for package sources. Archive installs use `--sha256` and
    preserve receipts. There is no top-level adapter compatibility alias.
 3. Implemented: named source snapshots reuse the existing artifact index, with
    C-engine validation/target selection, explicit refresh, identity continuity,

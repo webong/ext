@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
@@ -33,17 +34,15 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 			t.Fatal(err)
 		}
 		var source struct {
-			Descriptor struct {
-				Contracts []struct {
-					Name string `json:"name"`
-				} `json:"contracts"`
-			} `json:"descriptor"`
+			Contracts []struct {
+				Name string `json:"name"`
+			} `json:"contracts"`
 		}
 		if err := json.Unmarshal(data, &source); err != nil {
 			t.Fatal(err)
 		}
 		isCTXAdapter := false
-		for _, contract := range source.Descriptor.Contracts {
+		for _, contract := range source.Contracts {
 			if contract.Name == "ext.adapter" {
 				isCTXAdapter = true
 			}
@@ -62,7 +61,7 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 			}
 		}
 	}
-	// no adapter directory lacks the manifest
+	// Source-only executable guests may supply a descriptor for generic packaging.
 	entries, err := os.ReadDir(filepath.Join(root, "adapters"))
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +71,23 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 			continue
 		}
 		if _, err := os.Stat(filepath.Join(root, "adapters", entry.Name(), "ext.json")); err != nil {
-			t.Errorf("adapters/%s has no ext.json", entry.Name())
+			data, readErr := os.ReadFile(filepath.Join(root, "adapters", entry.Name(), "descriptor.json"))
+			if readErr != nil {
+				t.Errorf("adapters/%s needs ext.json or descriptor.json", entry.Name())
+				continue
+			}
+			var descriptor plugin.Descriptor
+			if err := json.Unmarshal(data, &descriptor); err != nil {
+				t.Error(err)
+				continue
+			}
+			// The generic executable sealer fills the revision from the built bytes.
+			if descriptor.Identity.Revision == "" {
+				descriptor.Identity.Revision = "source"
+			}
+			if err := descriptor.Validate(); err != nil {
+				t.Errorf("adapters/%s descriptor: %v", entry.Name(), err)
+			}
 		}
 	}
 }

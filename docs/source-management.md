@@ -102,10 +102,10 @@ Use the same option with `ext package upgrade` for a new revision.
 
 ## Publish an adapter release
 
-Build each supported target with the adapter's own toolchain. For the
-`ext.adapter/2.0` contract, use `ext package build` for Go or `ext package pack`
-on a prepared runtime directory. Other Ext contracts use the same sealed
-`ext.package/v1` manifest in `ext.json` and can ship a ZIP or tar.gz. Packages
+Build each supported target with the adapter's own toolchain. Use `ext package build SOURCE --output ARCHIVE -- COMMAND ...` with an explicit
+toolchain, or `ext package pack` on a prepared runtime directory. All contracts
+use the same sealed
+`ext.io/v1` manifest in `ext.json` and can ship a ZIP or tar.gz. Packages
 republished with a renamed manifest need a new revision. The manifest must declare
 the target OS and architecture on its platform-specific artifacts. See
 [adapter authoring](adapter-authoring.md).

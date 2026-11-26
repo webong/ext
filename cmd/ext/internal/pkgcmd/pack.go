@@ -18,6 +18,7 @@ func packExecutable(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	descriptorPath := flags.String("descriptor", "", "guest descriptor JSON")
 	var options store.ExecutablePackage
+	flags.StringVar(&options.ManifestPath, "manifest", storelayout.ExtManifest, "output package-relative manifest path")
 	flags.StringVar(&options.Protocol, "protocol", "", "declared contract/version")
 	flags.StringVar(&options.Binary, "binary", "", "compiled guest executable")
 	flags.StringVar(&options.OutputDir, "output", "", "new sealed package directory")
@@ -48,7 +49,6 @@ func packExecutable(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	options.Descriptor = descriptor
-	options.ManifestPath = storelayout.ExtManifest
 	manifest, err := store.SealExecutable(options)
 	if err != nil {
 		fmt.Fprintln(stderr, "ext: package pack:", err)

@@ -106,6 +106,9 @@ the native libraries do not depend on the guests. Published Go APIs under
 selectable products and providers belong in `adapters/`, and consuming
 applications choose policy.
 
+See [package authoring](docs/package-authoring.md) for contract-neutral builds,
+directory packing, static checks and installed-package diagnostics.
+
 Plugin implementations can use supported process, in-process, WebAssembly,
 HashiCorp or C ABI backends. Shared transport does not make unrelated APIs
 compatible: extensions implement the contracts their host accepts.

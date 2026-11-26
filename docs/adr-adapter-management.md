@@ -74,12 +74,12 @@ suffixes are serialized names and are unchanged.
 `pkg/ext-go/engine/plugin/host/adapter/adaptercmd` owns the management command,
 catalog activation and refresh, and declared launcher installation. It is part
 of the standard-library-only engine module and imports no product code.
-`cmd/ext` delegates adapter-specific package operations from `ext package` to it. The installed CTX package calls
+Generic package authoring uses `engine/plugin/package/author`, not this handler. The installed CTX package calls
 the same implementation with CTX diagnostics and its project-aware doctor callback.
 
-`ext package doctor NAME` uses the adapter's default selection. CTX supplies
-its own selection and invocation policy for `ext ctx adapter doctor NAME`. Both
-paths enforce trust before invoking the installed adapter. CTN continues to
+`ext package doctor NAME` checks integrity, trust and target compatibility without
+invoking a guest. CTX supplies selection and invocation policy for its own
+adapter diagnostics, enforcing trust before execution. CTN continues to
 read the shared store and apply its evaluator and isolation policy.
 
 `ext package` is the host's package-management command. There is no `USED BY` column: capability

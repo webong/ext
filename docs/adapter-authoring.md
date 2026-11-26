@@ -59,33 +59,77 @@ selectable Go CLI adapter can start with:
 
 ```json
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {"id": "my_tool", "revision": ""},
-    "contracts": [{
-      "name": "ext.adapter", "version": "2.0",
-      "operations": [{"name": "list"}, {"name": "validate"}, {"name": "run"}, {"name": "doctor"}]
-    }]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
-    {"name": "main", "path": "ctx-my-tool", "sha256": ""},
-    {"name": "main-windows", "path": "ctx-my-tool.exe", "sha256": "", "os": "windows"}
+    {
+      "name": "main",
+      "path": "ctx-my-tool",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-my-tool.exe",
+      "sha256": "",
+      "os": "windows"
+    }
   ],
   "entrypoints": [
-    {"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.adapter/2.0"]},
-    {"name": "main.windows", "runtime": "argv", "artifact": "main-windows", "protocols": ["ext.adapter/2.0"]}
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
   ],
   "metadata": {
     "ctx.adapter/v1": {
       "description": "Route my tool through a project-selected context",
       "runtime": "computer",
-      "surfaces": ["shell"],
+      "surfaces": [
+        "shell"
+      ],
       "selector_key": "my_tool",
-      "commands": ["my_tool"],
+      "commands": [
+        "my_tool"
+      ],
       "go_entry": "."
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "my_tool",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "list"
+        },
+        {
+          "name": "validate"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "doctor"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -182,36 +226,20 @@ my-adapter/
 For a separate module developing against a local CTX checkout, run these commands
 inside your adapter source directory. Replace the absolute checkout path:
 
-```sh
-go mod init example.com/my-adapter
-go mod edit -require=github.com/webong/ext@v0.0.0
-go mod edit -replace=github.com/webong/ext=/absolute/path/to/ctx
-go mod tidy
-```
+Initialize your own Go module and add published, pinned versions of the Ext SDK
+modules your adapter imports. The source must build without workspace-relative
+replacements. The compiled package contains only its declared runtime artifacts.
 
-The local replacement supplies the SDK during development. For published source,
-use a published CTX module version or commit available to your builders. The
-compiled package does not need the source checkout or this replacement.
-
-Build a package for your current machine, or select an explicit target:
+Build using an explicit toolchain command; the source must resolve published
+dependencies independently of this workspace:
 
 ```sh
-ext package build ./my-adapter
-ext package build ./my-adapter --os darwin --arch arm64
-ext package build ./my-adapter --os windows --arch amd64
+ext package build ./my-adapter --os linux --arch amd64 --output ./my_tool.zip -- go build -o ctx-my-tool .
 ```
 
-The default output is `my-adapter/dist/my_tool-<os>-<arch>.ctxadapter`.
-`--output` selects another destination. The build ships the sealed manifest, the
-compiled executable, and the other artifacts the template lists; source files and
-`go.mod` are excluded unless explicitly listed. Cross builds default to `CGO_ENABLED=0` unless set by the
-author; native libraries may require a suitable target toolchain.
-
-To build the repository's complete example, run this from the CTX checkout:
-
-```sh
-ext package build ./examples/plugins/go/adapters/go_echo
-```
+The command runs in an isolated source copy with `GOWORK=off`. Only declared
+artifacts are shipped. Declare artifact targets explicitly in `ext.json` and
+choose any required cgo settings yourself. See [package authoring](package-authoring.md).
 
 ### Other languages or an already-built executable
 
@@ -230,7 +258,7 @@ ext package pack ./ready-package --os darwin --arch arm64 \
   --output ./my_tool-darwin-arm64.ctxadapter
 ```
 
-`pack` seals the manifest and archives every regular file in that directory;
+`pack` seals the manifest and archives only the files and trees it declares;
 it does not compile or convert executables. A Windows package must contain its
 Windows entry point. Interpreted adapters still need their interpreter installed.
 
@@ -239,7 +267,7 @@ Windows entry point. Interpreted adapters still need their interpreter installed
 On a matching platform:
 
 ```sh
-ext package install ./my-adapter/dist/my_tool-darwin-arm64.ctxadapter
+ext package install ./my_tool.zip --sha256 <reviewed-archive-digest>
 ext package inspect my_tool
 # Review the installed manifest, executable, and runtime files.
 ext package trust my_tool
@@ -257,8 +285,9 @@ files requires reviewing and trusting the changed content again. Trust allows
 the adapter to execute with the user's permissions; it is not an OS sandbox.
 
 For a ready directory containing the host executable,
-`ext package test ./ready-package` validates the package and runs its `doctor`
-operation. It executes adapter code and does not check every declared operation.
+`ext package test ./ready-package` validates the manifest and declared artifacts
+without executing code. `ext package doctor` checks installed integrity, trust
+and target compatibility; neither command proves behavioral conformance.
 Authors should also exercise discovery, invalid selections, argument forwarding,
 missing dependencies, and the native operations they declare.
 

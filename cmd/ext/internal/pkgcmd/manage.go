@@ -29,7 +29,11 @@ const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sh
        ext package plan [--without <id> | --with <sealed-package-dir>]
        ext package install|upgrade --source <name>
        ext package pack --descriptor <json> --protocol <contract/version> --binary <file> --output <directory> [--os target --arch target]
-       ext package build|pack|index|test|doctor ...`
+       ext package pack <directory> --output <zip> [--os target --arch target]
+       ext package build <directory> --output <zip> [--os target --arch target] -- <command> [args...]
+       ext package test <directory> [--os target --arch target]
+       ext package doctor <installed-id>
+       ext package index <output> <archive>...`
 
 // Run executes "ext package ..." with args (without "package") and returns the
 // exit code. Installing and upgrading never trust a package: the user trusts the
@@ -72,7 +76,7 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 		if sub == "pack" && len(rest) > 0 && strings.HasPrefix(rest[0], "--") {
 			return packExecutable(rest, stdout, stderr)
 		}
-		return (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
+		return m.author(sub, rest, stdout, stderr)
 	}
 	if sub == "ls" {
 		sub = "list"

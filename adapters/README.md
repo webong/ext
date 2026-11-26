@@ -20,7 +20,7 @@ platform-specific `.ctxadapter` archive with its executable and runtime assets.
 
 Adapters ship through the Ext package registry. Register a package index with
 `ext source add` and install it with `ext package install --source <name>`.
-Authors can use `ext package build` for Go or `ext package pack` for a prepared
+Authors can use `ext package build` with an explicit toolchain command or `ext package pack` for a prepared
 runtime directory. Go adapter modules are for workspace development. CTX and
 CTN consume installed capabilities from the shared package store, and
 `ext ctn adapter ls` is read-only. See [registry releases](../docs/source-management.md#publish-an-adapter-release)

@@ -79,7 +79,7 @@ static void *answer_events(void *arg) {
         snprintf(transport,sizeof transport,"\"payload\":%s",a->descriptor);body=transport;
       } else if (!strncmp(kind,"backend_invoke\"",15)) {
         a->invokes++;
-        body="\"payload\":{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"payload\":\"transport-answer\"}";
+        body="\"payload\":{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"payload\":\"transport-answer\"}";
       } else if (!strncmp(kind, "verify\"", 7))
         a->verify++, body = "\"allow\":true";
       else if (!strncmp(kind, "authorize\"", 10))
@@ -109,7 +109,7 @@ static void *answer_events(void *arg) {
 }
 
 static const char conformance[] =
-    "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},"
+    "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},"
     "\"contracts\":[{\"name\":\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},"
     "{\"name\":\"wait\"},{\"name\":\"private-error\"},{\"name\":\"public-error\"}]}]}";
 
@@ -133,7 +133,7 @@ static void event_backend(void) {
 }
 
 #define REVERSE_DESCRIPTOR                                                                          \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"reverse/guest\",\"revision\":\"r1\"},"   \
+  "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"reverse/guest\",\"revision\":\"r1\"},"   \
   "\"contracts\":[{\"name\":\"reverse.test\",\"version\":\"v1\",\"operations\":[{\"name\":\"run\","  \
   "\"progress\":true}]}],\"reverse\":[{\"name\":\"host.svc\",\"version\":\"v1\",\"operations\":["    \
   "{\"name\":\"sign\",\"surface\":\"signing\"},{\"name\":\"secret\"},{\"name\":\"empty\"},"         \
@@ -263,13 +263,34 @@ static void hosts(void) {
             EXT_PLUGIN_INVALID);
 }
 
+static void contributed_graph(void) {
+  const char *descriptor="{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"peer/provider\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]}";
+  const char *config="{\"object\":\"execution_graph\",\"os\":\"linux\",\"arch\":\"amd64\","
+    "\"root\":{\"identity\":{\"id\":\"peer/provider\",\"revision\":\"r1\"},\"contract\":{\"name\":\"example\",\"version\":\"v1\"}},"
+    "\"packages\":[{\"binding\":{\"host\":\"peer-host\",\"digest\":\"1111111111111111111111111111111111111111111111111111111111111111\"},"
+    "\"manifest\":{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\",\"identity\":{\"id\":\"peer/provider\",\"revision\":\"r1\"},"
+    "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]}}]}";
+  uint64_t g=open_json(config,EXT_PLUGIN_OK);
+  ext_plugin_free(call(g,"start","{\"reviews\":[{\"identity\":{\"id\":\"peer/provider\",\"revision\":\"r1\"},\"digest\":\"2222222222222222222222222222222222222222222222222222222222222222\"}]}",EXT_PLUGIN_MISMATCH));
+  CHECK(ext_plugin_close(g)==EXT_PLUGIN_OK,"close mismatched contribution");
+  answerer a={0};a.host=open_json(config,EXT_PLUGIN_OK);a.descriptor=descriptor;
+  pthread_t thread;pthread_create(&thread,NULL,answer_events,&a);
+  ext_plugin_free(call(a.host,"start","{\"reviews\":[{\"identity\":{\"id\":\"peer/provider\",\"revision\":\"r1\"},\"digest\":\"1111111111111111111111111111111111111111111111111111111111111111\"}]}",EXT_PLUGIN_OK));
+  expect(a.host,"call","{\"call\":{\"contract\":{\"name\":\"example\",\"version\":\"v1\"},\"operation\":\"read\"}}","transport-answer");
+  expect(a.host,"observe","{}","\"pid\":null");
+  expect(a.host,"snapshot","{\"namespace\":\"example.graph\",\"processes\":[null]}","peer-host");
+  CHECK(ext_plugin_close(a.host)==EXT_PLUGIN_OK,"close contributed graph");
+  pthread_join(thread,NULL);
+  CHECK(a.connects==1 && a.invokes==1,"directory-free contribution executed through host events");
+}
+
 static void execution_graph(void) {
   const char *config =
     "{\"object\":\"execution_graph\",\"temp_root\":\".\",\"os\":\"linux\",\"arch\":\"amd64\","
     "\"root\":{\"identity\":{\"id\":\"graph/root\",\"revision\":\"r1\"},\"contract\":{\"name\":\"example\",\"version\":\"v1\"}},"
-    "\"packages\":[{\"directory\":\"missing\",\"manifest\":{\"apiVersion\":\"ext.package/v1\","
-    "\"descriptor\":{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"graph/root\",\"revision\":\"r1\"},"
-    "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]},"
+    "\"packages\":[{\"directory\":\"missing\",\"manifest\":{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+    "\"identity\":{\"id\":\"graph/root\",\"revision\":\"r1\"},"
+    "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}],"
     "\"artifacts\":[{\"name\":\"guest\",\"path\":\"guest\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"}]}}]}";
   uint64_t g = open_json(config, EXT_PLUGIN_OK);
   expect(g, "plan", "{}", "\"order\":[0]");
@@ -331,6 +352,11 @@ int main(int argc, char **argv) {
   expect(0, "package.resolve", "[]", "\"order\":null");
   ext_plugin_free(call(0, "package.resolve", "{}", EXT_PLUGIN_INVALID));
   ext_plugin_free(call(0, "package.resolve", "[{}]", EXT_PLUGIN_INVALID));
+  /* Previous wire versions and nested descriptors are not compatibility inputs. */
+  ext_plugin_free(call(0,"package.validate","{\"apiVersion\":\"ext.package/v1\",\"kind\":\"package\",\"identity\":{\"id\":\"example/provider\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]}",EXT_PLUGIN_INVALID));
+  ext_plugin_free(call(0,"package.validate","{\"apiVersion\":\"ext.io/v1\",\"kind\":\"other\",\"identity\":{\"id\":\"example/provider\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]}",EXT_PLUGIN_INVALID));
+  ext_plugin_free(call(0,"package.validate","{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\",\"identity\":{\"id\":\"example/provider\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}],\"descriptor\":{}}",EXT_PLUGIN_INVALID));
+  ext_plugin_free(call(0,"descriptor.validate","{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"example/provider\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]}",EXT_PLUGIN_INVALID));
   /* describe serves interface.json as it is. */
   FILE *f = fopen(EXT_INTERFACE_JSON, "rb");
   CHECK(f != NULL, "open %s", EXT_INTERFACE_JSON);
@@ -397,6 +423,7 @@ int main(int argc, char **argv) {
   event_backend();
   routing_lifetime();
   execution_graph();
+  contributed_graph();
 
   if (failures) {
     fprintf(stderr, "%d failures\n", failures);

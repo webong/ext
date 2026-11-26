@@ -195,7 +195,7 @@ static int contracts_valid(yyjson_val *cs, size_t min, size_t max,
         flag = NULL; /* null decodes as false in Go */
       if (!FIELDS(o, "name", "surface", "progress") ||
           !ext_text(get(o, "name"), 0, 0) ||
-          yyjson_equals_str(get(o, "name"), "plugin.hello") ||
+          yyjson_equals_str(get(o, "name"), "session.hello") ||
           !ext_text(get(o, "surface"), 0, 1) ||
           (flag && !yyjson_is_bool(flag)) ||
           (flag && yyjson_get_bool(flag) && !progress))
@@ -208,16 +208,14 @@ static int contracts_valid(yyjson_val *cs, size_t min, size_t max,
   }
   return 1;
 }
+int ext_descriptor_fields(yyjson_val *d) {
+  if (!ext_identity(get(d, "identity")) || !contracts_valid(get(d,"contracts"),1,64,1)) return 0;
+  yyjson_val *reverse=get(d,"reverse");
+  return !reverse || yyjson_is_null(reverse) || contracts_valid(reverse,0,64,0);
+}
 int ext_descriptor(yyjson_val *d) {
-  if (!FIELDS(d, "apiVersion", "identity", "contracts", "reverse") ||
-      !yyjson_equals_str(get(d, "apiVersion"), "ext.plugin/v1") ||
-      !ext_identity(get(d, "identity")) ||
-      !contracts_valid(get(d, "contracts"), 1, 64, 1))
-    return 0;
-  yyjson_val *reverse = get(d, "reverse");
-  /* An absent list and a null one (Go encodes none) both mean no reverse. */
-  return !reverse || yyjson_is_null(reverse) ||
-         contracts_valid(reverse, 0, 64, 0);
+  return FIELDS(d,"apiVersion","identity","contracts","reverse") &&
+    yyjson_equals_str(get(d,"apiVersion"),"ext.io.pc/v1") && ext_descriptor_fields(d);
 }
 /* "progress" absent and false are the same declaration. */
 static int progress_of(yyjson_val *op) {
@@ -455,7 +453,7 @@ ext_plugin_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
               "surface", "deadline", "payload", "progress", "parent") ||
       !progress_limits_valid(get(r, "progress")) ||
       (parent && !yyjson_is_null(parent) && !yyjson_is_str(parent)) ||
-      !yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
+      !yyjson_equals_str(get(r, "apiVersion"), "ext.io.pc/v1") ||
       !ext_text(get(r, "id"), 1, 0) || !ext_identity(get(r, "plugin")) ||
       !FIELDS(get(r, "contract"), "name", "version") ||
       !ext_ref(get(r, "contract")))
@@ -504,7 +502,7 @@ yyjson_val *ext_lookup_in(yyjson_val *contracts, yyjson_val *r,
 ext_plugin_status ext_response(yyjson_val *r, const char *id) {
   if (!FIELDS(r, "apiVersion", "id", "payload", "error"))
     return EXT_PLUGIN_INVALID;
-  if (!yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
+  if (!yyjson_equals_str(get(r, "apiVersion"), "ext.io.pc/v1") ||
       !yyjson_equals_str(get(r, "id"), id))
     return EXT_PLUGIN_MISMATCH;
   yyjson_val *err = get(r, "error");

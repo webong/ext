@@ -49,21 +49,20 @@
       }
     },
     "execution_graph": {
-      "about": "Owns a reviewed process-provider graph and its private copies. Application owns source writer coordination and policy. Close stops consumers before providers; copies survive active calls and are removed last.",
+      "about": "Owns a reviewed graph of local processes and host-contributed providers. Application owns source writer coordination and policy. Close stops consumers before providers; copies survive active calls and are removed last.",
       "config": {
         "type": "object",
         "required": [
           "packages",
           "root",
           "os",
-          "arch",
-          "temp_root"
+          "arch"
         ],
-        "properties": {"layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}}
+        "properties": {"temp_root": {"type": "string", "description": "Required only for local directory packages."}, "packages": {"type": "array", "items": {"type": "object", "required": ["manifest"], "properties": {"manifest": {"type": "object"}, "directory": {"type": "string"}, "binding": {"type": "object", "required": ["host", "digest"]}, "layout": {"type": "object"}}}}, "layout": {"type": "object", "required": ["manifest_path"], "properties": {"manifest_path": {"type": "string"}, "fallback_path": {"type": "string"}}}}
       },
       "operations": {
-        "observe": {"about": "Complete live session observations, with random instance-qualified session IDs, selected identity/contract/routes and child PID locators. Closed unless every host is ready.","input": {"type": "object"},"output": {"type": "array"}},
-        "snapshot": {"about": "Project sessions, process references and routes into a complete dedicated namespace. processes must match observe order and session/PID and contain ledger process_identity references. Caller owns correlation and namespace; facts grant no authority.","input": {"type": "object","required": ["namespace","processes"],"properties": {"namespace": {"type": "string"},"processes": {"type": "array"}}},"output": {"type": "object"}},
+        "observe": {"about": "Complete live session observations, with random instance-qualified session IDs, selected identity/contract/routes and child PID locators (null with binding for externally supplied nodes). Closed unless every host is ready.","input": {"type": "object"},"output": {"type": "array"}},
+        "snapshot": {"about": "Project sessions, process references and routes into a complete dedicated namespace. processes must match observe order and session/PID and contain ledger process_identity references for local nodes, null for externally supplied nodes. Caller owns correlation and namespace; facts grant no authority.","input": {"type": "object","required": ["namespace","processes"],"properties": {"namespace": {"type": "string"},"processes": {"type": "array"}}},"output": {"type": "object"}},
         "plan": {
           "input": {
             "type": "object"

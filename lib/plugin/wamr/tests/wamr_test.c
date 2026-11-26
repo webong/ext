@@ -61,7 +61,7 @@ static char *request(const char *operation, const char *payload, unsigned deadli
   size_t cap = strlen(payload) + 400;
   char *r = malloc(cap);
   snprintf(r, cap,
-           "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"ctx/conformance\","
+           "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"ctx/conformance\","
            "\"revision\":\"fixture-1\"},\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},"
            "\"operation\":\"%s\",\"payload\":%s,\"deadline\":\"%s\"}",
            operation, payload, deadline);

@@ -8,6 +8,7 @@ int ext_schema_check(yyjson_val *, yyjson_val *);
 ext_plugin_status ext_package_service(const char *, yyjson_val *, ext_plugin_buffer *);
 int ext_portable_path(const char *s, size_t n);
 ext_plugin_status ext_manifest_valid(yyjson_val *);
+yyjson_mut_val *ext_manifest_descriptor(yyjson_mut_doc *, yyjson_val *);
 int ext_path_fold_equal(const char *a, const char *b);
 int ext_path_fold_tree_contains(const char *tree, const char *path);
 /* The path with every character in simple lower case, the form in which two

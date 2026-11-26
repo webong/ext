@@ -95,7 +95,7 @@ static int guest(const char *cases_path, const char *name, int descriptor_only) 
                  *rev = yyjson_mut_obj(dm), *rops = yyjson_mut_arr(dm);
   char id[64];
   snprintf(id, sizeof(id), "registry/%s", name);
-  yyjson_mut_obj_add_str(dm, d, "apiVersion", "ext.plugin/v1");
+  yyjson_mut_obj_add_str(dm, d, "apiVersion", "ext.io.pc/v1");
   yyjson_mut_obj_add_strcpy(dm, identity, "id", id);
   yyjson_mut_obj_add_str(dm, identity, "revision", "r1");
   yyjson_mut_obj_add_str(dm, identity, "version", "1.0.0");
@@ -138,7 +138,7 @@ static int guest(const char *cases_path, const char *name, int descriptor_only) 
   yyjson_mut_doc *hello = yyjson_mut_doc_new(NULL);
   yyjson_mut_val *h = yyjson_mut_obj(hello);
   yyjson_mut_doc_set_root(hello, h);
-  yyjson_mut_obj_add_str(hello, h, "apiVersion", "ext.plugin/v1");
+  yyjson_mut_obj_add_str(hello, h, "apiVersion", "ext.io.pc/v1");
   yyjson_mut_obj_add_str(hello, h, "id", "hello");
   yyjson_mut_obj_add_val(hello, h, "payload", yyjson_mut_val_mut_copy(hello, d));
   write_doc(hello);
@@ -159,7 +159,7 @@ static int guest(const char *cases_path, const char *name, int descriptor_only) 
     yyjson_mut_doc *m = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *resp = yyjson_mut_obj(m);
     yyjson_mut_doc_set_root(m, resp);
-    yyjson_mut_obj_add_str(m, resp, "apiVersion", "ext.plugin/v1");
+    yyjson_mut_obj_add_str(m, resp, "apiVersion", "ext.io.pc/v1");
     yyjson_mut_obj_add_val(m, resp, "id", yyjson_val_mut_copy(m, get(req, "id")));
     yyjson_doc *answer_doc = NULL;
     if (!strcmp(op, "echo")) {
@@ -181,7 +181,7 @@ static int guest(const char *cases_path, const char *name, int descriptor_only) 
       char rid[32], deadline[48];
       snprintf(rid, sizeof(rid), "r%u", ++next);
       yyjson_mut_obj_add_str(fm, frame, "frame", "reverse_request");
-      yyjson_mut_obj_add_str(fm, frame, "apiVersion", "ext.plugin/v1");
+      yyjson_mut_obj_add_str(fm, frame, "apiVersion", "ext.io.pc/v1");
       yyjson_mut_obj_add_strcpy(fm, frame, "id", rid);
       if (!yyjson_equals_str(get(payload, "scope"), "session"))
         yyjson_mut_obj_add_val(fm, frame, "parent",
@@ -269,7 +269,7 @@ static void open_guest(ext_plugin_registry *r, guest_host *g) {
   /* The descriptor is what the guest answers with: the same program prints it. */
   char descriptor[8192];
   snprintf(descriptor, sizeof(descriptor),
-           "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":"
+           "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":"
            "\"registry/%s\",\"revision\":\"r1\",\"version\":\"1.0.0\"},\"contracts\":[{\"name\":\"%s\","
            "\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},{\"name\":"
            "\"fail\"},{\"name\":\"slow\"},{\"name\":\"relay\"}]}],\"reverse\":"

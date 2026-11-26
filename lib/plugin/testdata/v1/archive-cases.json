@@ -3,230 +3,275 @@
   "cases": [
     {
       "name": "tar-gz-top",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-gz-directory",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-directory.bin",
-          "sha256": "771c92d92f5f87064321c9aa4d74b853272f90ffb68a2b8decb7060cf1279b6a",
+          "sha256": "9865e964804c26c229308ebc97aa1a67aff26b8fef5c1674ddfb56450db2f157",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "771c92d92f5f87064321c9aa4d74b853272f90ffb68a2b8decb7060cf1279b6a",
+          "sha256": "9865e964804c26c229308ebc97aa1a67aff26b8fef5c1674ddfb56450db2f157",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-plain",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-plain.bin",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-pax-long-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-pax-long-path.bin",
-          "sha256": "f36821ffbf37647a829052cb252bb32e62184b39043855d41366d78b2151b77a",
+          "sha256": "00563140233642970f1fdf41af84af62a843323ea696358132af50902c6962da",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "f36821ffbf37647a829052cb252bb32e62184b39043855d41366d78b2151b77a",
+          "sha256": "00563140233642970f1fdf41af84af62a843323ea696358132af50902c6962da",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-without-trailer",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-without-trailer.bin",
-          "sha256": "bbf29af98c347598a05e2d4555e8fdf2d3d970f1a09d25c24e6fc86e2d5aed65",
+          "sha256": "c0e3c12863497da0175b7996a51c2295e9c955c671d47b9df1ecacbf747d01ee",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "bbf29af98c347598a05e2d4555e8fdf2d3d970f1a09d25c24e6fc86e2d5aed65",
+          "sha256": "c0e3c12863497da0175b7996a51c2295e9c955c671d47b9df1ecacbf747d01ee",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-gz-header-fields",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-header-fields.bin",
-          "sha256": "0dc965d9c59747f1b8d7dcac6137098e08dccc66cba40685ec86c051271e5d0a",
+          "sha256": "3ac776f4adbfe26a0ad92b9dfd7daa1939de3848f0d4c38328e3113cda5169ab",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "0dc965d9c59747f1b8d7dcac6137098e08dccc66cba40685ec86c051271e5d0a",
+          "sha256": "3ac776f4adbfe26a0ad92b9dfd7daa1939de3848f0d4c38328e3113cda5169ab",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-gnu-long-name",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gnu-long-name.bin",
-          "sha256": "2eb63752f84d0dcb7451e38380018760ba8d4fe35cf7beed97f6a573c213064d",
+          "sha256": "893f77c71eb61de5e9e42f4a3310fa7c2d221d494a0ddc48aa22110de254118d",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "2eb63752f84d0dcb7451e38380018760ba8d4fe35cf7beed97f6a573c213064d",
+          "sha256": "893f77c71eb61de5e9e42f4a3310fa7c2d221d494a0ddc48aa22110de254118d",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-ustar-prefix",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-ustar-prefix.bin",
-          "sha256": "580b0b7fc32664f2ebdefe2be587cec390153c9cfb9d4fb304e9757bdb0671f4",
+          "sha256": "aabea44d0e8068179b2b515a6a2db1680a6ffbfa54ce837edc2c21ae8c42a2c4",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "580b0b7fc32664f2ebdefe2be587cec390153c9cfb9d4fb304e9757bdb0671f4",
+          "sha256": "aabea44d0e8068179b2b515a6a2db1680a6ffbfa54ce837edc2c21ae8c42a2c4",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "zip-top",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-top.bin",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "zip-directory",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-directory.bin",
-          "sha256": "f7f7e0e958eb32f032fafe41a07570ab74c4efa722570c53b558d8c5f7de34c6",
+          "sha256": "c9cb7c02f98cda6284f3eea0131509b09ba41a4d0ed208279564e650a8bc4462",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "f7f7e0e958eb32f032fafe41a07570ab74c4efa722570c53b558d8c5f7de34c6",
+          "sha256": "c9cb7c02f98cda6284f3eea0131509b09ba41a4d0ed208279564e650a8bc4462",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "zip-stored",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-stored.bin",
-          "sha256": "3f6b91dfbb448a4f1cdd05e5554b008a47ca829909726e7e5f0438a0fc939f92",
+          "sha256": "ff5870f58a8cc138b60cc2e7764a2d932ecf1ef7396901d068f5027d5f373a93",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "3f6b91dfbb448a4f1cdd05e5554b008a47ca829909726e7e5f0438a0fc939f92",
+          "sha256": "ff5870f58a8cc138b60cc2e7764a2d932ecf1ef7396901d068f5027d5f373a93",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "zip-dos-attributes",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-dos-attributes.bin",
-          "sha256": "ae505af7fee9a8a61f7d6f2a89157d3f90fcc67d9e3ade5db1d3be2e8edb068a",
+          "sha256": "6af411cd3e32831b81a33ed4f4700971f1654e73ab2e24cb477b3b54f76955a4",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "ae505af7fee9a8a61f7d6f2a89157d3f90fcc67d9e3ade5db1d3be2e8edb068a",
+          "sha256": "6af411cd3e32831b81a33ed4f4700971f1654e73ab2e24cb477b3b54f76955a4",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "zip-expands",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-expands.bin",
-          "sha256": "ead3a56da54c656182877af74ce34b5cbfbe09ca6cbe0a164cf4880fadd6117b",
+          "sha256": "7c69dd6d2281d430ac759413714736be4041336b648c7f9b8f7a633442e1ccce",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "ead3a56da54c656182877af74ce34b5cbfbe09ca6cbe0a164cf4880fadd6117b",
+          "sha256": "7c69dd6d2281d430ac759413714736be4041336b648c7f9b8f7a633442e1ccce",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "tar-gz-expands",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-expands.bin",
-          "sha256": "6f0a18bd95ca1d8a545d4d2e6dfb7b2ce8201899fec505058aa22bccba8ebd76",
+          "sha256": "a266eafc9340c1bdbb28f4299e7b93ea8d1b890e8f3623d810df21ab6e2f6426",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "6f0a18bd95ca1d8a545d4d2e6dfb7b2ce8201899fec505058aa22bccba8ebd76",
+          "sha256": "a266eafc9340c1bdbb28f4299e7b93ea8d1b890e8f3623d810df21ab6e2f6426",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "upgrade-then-remove",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-top.bin",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "revision": "r1"
         },
         {
           "install": "archives/tar-gz-r2.bin",
-          "sha256": "4f9216ab8d2774bc68b7250e46b70d0f40e07690bff80788e096e638de1263e0",
+          "sha256": "8cb1414df02935638df545a5acbbce327f4ab783c1c6c31087d1b1e943f3cb78",
           "revision": "r2"
         },
         {
           "receipt": "example/archive",
-          "sha256": "4f9216ab8d2774bc68b7250e46b70d0f40e07690bff80788e096e638de1263e0",
+          "sha256": "8cb1414df02935638df545a5acbbce327f4ab783c1c6c31087d1b1e943f3cb78",
           "revision": "r2"
         },
         {
@@ -244,10 +289,13 @@
     },
     {
       "name": "expected-id",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-plain.bin",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "id": "example/archive",
           "revision": "r1"
         }
@@ -255,20 +303,23 @@
     },
     {
       "name": "receipt-skips-the-archive",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         },
         {
           "install": "archives/absent.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         },
         {
           "install": "archives/absent.bin",
-          "sha256": "817DDE24B2DEEB6B0EAB23A0FA3C6D4FD7CF09401297A00396CB34A24169F480",
+          "sha256": "7ADBF798B3E126B9C84AD914D47A581BE48FC1216AFCB08B84028E62F0E16020",
           "id": "example/archive",
           "revision": "r1"
         }
@@ -276,10 +327,13 @@
     },
     {
       "name": "receipt-does-not-vouch-for-damage",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         },
         {
@@ -288,73 +342,85 @@
         },
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "status": "mismatch"
         },
         {
           "receipt": "example/archive",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "same-revision-same-content",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         },
         {
           "install": "archives/zip-top.bin",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "revision": "r1"
         },
         {
           "receipt": "example/archive",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "revision": "r1"
         },
         {
           "install": "archives/absent.bin",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "same-revision-other-content",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         },
         {
           "install": "archives/zip-r1-changed.bin",
-          "sha256": "cb3c683ff193a7d09b99d63f5e9f355d0e8d885563f4f05510d3c1289364a49d",
+          "sha256": "cb9d901bda062343d88d5679571333b177edb3c22a1ff5dced01de5bf6b5b1a8",
           "status": "mismatch"
         },
         {
           "receipt": "example/archive",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "revision": "r1"
         }
       ]
     },
     {
       "name": "hash-mismatch",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "status": "mismatch"
         }
       ]
     },
     {
       "name": "hash-missing",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
@@ -365,20 +431,26 @@
     },
     {
       "name": "hash-malformed",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "sha256:817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24",
+          "sha256": "sha256:7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "another-package-expected",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "id": "example/other",
           "status": "mismatch"
         }
@@ -386,10 +458,13 @@
     },
     {
       "name": "invalid-expected-id",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "id": "not an id",
           "status": "invalid"
         }
@@ -400,10 +475,13 @@
       "limits": {
         "maxArchiveBytes": 64
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "status": "invalid"
         }
       ]
@@ -413,10 +491,13 @@
       "limits": {
         "maxTreeBytes": 16
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-top.bin",
-          "sha256": "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480",
+          "sha256": "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020",
           "status": "invalid"
         }
       ]
@@ -426,10 +507,13 @@
       "limits": {
         "maxTreeBytes": 16
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-top.bin",
-          "sha256": "c78963bcffb9bae37b606115d617c98e3ac7bce5ac7b43a239624027ec5bfe36",
+          "sha256": "cdea21d980a59564bf63a110d45019f58b6a467a56073e310c41633157aa2d13",
           "status": "invalid"
         }
       ]
@@ -439,10 +523,13 @@
       "limits": {
         "maxArtifactBytes": 4
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-plain.bin",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "status": "invalid"
         }
       ]
@@ -452,10 +539,13 @@
       "limits": {
         "maxArtifactBytes": 4
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-stored.bin",
-          "sha256": "3f6b91dfbb448a4f1cdd05e5554b008a47ca829909726e7e5f0438a0fc939f92",
+          "sha256": "ff5870f58a8cc138b60cc2e7764a2d932ecf1ef7396901d068f5027d5f373a93",
           "status": "invalid"
         }
       ]
@@ -465,10 +555,13 @@
       "limits": {
         "maxTreeFiles": 3
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-directory.bin",
-          "sha256": "771c92d92f5f87064321c9aa4d74b853272f90ffb68a2b8decb7060cf1279b6a",
+          "sha256": "9865e964804c26c229308ebc97aa1a67aff26b8fef5c1674ddfb56450db2f157",
           "status": "invalid"
         }
       ]
@@ -478,10 +571,13 @@
       "limits": {
         "maxTreeFiles": 3
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-directory.bin",
-          "sha256": "f7f7e0e958eb32f032fafe41a07570ab74c4efa722570c53b558d8c5f7de34c6",
+          "sha256": "c9cb7c02f98cda6284f3eea0131509b09ba41a4d0ed208279564e650a8bc4462",
           "status": "invalid"
         }
       ]
@@ -491,10 +587,13 @@
       "limits": {
         "maxTreeBytes": 4096
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-expands.bin",
-          "sha256": "ead3a56da54c656182877af74ce34b5cbfbe09ca6cbe0a164cf4880fadd6117b",
+          "sha256": "7c69dd6d2281d430ac759413714736be4041336b648c7f9b8f7a633442e1ccce",
           "status": "invalid"
         }
       ]
@@ -504,226 +603,295 @@
       "limits": {
         "maxTreeBytes": 4096
       },
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-expands.bin",
-          "sha256": "6f0a18bd95ca1d8a545d4d2e6dfb7b2ce8201899fec505058aa22bccba8ebd76",
+          "sha256": "a266eafc9340c1bdbb28f4299e7b93ea8d1b890e8f3623d810df21ab6e2f6426",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-symlink",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-symlink.bin",
-          "sha256": "b988e9879482d35f8c3126be3ef93e3b1a6b6d32a39bd2266a87048fc3a7c04a",
+          "sha256": "6afc6b7dfa572130494cbcc1115fbad33524105d348117e3e7c740185bf7ac5a",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-hard-link",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-hard-link.bin",
-          "sha256": "8e9c247fd95c43575e331260721213adffefb12737b466f1be612643e4dea295",
+          "sha256": "a53acf08d6b5182b57514057ee062f352983a470259997fbf5239fa511a1e8a7",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-device",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-device.bin",
-          "sha256": "c8f9c55f168e9800261eef1008e383688b72f12b1b831534bc898ca9c3ae55aa",
+          "sha256": "dd95b069d094d60a3ca7a6396e37313faa6cf484a1bcc929c38cdfac5a0f91ed",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-fifo",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-fifo.bin",
-          "sha256": "6e6a5bcad7f44c1a40b3bb3d242d67721276718f8d3e78e2aaf5f77f5ed95ca0",
+          "sha256": "011ac4cddab16776751b906404eff79d142fce72f8c036e408868042669b9e8f",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-symlink",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-symlink.bin",
-          "sha256": "30a134909fd9a9d242f7f0f8630784a4cab72dce2b7180af6031977e7205d6de",
+          "sha256": "086c8557bedbe6477fce1de1372891b27bff4f10d42e292466dc1dd2693d9734",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-parent-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-parent-path.bin",
-          "sha256": "ca5977e3ed66b5592cb1eed688151f27aa971a7e37af8a8b616adfcd00c22b5b",
+          "sha256": "77664dbef42452dfb25c22ee9657019524d8ea804c4710d6bfffc3121f4548f9",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-gz-inner-parent-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-inner-parent-path.bin",
-          "sha256": "ee472c52d1eafbb8c5b4a50bd94d1ea89ec569dae02e3454777306a6f402f623",
+          "sha256": "b074d7b57179eab0b73ffd55eb290ff95c58d9a0a5dd66a9ad123c00a2823b00",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-parent-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-parent-path.bin",
-          "sha256": "713660f7a5f80153aded07b5d1b89564c0b3fabc0bc8366cdc2f2c99b6140cce",
+          "sha256": "acd503786d9d51bd61b772b3c7915d17207c81e7b6a9ff5fa04facab75c2bf06",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-absolute-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-absolute-path.bin",
-          "sha256": "e7add22dba8b41333ab9c7baf246c28865b61a4fb128d09cfecc3867608bc985",
+          "sha256": "57a4f6f2216c36748395de8bd852e37a1e97a2c4d8e5a46fa9a722ed63387201",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-absolute-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-absolute-path.bin",
-          "sha256": "0e3093af32793480c45043273cf7999f8c695781b297949124088ce8f6a21709",
+          "sha256": "79d2a1b0eee7cc0a65b8b7157f7e6fa74e48a67625c2e9b624e652a67cd97a28",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-backslash-path",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-backslash-path.bin",
-          "sha256": "2dee9fcde0611f97dfb13fe623d066c07751050497533825e0e7f48474b3c467",
+          "sha256": "ff58f14300d4eed1bda7b055ae4dba6bd2f26bb3c6739a4f66c2ad1e2def4463",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-device-name",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-device-name.bin",
-          "sha256": "e0b0e19778c5317c40f41bd3507c9fcdb952c451ce9b68e5d247aa654b0bbdc2",
+          "sha256": "b21e7fd51cc52029290eb7feefd3ab69ae967d6ee2e7fc00bd11630ee95359eb",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-trailing-dot",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-trailing-dot.bin",
-          "sha256": "20307a6d863387abaaec928e7fcd263cc35ddf48ba4bd079a458202c7add9ca9",
+          "sha256": "26bb7ba7a828adccb7c19919baa6263fbe9a41974db4f6fb9908c26ede05b108",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-control-character",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-control-character.bin",
-          "sha256": "cb3405ef319f40ef5c4fe92532a710c774a823f580e7d5629e1ee035a96ffdc7",
+          "sha256": "7eb068c7fab9e446b1eeded761a8ebff9e8893dcfa83c0e8f0df1d64b53c02f5",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-invalid-utf8",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-invalid-utf8.bin",
-          "sha256": "820ad8b51236391022d74ac242af2237c2c872ade67785fee356be8e8013a8f2",
+          "sha256": "a7247843897a8b94a1905ff4b9b69261987e887b9861eb11a862b481163d7b3e",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-invalid-utf8",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-invalid-utf8.bin",
-          "sha256": "b937e39ef07ccdc001707d78fa554dc35ffed860ffffb0df7f6ff49042390590",
+          "sha256": "3a475084fff3e73b3954540a3073c67de5beac06058b98727025383fdc2547fd",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-case-duplicate",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-case-duplicate.bin",
-          "sha256": "a161c5150832792316cda988b159728bee2baf186dac232bbdbf2a6e080a5b1f",
+          "sha256": "c2efd9c5240e8801430ae64d425b28f5bd8a9ee433b634b3d9cdfc77e5cae08d",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-exact-duplicate",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-exact-duplicate.bin",
-          "sha256": "77e26e7b24874edc4f33a2d1e02ae83415b2e4db501bf1cfde6a26f8af49cc1e",
+          "sha256": "9c9e86f0738cd00aed7d400965f915249df82c1b1697a8024e47b61933c2f276",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-file-over-directory",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-file-over-directory.bin",
-          "sha256": "be0e10a4043036a0c38d7d0b194f875977592d887e33896d32d0bc01c9e18b49",
+          "sha256": "edb0513b163985dfe1e88e1ff757cf07ff05879d9c735f5fdbc5a54f321a8f67",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-entry-under-file",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-entry-under-file.bin",
-          "sha256": "605b51010857754a6cacc41716f384d210fa5b93232ec7dc90066c55860a047c",
+          "sha256": "42abe5e406fa2ea2c37725baec48ceceb541716c11d91bdb56cf4f4e8bb3a0b4",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-two-directories",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-two-directories.bin",
-          "sha256": "2c5106d31357dfe1eb9d18712a8e2fdf62b37761f4118db8186ba5b13898c82a",
+          "sha256": "9e4b3e12b979a7a3dab25e3eb68c2258eda5a9898c816396a6c53695eca398d5",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-no-manifest",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-no-manifest.bin",
@@ -734,26 +902,35 @@
     },
     {
       "name": "tar-manifest-too-deep",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-manifest-too-deep.bin",
-          "sha256": "c18c23493b2c6dd83092a7e805b7bda442455342376af3e0df763f7ce291d23d",
+          "sha256": "b6526cd6a2c8fb1dd2878572fb9e2a86d18632e534e1465f418de2e7e1e4ea3b",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-unlisted-file",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-unlisted-file.bin",
-          "sha256": "e9725efe80ac54400c55e45e5f62c9b71fe254d63911871d402e0c3d2786c25c",
+          "sha256": "1b3fb26d5e570a958a44d7f4e7be74bf51f3d89b63f8803c1a1203720c87de33",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "gzip-not-tar",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/gzip-not-tar.bin",
@@ -764,106 +941,139 @@
     },
     {
       "name": "tar-gz-truncated",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-truncated.bin",
-          "sha256": "198e5196e41a4bafe366e3df7901c0e25164b6b75655934ffa427f8100564c31",
+          "sha256": "a291b7f5f480b7059a3a3f2a8dfc681f1d3dd4952fcb39ea29fcdcc3b3349d70",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-truncated",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-truncated.bin",
-          "sha256": "173ee513370e375960f2ec82d9811af658ab65b915fbd4978cc009815c1a2ce9",
+          "sha256": "ca85c71d6fec95bc4120531850885c6b7943ff38c311eee78776a313cb74c131",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-truncated",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-truncated.bin",
-          "sha256": "ac0a397e49a35077a370ce31731d363f32d78bccbba280417a8e6811ddec95d7",
+          "sha256": "915aa1449ae71e1bcfcb1027115dc8a0f1e89cff0ffddc0696026ad5423190c7",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-cut-in-header",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-cut-in-header.bin",
-          "sha256": "f41b6e7d732a82699ef38b90414a9ab027c51b14b12397749266007500d27624",
+          "sha256": "fdc5c2639a6d13bc8fa82d41127242a3255ce4f756211d40b203be385e20155e",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "tar-gz-cut-in-header",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/tar-gz-cut-in-header.bin",
-          "sha256": "da9ea7307234d75cdeed5d868570f8458835db9c9d46e32a399b4a0f6342d1bb",
+          "sha256": "64fb2c91751f7a92fe144272de9d1571c75163fb912d3dc897acc9143a80af9c",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-zip64",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-zip64.bin",
-          "sha256": "79972147277e3a29cc670dfd46cfdca90dafa3e3b359436cde61cacc7263acf0",
+          "sha256": "7f43002c4350d1cd53fab5e0b7435689ff45d5b8c9e2a0eda6ad48d1b79af4ba",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-size-understated",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-size-understated.bin",
-          "sha256": "d6929ea89050254b9058a6dea5a5c358e4aa07782287fd3d7c32eadeab9142d3",
+          "sha256": "2b5a4b471b3588e98fe9f0b87ffe52c9fd6eaab0fc987008980ed1dba937a339",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-size-overstated",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-size-overstated.bin",
-          "sha256": "7bb5f340a85ce83a591ac78987ca95170f031536eca8f2d03dccb50ac5271e87",
+          "sha256": "a40b54619a8e5887c08b481d2d2fdebfdf406ada77ae7113eb73b04e720c9a3c",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-bad-crc",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-bad-crc.bin",
-          "sha256": "053d60f3c2f501cf9575320902164ae7b9d7df7f0d52010b7b39b684e754ff9d",
+          "sha256": "ec94b8b19a4b826a894a55f3cdc686733d08184a87d7d81f4597eb5cc5a3527d",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "zip-unknown-method",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/zip-unknown-method.bin",
-          "sha256": "c84f4348ed58340aac3345af104132815224f5b6a3ae5e9970de450b77240c6f",
+          "sha256": "7109863e1a285790f0ea213346dc19e3bb4830335ca868b27fb7074ea997a4ed",
           "status": "invalid"
         }
       ]
     },
     {
       "name": "unknown-format",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/unknown-format.bin",
@@ -874,6 +1084,9 @@
     },
     {
       "name": "empty",
+      "layout": {
+        "manifest_path": ""
+      },
       "steps": [
         {
           "install": "archives/empty.bin",

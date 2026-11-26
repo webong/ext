@@ -90,11 +90,11 @@ static void make_package(const char *dir, const char *id, const char *revision,
   }
   char manifest[4096];
   n = snprintf(manifest, sizeof(manifest),
-               "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{"
-               "\"apiVersion\":\"ext.plugin/v1\","
+               "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+               ""
                "\"identity\":{\"id\":\"%s\",\"revision\":\"%s\"},"
                "\"contracts\":[{\"name\":\"%s\",\"version\":\"v1\","
-               "\"operations\":[{\"name\":\"read\"}]}]},"
+               "\"operations\":[{\"name\":\"read\"}]}],"
                "\"artifacts\":[%s]}",
                id, revision, contract, artifacts);
   assert(n > 0 && (size_t)n < sizeof(manifest));
@@ -272,11 +272,11 @@ int main(int argc, char **argv) {
     sha("{}", sum);
     char text[1024];
     int n = snprintf(text, sizeof(text),
-                     "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{"
-                     "\"apiVersion\":\"ext.plugin/v1\","
+                     "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+                     ""
                      "\"identity\":{\"id\":\"example/d\",\"revision\":\"r1\"},"
                      "\"contracts\":[{\"name\":\"example.read\",\"version\":\"v1\","
-                     "\"operations\":[{\"name\":\"read\"}]}]},"
+                     "\"operations\":[{\"name\":\"read\"}]}],"
                      "\"artifacts\":[{\"name\":\"m\",\"path\":\"Plugin.JSON\","
                      "\"sha256\":\"%s\"}]}",
                      sum);

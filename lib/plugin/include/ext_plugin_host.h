@@ -14,7 +14,7 @@ extern "C" {
 #else
 #define EXT_PLUGIN_HOST_API __attribute__((visibility("default")))
 #endif
-/* Experimental embedding ABI, independent of ext.plugin/v1 and guest ABI v1.
+/* Experimental embedding ABI, independent of ext.io.pc/v1 and guest ABI v1.
  * No ABI stability commitment until the prototype is evaluated. */
 #define EXT_PLUGIN_HOST_ABI_VERSION 2u
 #define EXT_PLUGIN_HOST_MAX_FRAME (24u * 1024u * 1024u)
@@ -548,14 +548,14 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_trust_record(const char *path, 
                                          const uint8_t reviewed[32]);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_trust_revoke(const char *path, const char *scope,
                                          const char *id);
-/* Verify one installed ext.package/v1 directory below root. Its directory is
+/* Verify one installed ext.io/v1 directory below root. Its directory is
  * named by the package id with '/' encoded as "%2f". The manifest id must
  * agree with that name, every listed artifact must match, and no unlisted
  * file may appear. On success out is the directory digest used for trust. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_digest(const char *root, const char *id,
                                          uint8_t out[32]);
 /* The package store: install, upgrade, replace, remove and load reviewed
- * ext.package/v1 packages under a root the application supplies. A package is
+ * ext.io/v1 packages under a root the application supplies. A package is
  * its manifest and the artifacts it lists, in a directory named by
  * the package id with '/' encoded as "%2f". The store copies and re-verifies
  * content; it never runs it or grants authority, and it has no default

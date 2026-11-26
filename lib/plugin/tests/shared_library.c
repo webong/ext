@@ -17,13 +17,13 @@
 #endif
 
 static const char descriptor[] =
-    "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"ctx/"
+    "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"ctx/"
     "conformance\",\"revision\":\"fixture-1\"},\"contracts\":[{\"name\":"
     "\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},"
     "{\"name\":\"wait\"},{\"name\":\"private-error\"},{\"name\":\"public-"
     "error\"}]}]}";
 static const char other[] =
-    "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"ctx/"
+    "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"ctx/"
     "other\",\"revision\":\"fixture-1\"},\"contracts\":[{\"name\":"
     "\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
 
@@ -55,7 +55,7 @@ static ext_plugin_status call(ext_plugin_host *h, const char *operation, const c
                        uint32_t timeout_ms, ext_plugin_buffer *out) {
   char request[512];
   int n = snprintf(request, sizeof(request),
-                   "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":"
+                   "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":"
                    "\"ctx/conformance\",\"revision\":\"fixture-1\"},\"contract\":{"
                    "\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":"
                    "\"%s\",\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":{"

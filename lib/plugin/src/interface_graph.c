@@ -53,7 +53,7 @@ static yyjson_val *nodes(ext_interface_graph *g) { return get(yyjson_doc_get_roo
 static yyjson_val *row_for(ext_interface_graph *g, yyjson_val *identity) {
   size_t i,n; yyjson_val *row;
   yyjson_arr_foreach(rows(g), i,n,row)
-    if (ext_same_identity(get(get(get(row,"manifest"),"descriptor"),"identity"), identity)) return row;
+    if (ext_same_identity(get(get(row,"manifest"),"identity"), identity)) return row;
   return NULL;
 }
 static int canceled(ext_interface_graph *g) {
@@ -93,7 +93,7 @@ ext_plugin_status ext_interface_graph_open(yyjson_val *config, ext_interface_gra
   ext_plugin_store_layout layout;
   if (!EXT_FIELDS(config,"object","packages","root","os","arch","max_hosts","temp_root","layout") ||
       ext_interface_store_layout(config,&layout) ||
-      !path_ok(get(config,"temp_root")) || !yyjson_is_arr(get(config,"packages"))) return EXT_PLUGIN_INVALID;
+      (get(config,"temp_root") && !path_ok(get(config,"temp_root"))) || !yyjson_is_arr(get(config,"packages"))) return EXT_PLUGIN_INVALID;
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
   yyjson_mut_val *v = d ? yyjson_mut_obj(d) : NULL, *manifests = d ? yyjson_mut_arr(d) : NULL;
   int ok = v && manifests;
@@ -104,7 +104,19 @@ ext_plugin_status ext_interface_graph_open(yyjson_val *config, ext_interface_gra
   size_t i,n; yyjson_val *row;
   ext_plugin_status s = EXT_PLUGIN_OK;
   yyjson_arr_foreach(get(config,"packages"),i,n,row) {
-    if (!EXT_FIELDS(row,"manifest","directory") || !path_ok(get(row,"directory"))) { s = EXT_PLUGIN_INVALID; break; }
+    yyjson_val *binding=get(row,"binding");
+    if (!EXT_FIELDS(row,"manifest","directory","binding","layout") ||
+        (binding && get(row,"directory")) ||
+        (!binding && (!path_ok(get(row,"directory")) || !path_ok(get(config,"temp_root")))) ||
+        (binding && (!EXT_FIELDS(binding,"host","digest") || !ext_text(get(binding,"host"),0,0) || !path_ok(get(binding,"digest")) || yyjson_get_len(get(binding,"digest"))!=64))) { s=EXT_PLUGIN_INVALID;break; }
+    if(binding) {
+      const char *digest=text(binding,"digest");
+      for(size_t z=0;z<64;z++) if(!((digest[z]>='0'&&digest[z]<='9')||(digest[z]>='a'&&digest[z]<='f'))) s=EXT_PLUGIN_INVALID;
+      if(s) break;
+    }
+    ext_plugin_store_layout row_layout;
+    if(ext_interface_store_layout(row,&row_layout)) {s=EXT_PLUGIN_INVALID;break;}
+
     if (ok) ok = yyjson_mut_arr_append(manifests, yyjson_val_mut_copy(d,get(row,"manifest")));
   }
   yyjson_doc *plan = NULL;
@@ -142,7 +154,7 @@ static ext_plugin_status entry(ext_interface_graph *g, ext_plugin_store *store, 
   yyjson_val *config=yyjson_doc_get_root(g->config), *contract=get(node,"contract");
   ext_plugin_buffer b={0};
   ext_plugin_status s=ext_plugin_store_resolve_entrypoint(store,text(get(node,"identity"),"id"),
-    text(contract,"name"),text(contract,"version"),"ext.plugin/v1",digest,text(config,"os"),text(config,"arch"),&b);
+    text(contract,"name"),text(contract,"version"),"ext.io.pc/v1",digest,text(config,"os"),text(config,"arch"),&b);
   if (!s) {
     yyjson_doc *doc=ext_parse(b.data,b.len);
     const char *p=doc ? text(yyjson_doc_get_root(doc),"path") : NULL;
@@ -172,9 +184,11 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
   yyjson_val *node;
   /* Every reachable identity needs explicit application review before any copy. */
   yyjson_arr_foreach(nodes(g),i,n,node) if(!review_for(reviews,get(node,"identity"))) { s=EXT_PLUGIN_DENIED; break; }
-  if(!s) s=ext_fs_open(text(config,"temp_root"),&g->temporary);
-  if(!s) s=ext_fs_mkdtemp(g->temporary,"","ext-graph-snapshot-",&g->relative);
-  if(!s) {
+  int local=0; yyjson_val *scan; size_t si,sn;
+  yyjson_arr_foreach(nodes(g),si,sn,scan) if(!get(row_for(g,get(scan,"identity")),"binding")) local=1;
+  if(!s && local) s=ext_fs_open(text(config,"temp_root"),&g->temporary);
+  if(!s && local) s=ext_fs_mkdtemp(g->temporary,"","ext-graph-snapshot-",&g->relative);
+  if(!s && local) {
     size_t len=strlen(text(config,"temp_root"))+strlen(g->relative)+2;
     g->directory=malloc(len);
     if(!g->directory) s=EXT_PLUGIN_NOMEM;
@@ -183,7 +197,7 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
   ext_plugin_store *snapshot=NULL;
   ext_plugin_store_layout layout;
   if(!s) s=ext_interface_store_layout(config,&layout);
-  if(!s) s=ext_plugin_store_open_with_layout(g->directory,NULL,layout.manifest_path?&layout:NULL,&snapshot);
+
   yyjson_arr_foreach(nodes(g),i,n,node) {
     if(s) break;
     if(canceled(g)) { s=EXT_PLUGIN_CANCELED; break; }
@@ -192,6 +206,16 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
     for(size_t z=0;z<i;z++) if(ext_same_identity(get(yyjson_arr_get(nodes(g),z),"identity"),get(node,"identity"))) prior=1;
     if(prior) continue;
     yyjson_val *row=row_for(g,get(node,"identity"));
+    yyjson_val *binding=get(row,"binding");
+    if(binding) {
+      if(strcmp(text(binding,"digest"),review_for(reviews,get(node,"identity")))) s=EXT_PLUGIN_MISMATCH;
+      continue;
+    }
+    ext_plugin_store_layout chosen=layout,override;
+    s=ext_interface_store_layout(row,&override);
+    if(!s && override.manifest_path) chosen=override;
+    if(!s) s=ext_plugin_store_open_with_layout(g->directory,NULL,chosen.manifest_path?&chosen:NULL,&snapshot);
+    if(s) break;
     ext_plugin_buffer out={0};
     s=ext_plugin_store_snapshot(snapshot,text(row,"directory"),text(get(node,"identity"),"id"),review_for(reviews,get(node,"identity")),&out);
     if (!s) {
@@ -200,12 +224,20 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
       yyjson_doc_free(actual);
     }
     ext_plugin_buffer_free(&out);
+    ext_plugin_store_close(snapshot);snapshot=NULL;
   }
   char **paths=calloc(g->count,sizeof *paths);
   if(!paths && !s) s=EXT_PLUGIN_NOMEM;
   yyjson_arr_foreach(nodes(g),i,n,node) {
     if(s) break;
-    s=entry(g,snapshot,node,review_for(reviews,get(node,"identity")),&paths[i]);
+    yyjson_val *row=row_for(g,get(node,"identity"));
+    if(get(row,"binding")) continue;
+    ext_plugin_store_layout chosen=layout,override;
+    s=ext_interface_store_layout(row,&override);
+    if(!s && override.manifest_path) chosen=override;
+    if(!s) s=ext_plugin_store_open_with_layout(g->directory,NULL,chosen.manifest_path?&chosen:NULL,&snapshot);
+    if(!s) s=entry(g,snapshot,node,review_for(reviews,get(node,"identity")),&paths[i]);
+    ext_plugin_store_close(snapshot);snapshot=NULL;
   }
   ext_plugin_store_close(snapshot);
   yyjson_val *order=get(yyjson_doc_get_root(g->plan),"order"), *position;
@@ -220,9 +252,10 @@ static ext_plugin_status start_graph(ext_interface_graph *g, yyjson_val *in) {
     yyjson_mut_val *v=d?yyjson_mut_obj(d):NULL, *backend=d?yyjson_mut_obj(d):NULL, *routes=d?yyjson_mut_arr(d):NULL;
     int ok=v&&backend&&routes;
     if(ok) { yyjson_mut_doc_set_root(d,v); ok=yyjson_mut_obj_add_str(d,v,"object","host") &&
-      copy(d,v,"descriptor",get(get(row,"manifest"),"descriptor")) && yyjson_mut_obj_add_str(d,v,"verify","allow") &&
+      yyjson_mut_obj_add_val(d,v,"descriptor",ext_manifest_descriptor(d,get(row,"manifest"))) && yyjson_mut_obj_add_str(d,v,"verify","allow") &&
       yyjson_mut_obj_add_str(d,v,"authorize","allow") && yyjson_mut_obj_add_val(d,v,"backend",backend) &&
-      yyjson_mut_obj_add_str(d,backend,"kind","process") && yyjson_mut_obj_add_strcpy(d,backend,"executable",paths[index]); }
+      yyjson_mut_obj_add_str(d,backend,"kind",get(row,"binding")?"events":"process");
+      if(ok && !get(row,"binding")) ok=yyjson_mut_obj_add_strcpy(d,backend,"executable",paths[index]); }
     yyjson_val *route; size_t a,b;
     yyjson_arr_foreach(get(node,"routes"),a,b,route) {
       uint64_t target=0;
@@ -277,14 +310,15 @@ static ext_plugin_status observe(ext_interface_graph *g,yyjson_doc **out) {
   if(!g->ready || g->closing) s=EXT_PLUGIN_CLOSED;
   for(size_t i=0;!s && i<g->count;i++) {
     char *json=NULL; size_t len=0;
-    s=ext_plugin_call(g->hosts[i],"process_id","{}",2,&json,&len);
-    yyjson_doc *pid=!s?ext_parse((uint8_t *)json,len):NULL;
+    yyjson_val *binding=get(row_for(g,get(yyjson_arr_get(nodes(g),i),"identity")),"binding");
+    if(!binding) s=ext_plugin_call(g->hosts[i],"process_id","{}",2,&json,&len);
+    yyjson_doc *pid=!s&&!binding?ext_parse((uint8_t *)json,len):NULL;
     ext_plugin_free(json);
-    if(!s && !pid) s=EXT_PLUGIN_NOMEM;
+    if(!s && !binding && !pid) s=EXT_PLUGIN_NOMEM;
     yyjson_mut_val *v=!s?yyjson_val_mut_copy(d,yyjson_arr_get(nodes(g),i)):NULL;
     char id[80]; session_id(g,i,id);
     if(!s && (!v || !yyjson_mut_obj_add_strcpy(d,v,"session",id) ||
-       !copy(d,v,"pid",yyjson_doc_get_root(pid)) || !yyjson_mut_arr_append(a,v))) s=EXT_PLUGIN_NOMEM;
+       !(binding ? (yyjson_mut_obj_add_null(d,v,"pid") && copy(d,v,"binding",binding)) : copy(d,v,"pid",yyjson_doc_get_root(pid))) || !yyjson_mut_arr_append(a,v))) s=EXT_PLUGIN_NOMEM;
     yyjson_doc_free(pid);
   }
   pthread_mutex_unlock(&g->mu);
@@ -327,6 +361,10 @@ static ext_plugin_status graph_snapshot(ext_interface_graph *g,yyjson_val *in,ch
    * complete one-to-one correlation, including the original session and PID. */
   for(size_t i=0;i<g->count;i++) {
     yyjson_val *r=yyjson_arr_get(refs,i), *node=yyjson_arr_get(live,i);
+    if(get(node,"binding")) {
+      if(!yyjson_is_null(r)) { s=EXT_PLUGIN_MISMATCH; break; }
+      continue;
+    }
     int64_t pid=0,actual=0;
     if(!EXT_FIELDS(r,"session","namespace","id","host_id","pid","start_id") ||
        !path_ok(get(r,"session")) || strcmp(text(r,"session"),text(node,"session")) ||
@@ -338,7 +376,7 @@ static ext_plugin_status graph_snapshot(ext_interface_graph *g,yyjson_val *in,ch
       char c=text(r,"id")[z];
       if(!((c>='0'&&c<='9')||(c>='a'&&c<='f'))) s=EXT_PLUGIN_MISMATCH;
     }
-    for(size_t z=0;z<i;z++) if(!strcmp(text(yyjson_arr_get(refs,z),"id"),text(r,"id"))) s=EXT_PLUGIN_MISMATCH;
+    for(size_t z=0;z<i;z++) if(!yyjson_is_null(yyjson_arr_get(refs,z)) && !strcmp(text(yyjson_arr_get(refs,z),"id"),text(r,"id"))) s=EXT_PLUGIN_MISMATCH;
     if(s) break;
   }
   yyjson_mut_doc *d=!s?yyjson_mut_doc_new(NULL):NULL;
@@ -368,8 +406,9 @@ static ext_plugin_status graph_snapshot(ext_interface_graph *g,yyjson_val *in,ch
     yyjson_mut_val *attrs=yyjson_mut_obj(d),*pa=yyjson_mut_obj(d);
     char eid[128]; snprintf(eid,sizeof eid,"%s/process",sid);
     ok=attrs&&pa&&copy(d,attrs,"identity",get(node,"identity"))&&copy(d,attrs,"contract",get(node,"contract"))&&
-      vertex(d,vs,sid,sk,attrs)&&copy(d,pa,"reference",ref)&&
-      vertex(d,vs,pid,pk,pa)&&edge(d,es,eid,ek,sid,pid);
+      vertex(d,vs,sid,sk,attrs);
+    if(ok && get(node,"binding")) ok=copy(d,attrs,"binding",get(node,"binding"));
+    else if(ok) ok=copy(d,pa,"reference",ref)&&vertex(d,vs,pid,pk,pa)&&edge(d,es,eid,ek,sid,pid);
     char package_id[65]; ext_package_graph_identity(get(node,"identity"),package_id);
     yyjson_mut_val *package_attrs=yyjson_mut_obj(d),*reference=yyjson_mut_obj(d);
     snprintf(eid,sizeof eid,"%s/package",sid);

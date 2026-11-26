@@ -24,7 +24,7 @@ struct ext_interface_scope {
 static const char *text(yyjson_val *o,const char *k) { return yyjson_get_str(get(o,k)); }
 static int path_ok(yyjson_val *v) { return yyjson_is_str(v)&&yyjson_get_len(v)&&strlen(yyjson_get_str(v))==yyjson_get_len(v); }
 static yyjson_val *rows(ext_interface_scope *s) { return get(yyjson_doc_get_root(s->config),"packages"); }
-static yyjson_val *identity(yyjson_val *r) { return get(get(get(r,"manifest"),"descriptor"),"identity"); }
+static yyjson_val *identity(yyjson_val *r) { return get(get(r,"manifest"),"identity"); }
 static int copy(yyjson_mut_doc *d,yyjson_mut_val *v,const char *k,yyjson_val *x) {
  yyjson_mut_val *c=yyjson_val_mut_copy(d,x); return c&&yyjson_mut_obj_add_val(d,v,k,c);
 }
@@ -99,7 +99,7 @@ ext_plugin_status ext_interface_scope_open(yyjson_val *in,ext_interface_scope **
   rc=ext_plugin_store_snapshot(store,text(row,"directory"),text(identity(row),"id"),text(row,"digest"),&result);
   if(!rc) {
    yyjson_doc *actual=ext_parse(result.data,result.len);
-   if(!actual||!ext_same_identity(get(get(yyjson_doc_get_root(actual),"descriptor"),"identity"),identity(row))) rc=EXT_PLUGIN_MISMATCH;
+   if(!actual||!ext_same_identity(get(yyjson_doc_get_root(actual),"identity"),identity(row))) rc=EXT_PLUGIN_MISMATCH;
    yyjson_doc_free(actual);
   }
   ext_plugin_buffer_free(&result);

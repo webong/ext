@@ -4,6 +4,7 @@
 #include "yyjson.h"
 yyjson_doc *ext_parse(const uint8_t *, size_t);
 int ext_descriptor(yyjson_val *);
+int ext_descriptor_fields(yyjson_val *);
 int ext_match(yyjson_val *, yyjson_val *);
 /* Whether a valid descriptor lists any reverse operation (host operations the
  * plugin may call) and whether any operation it serves declares progress. Both

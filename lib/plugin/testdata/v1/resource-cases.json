@@ -4277,7 +4277,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4355,7 +4355,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4406,7 +4406,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4471,7 +4471,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4536,7 +4536,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4601,7 +4601,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "other",
             "revision": "r1"
@@ -4666,7 +4666,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4744,7 +4744,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4809,7 +4809,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -4940,7 +4940,7 @@
       "operation": "resource.operation.select",
       "input": {
         "descriptor": {
-          "apiVersion": "ext.plugin/v1",
+          "apiVersion": "ext.io.pc/v1",
           "identity": {
             "id": "example/provider",
             "revision": "r1"
@@ -5006,7 +5006,7 @@
       "input": {
         "selection": {
           "descriptor": {
-            "apiVersion": "ext.plugin/v1",
+            "apiVersion": "ext.io.pc/v1",
             "identity": {
               "id": "example/provider",
               "revision": "r1"
@@ -5075,7 +5075,7 @@
       "input": {
         "selection": {
           "descriptor": {
-            "apiVersion": "ext.plugin/v1",
+            "apiVersion": "ext.io.pc/v1",
             "identity": {
               "id": "example/provider",
               "revision": "r1"
@@ -5143,7 +5143,7 @@
       "input": {
         "selection": {
           "descriptor": {
-            "apiVersion": "ext.plugin/v1",
+            "apiVersion": "ext.io.pc/v1",
             "identity": {
               "id": "example/provider",
               "revision": "r1"
@@ -5214,7 +5214,7 @@
       "input": {
         "selection": {
           "descriptor": {
-            "apiVersion": "ext.plugin/v1",
+            "apiVersion": "ext.io.pc/v1",
             "identity": {
               "id": "example/provider",
               "revision": "r1"
@@ -5353,7 +5353,7 @@
       "input": {
         "selection": {
           "descriptor": {
-            "apiVersion": "ext.plugin/v1",
+            "apiVersion": "ext.io.pc/v1",
             "identity": {
               "id": "example/provider",
               "revision": "r1"
@@ -5422,7 +5422,7 @@
       "input": {
         "selection": {
           "descriptor": {
-            "apiVersion": "ext.plugin/v1",
+            "apiVersion": "ext.io.pc/v1",
             "identity": {
               "id": "example/provider",
               "revision": "r1"

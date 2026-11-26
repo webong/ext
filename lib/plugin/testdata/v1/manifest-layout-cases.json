@@ -9,12 +9,12 @@
       "steps": [
         {
           "install": "archives/tar-plain.bin",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "status": "invalid"
         },
         {
           "install": "archives/zip-manifest-path.bin",
-          "sha256": "e3398cf2b336be852273aa81980dca73ec9afd7f44aed0c234d716bba109d47f",
+          "sha256": "c492c38a21b2675c5fdb1dea1a73326cc5aaa7a358c685401dde2dbe82bd9cec",
           "revision": "r2"
         },
         {
@@ -23,7 +23,7 @@
         },
         {
           "install": "archives/zip-manifest-path.bin",
-          "sha256": "e3398cf2b336be852273aa81980dca73ec9afd7f44aed0c234d716bba109d47f",
+          "sha256": "c492c38a21b2675c5fdb1dea1a73326cc5aaa7a358c685401dde2dbe82bd9cec",
           "revision": "r2"
         },
         {
@@ -40,7 +40,7 @@
       "steps": [
         {
           "install": "archives/tar-plain.bin",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "revision": "r1"
         },
         {
@@ -49,7 +49,7 @@
         },
         {
           "install": "archives/zip-manifest-path.bin",
-          "sha256": "e3398cf2b336be852273aa81980dca73ec9afd7f44aed0c234d716bba109d47f",
+          "sha256": "c492c38a21b2675c5fdb1dea1a73326cc5aaa7a358c685401dde2dbe82bd9cec",
           "revision": "r2"
         },
         {
@@ -70,12 +70,12 @@
       "steps": [
         {
           "install": "archives/zip-manifest-invalid-primary.bin",
-          "sha256": "ad3e07487a86d3898a64559f2affcce3974d6807a3d232719aa4fab5f5ea047d",
+          "sha256": "11615292d499440674ad72d1b8e3570b5ba9150bc55a77eff59e339e3b572f88",
           "status": "invalid"
         },
         {
           "install": "archives/tar-plain.bin",
-          "sha256": "8901fbb11701d31d06c652af9a3b9afe343cbc4fadadce4c034f72d6e079f969",
+          "sha256": "52f413ee7c7a9f0087bf9c285c7ea0af11bae77966092aaa7786f3dbd45093a8",
           "revision": "r1"
         }
       ]

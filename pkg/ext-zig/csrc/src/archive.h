@@ -16,6 +16,11 @@ typedef struct {
  * or returns 0 when text is not 64 hexadecimal characters. */
 int ext_archive_digest_text(const char *text, char out[65]);
 
+/* Selects a regular manifest beneath dir. A missing preferred path can use
+ * the fallback, while a link, non-file, or unreadable path fails closed. */
+ext_plugin_status ext_store_find_manifest(ext_fs *fs, const char *dir,
+    const ext_plugin_store_layout *layout, const char **selected);
+
 /* Checks the regular file at the native path archive against digest (64
  * lower-case hexadecimal characters; NULL skips the check) and extracts it
  * into the empty directory at dest below fs. The archive is a zip, a
@@ -25,10 +30,11 @@ int ext_archive_digest_text(const char *text, char out[65]);
  * unsafe or repeated path, a body that is not what its header declares and
  * anything over a limit are EXT_PLUGIN_INVALID, a digest that differs EXT_PLUGIN_MISMATCH and
  * a missing archive EXT_PLUGIN_MISSING. On success *root is the path below fs of the
- * package: dest when plugin.json is at the top of the archive, or the one
- * top-level directory that holds it. Free it. On failure dest may hold a
+ * package: dest when the selected manifest is relative to the archive root,
+ * or the one top-level directory that holds it. Free it. On failure dest may hold a
  * partial tree. */
 ext_plugin_status ext_archive_extract(const char *archive, const char *digest,
                                ext_fs *fs, const char *dest,
-                               const ext_archive_limits *limits, char **root);
+                               const ext_archive_limits *limits,
+                               const ext_plugin_store_layout *layout, char **root);
 #endif

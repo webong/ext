@@ -58,13 +58,11 @@ static uint32_t rnd(uint32_t n) {
 
 #define DIGEST                                                                 \
   "0000000000000000000000000000000000000000000000000000000000000000"
-#define DESCRIPTOR                                                             \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"x.y\","            \
-  "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"c\",\"version\":\"1\","     \
-  "\"operations\":[{\"name\":\"op\",\"surface\":\"\"}]}]}"
-#define MANIFEST_HEAD                                                          \
-  "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":" DESCRIPTOR              \
-  ",\"artifacts\":["
+#define DECLARATIONS \
+  "\"identity\":{\"id\":\"x.y\",\"revision\":\"r1\"}," \
+  "\"contracts\":[{\"name\":\"c\",\"version\":\"1\",\"operations\":[{\"name\":\"op\",\"surface\":\"\"}]}]"
+#define DESCRIPTOR "{\"apiVersion\":\"ext.io.pc/v1\"," DECLARATIONS "}"
+#define MANIFEST_HEAD "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\"," DECLARATIONS ",\"artifacts\":["
 
 typedef struct {
   const char *name, *path;
@@ -139,8 +137,8 @@ static void stress_other_arrays(void) {
   /* Every other array filled to its limit: 1024 payloads and assets, 256
    * requirements and shared dependencies, 64 entrypoints. */
   text t = {0};
-  text_str(&t, "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":"
-               "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"x.y\","
+  text_str(&t, "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+               "\"identity\":{\"id\":\"x.y\","
                "\"revision\":\"r1\"},\"contracts\":[");
   for (int c = 0; c < 64; c++) {
     text_fmt(&t, "%s{\"name\":\"c%d\",\"version\":\"1\",\"operations\":[", c ? "," : "", c);
@@ -148,14 +146,14 @@ static void stress_other_arrays(void) {
       text_fmt(&t, "%s{\"name\":\"op%d\",\"surface\":\"\"}", o ? "," : "", o);
     text_str(&t, "]}");
   }
-  text_str(&t, "]},\"artifacts\":[");
+  text_str(&t, "],\"artifacts\":[");
   for (int i = 0; i < 4096; i++)
     text_fmt(&t, "%s{\"name\":\"art%d\",\"path\":\"bin/f%d\",\"sha256\":\"" DIGEST "\"}",
              i ? "," : "", i, i);
   text_str(&t, "],\"entrypoints\":[");
   for (int i = 0; i < 64; i++)
     text_fmt(&t, "%s{\"name\":\"e%d\",\"runtime\":\"process\",\"artifact\":\"art%d\","
-                 "\"protocols\":[\"ext.plugin/v1\"]}",
+                 "\"protocols\":[\"ext.io.pc/v1\"]}",
              i ? "," : "", i, i);
   text_str(&t, "],\"requires\":[");
   for (int i = 0; i < 256; i++)
@@ -191,11 +189,11 @@ static void stress_resolve(size_t manifests, size_t requires, double limit) {
   text_str(&t, "[");
   for (size_t i = 0; i < manifests; i++) {
     text_fmt(&t,
-             "%s{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{"
-             "\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"x.m%zu\","
+             "%s{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+             "\"identity\":{\"id\":\"x.m%zu\","
              "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"c%zu\","
              "\"version\":\"1\",\"operations\":[{\"name\":\"op\","
-             "\"surface\":\"\"}]}]},\"artifacts\":[{\"name\":\"a\","
+             "\"surface\":\"\"}]}],\"artifacts\":[{\"name\":\"a\","
              "\"path\":\"bin/a\",\"sha256\":\"" DIGEST "\"}],\"requires\":[",
              i ? "," : "", i, i);
     int first = 1;
@@ -455,8 +453,8 @@ static void random_plans(void) {
     text_str(&t, "[");
     for (size_t i = 0; i < n; i++) {
       text_fmt(&t,
-               "%s{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{"
-               "\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"x.m%zu\","
+               "%s{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+               "\"identity\":{\"id\":\"x.m%zu\","
                "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"%s\","
                "\"version\":\"1\",\"operations\":[",
                i ? "," : "", i, contract_names[m[i].contract]);
@@ -467,7 +465,7 @@ static void random_plans(void) {
                    op_names[o]);
           first = 0;
         }
-      text_str(&t, "]}]},\"artifacts\":[{\"name\":\"a\",\"path\":\"bin/a\","
+      text_str(&t, "]}],\"artifacts\":[{\"name\":\"a\",\"path\":\"bin/a\","
                    "\"sha256\":\"" DIGEST "\"}],\"requires\":[");
       first = 1;
       for (int r = 0; r < 4; r++) {
@@ -532,18 +530,18 @@ static void random_plans(void) {
 /* ---- Mutation pass with a time limit per input -------------------------- */
 
 static const char *SEED_MANIFEST =
-    "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":" DESCRIPTOR
+    "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\"," DECLARATIONS
     ",\"license\":\"MIT\",\"artifacts\":[{\"name\":\"bin\",\"path\":\"bin/x\","
     "\"sha256\":\"" DIGEST "\"},{\"name\":\"data\",\"path\":\"data\",\"kind\":\"tree\","
     "\"sha256\":\"" DIGEST "\"}],\"entrypoints\":[{\"name\":\"main\","
-    "\"runtime\":\"process\",\"artifact\":\"bin\",\"protocols\":[\"ext.plugin/v1\"]}],"
+    "\"runtime\":\"process\",\"artifact\":\"bin\",\"protocols\":[\"ext.io.pc/v1\"]}],"
     "\"requires\":[{\"contract\":{\"name\":\"d\",\"version\":\"1\"},\"operation\":\"go\"}],"
     "\"payloads\":[{\"contract\":{\"name\":\"c\",\"version\":\"1\"},\"operation\":\"op\","
     "\"input\":{\"type\":\"object\"},\"output\":{\"type\":\"object\"}}],"
     "\"assets\":[{\"artifact\":\"data\",\"kind\":\"icon\",\"locale\":\"en\"}],"
     "\"sharedDependencies\":[{\"name\":\"rt\",\"versions\":[\"1\",\"2\"]}]}";
 static const char *SEED_REQUEST =
-    "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"x.y\","
+    "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"x.y\","
     "\"revision\":\"r1\"},\"contract\":{\"name\":\"c\",\"version\":\"1\"},"
     "\"operation\":\"op\",\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":{\"value\":7}}";
 

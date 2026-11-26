@@ -443,18 +443,25 @@ done:
   free(names);
   return status;
 }
+yyjson_mut_val *ext_manifest_descriptor(yyjson_mut_doc *d, yyjson_val *m) {
+ yyjson_mut_val *v=yyjson_mut_obj(d);
+ if (!v || !yyjson_mut_obj_add_str(d,v,"apiVersion","ext.io.pc/v1")) return NULL;
+ const char *keys[]={"identity","contracts","reverse"};
+ for(size_t i=0;i<3;i++) {yyjson_val *field=get(m,keys[i]);if(field && !yyjson_mut_obj_add_val(d,v,keys[i],yyjson_val_mut_copy(d,field))) return NULL;}
+ return v;
+}
 ext_plugin_status ext_manifest_valid(yyjson_val *m) {
-  if (!EXT_FIELDS(m, "apiVersion", "descriptor", "license", "artifacts",
+  if (!EXT_FIELDS(m, "apiVersion", "kind", "identity", "contracts", "reverse", "license", "artifacts",
                   "entrypoints", "requires", "configuration", "payloads",
                   "assets", "sharedDependencies", "metadata") ||
       !license_valid(get(m, "license")) || !metadata_valid(get(m, "metadata")) ||
-      !yyjson_equals_str(get(m, "apiVersion"), "ext.package/v1") ||
-      !ext_descriptor(get(m, "descriptor")))
+      !yyjson_equals_str(get(m, "apiVersion"), "ext.io/v1") ||
+      !yyjson_equals_str(get(m,"kind"),"package") || !ext_descriptor_fields(m))
     return EXT_PLUGIN_INVALID;
   yyjson_val *a = get(m, "artifacts"), *e = get(m, "entrypoints"),
              *r = get(m, "requires"), *p = get(m, "payloads"),
              *assets = get(m, "assets"), *shared = get(m, "sharedDependencies");
-  if (!yyjson_is_arr(a) || !yyjson_arr_size(a) || !array(a, 4096) ||
+  if (!array(a, 4096) ||
       !array(e, 64) || !array(r, 256) || !array(p, 1024) ||
       !array(assets, 1024) || !array(shared, 256) ||
       !schema(get(m, "configuration")))
@@ -499,7 +506,7 @@ ext_plugin_status ext_manifest_valid(yyjson_val *m) {
         !ext_ref(get(v, "contract")) || !ext_text(get(v, "operation"), 0, 0) ||
         !schema(get(v, "input")) || !schema(get(v, "output")))
       return EXT_PLUGIN_INVALID;
-    if (!ext_lookup(get(m, "descriptor"), get(v, "contract"),
+    if (!ext_lookup(m, get(v, "contract"),
                     get(v, "operation")))
       return EXT_PLUGIN_UNSUPPORTED;
     EXT_ARR_BEFORE(p, i, j, k, w)
@@ -686,7 +693,7 @@ static ext_plugin_status offers_build(offers *o, yyjson_val *ms) {
   size_t i, n, j, k, x, y, total = 0;
   yyjson_val *m, *c, *op;
   yyjson_arr_foreach(ms, i, n, m) yyjson_arr_foreach(
-      get(get(m, "descriptor"), "contracts"), j, k,
+      get(m, "contracts"), j, k,
       c) total += yyjson_arr_size(get(c, "operations"));
   size_t slots = 16;
   while (slots / 2 < total) {
@@ -702,7 +709,7 @@ static ext_plugin_status offers_build(offers *o, yyjson_val *ms) {
   }
   o->mask = slots - 1;
   yyjson_arr_foreach(ms, i, n, m) yyjson_arr_foreach(
-      get(get(m, "descriptor"), "contracts"), j, k,
+      get(m, "contracts"), j, k,
       c) yyjson_arr_foreach(get(c, "operations"), x, y, op) {
     offer *e = &o->offers[o->count];
     e->hash = offer_hash(c, get(op, "name"));
@@ -740,7 +747,7 @@ static ext_plugin_status resolve(yyjson_val *ms, const char *os, const char *arc
   yyjson_arr_foreach(ms, i, n, m) {
     if ((s = ext_manifest_valid(m)))
       goto done;
-    nodes[i].id = get(get(m, "descriptor"), "identity");
+    nodes[i].id = get(m, "identity");
     for (j = 0; j < i; j++)
       if (ext_same_identity(nodes[i].id, nodes[j].id)) {
         s = EXT_PLUGIN_AMBIGUOUS;
@@ -901,7 +908,7 @@ static ext_plugin_status resolved_routes(yyjson_val *ms, yyjson_val *bindings, y
   yyjson_val *source = NULL, *m, *binding;
   size_t i, n, j, k;
   yyjson_arr_foreach(ms, i, n, m)
-    if (ext_same_identity(get(get(m, "descriptor"), "identity"), consumer)) source = get(m, "descriptor");
+    if (ext_same_identity(get(m, "identity"), consumer)) source = m;
   if (!source) return EXT_PLUGIN_NOT_FOUND;
   yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
   yyjson_mut_val *routes = doc ? yyjson_mut_arr(doc) : NULL;
@@ -978,10 +985,10 @@ static ext_plugin_status execution_visit(execution_plan *p, yyjson_val *identity
   yyjson_val *manifest = NULL, *m, *c;
   size_t i, n;
   yyjson_arr_foreach(p->packages, i, n, m)
-    if (ext_same_identity(get(get(m, "descriptor"), "identity"), identity)) manifest = m;
+    if (ext_same_identity(get(m, "identity"), identity)) manifest = m;
   if (!manifest) return EXT_PLUGIN_NOT_FOUND;
   int offered = 0;
-  yyjson_arr_foreach(get(get(manifest, "descriptor"), "contracts"), i, n, c)
+  yyjson_arr_foreach(get(manifest, "contracts"), i, n, c)
     if (ext_same_ref(c, contract)) offered = 1;
   if (!offered) return EXT_PLUGIN_NOT_FOUND;
   *index = p->count++;
@@ -1114,9 +1121,9 @@ static ext_plugin_status bundle_plan(yyjson_val *v, ext_plugin_buffer *out) {
       if ((unsigned char)text[c] < 32 || (unsigned char)text[c] == 127)
         status = EXT_PLUGIN_INVALID;
     if (status || (status = ext_manifest_valid(get(item, "manifest")))) break;
-    yyjson_val *id = get(get(get(item, "manifest"), "descriptor"), "identity");
+    yyjson_val *id = get(get(item, "manifest"), "identity");
     EXT_ARR_BEFORE(items, i, j, k, other) {
-      yyjson_val *prior = get(get(get(other, "manifest"), "descriptor"), "identity");
+      yyjson_val *prior = get(get(other, "manifest"), "identity");
       if (ext_same(get(id, "id"), get(prior, "id"))) status = EXT_PLUGIN_AMBIGUOUS;
     }
     if (status) break;

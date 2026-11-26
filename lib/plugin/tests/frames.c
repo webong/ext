@@ -19,11 +19,11 @@
 /* ---- the scripted guest ---- */
 
 #define DESCRIPTOR                                                             \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"frames/guest\","  \
+  "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"frames/guest\","  \
   "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"frames.test\","            \
   "\"version\":\"v1\",\"operations\":[{\"name\":\"plain\"},{\"name\":"        \
   "\"stream\",\"progress\":true}]}]}"
-#define PREFIX "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
+#define PREFIX "{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
 
 static void put(const char *s) {
   fputs(s, stdout);
@@ -34,7 +34,7 @@ static void put_frame(const char *parent, const char *fields) {
   fflush(stdout);
 }
 static void respond(const char *id) {
-  printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"payload\":"
+  printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\",\"payload\":"
          "{\"done\":true}}\n",
          id);
   fflush(stdout);
@@ -65,7 +65,7 @@ static int guest(const char *mode) {
     return 0;
   if (!strcmp(mode, "hellofirst"))
     put_frame("hello", "\"kind\":\"log\",\"text\":\"early\"");
-  printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":%s}\n",
+  printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"payload\":%s}\n",
          DESCRIPTOR);
   fflush(stdout);
   while (fgets(line, sizeof(line), stdin)) {
@@ -91,7 +91,7 @@ static int guest(const char *mode) {
                              "\"b%d\"}\n",
                       id, i);
       n += snprintf(all + n, sizeof(all) - (size_t)n,
-                    "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\","
+                    "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\","
                     "\"payload\":{\"done\":true}}\n",
                     id);
       fwrite(all, 1, (size_t)n, stdout);
@@ -155,7 +155,7 @@ static int guest(const char *mode) {
     } else if (!strcmp(mode, "garbage")) {
       put("not json\n");
     } else if (!strcmp(mode, "wrongid")) {
-      put("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"other\",\"payload\":"
+      put("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"other\",\"payload\":"
           "null}\n");
     } else if (!strcmp(mode, "wrongversion")) {
       printf("{\"apiVersion\":\"ext.plugin/v2\",\"id\":\"%s\",\"payload\":"
@@ -163,29 +163,29 @@ static int guest(const char *mode) {
              id);
       fflush(stdout);
     } else if (!strcmp(mode, "extrafield")) {
-      printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"payload\":"
+      printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\",\"payload\":"
              "null,\"extra\":1}\n",
              id);
       fflush(stdout);
     } else if (!strcmp(mode, "dupresponse")) {
-      printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"id\":\"%s\","
+      printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\",\"id\":\"%s\","
              "\"payload\":null}\n",
              id, id);
       fflush(stdout);
     } else if (!strcmp(mode, "reverse")) {
-      put("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\","
+      put("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\","
           "\"id\":\"g1\",\"contract\":{\"name\":\"h\",\"version\":\"v1\"},"
           "\"operation\":\"o\",\"deadline\":\"2099-01-01T00:00:00Z\"}\n");
       respond(id);
     } else if (!strcmp(mode, "reverseresponse")) {
-      put("{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\","
+      put("{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\","
           "\"id\":\"g1\",\"payload\":null}\n");
       respond(id);
     } else if (!strcmp(mode, "after")) {
       /* The response, then more: the response must be the last thing sent. */
       char all[1024];
       int n = snprintf(all, sizeof(all),
-                       "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\","
+                       "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\","
                        "\"payload\":{\"done\":true}}\n",
                        id);
       n += snprintf(all + n, sizeof(all) - (size_t)n,
@@ -389,7 +389,7 @@ static void test_frame_validation(void) {
                       "18446744073709551615}",
                &e) == EXT_PLUGIN_OK);
   static const char *const bad[] = {
-      "{\"frame\":\"log\",\"apiVersion\":\"ext.plugin/v1\",\"parent\":\"1\","
+      "{\"frame\":\"log\",\"apiVersion\":\"ext.io.pc/v1\",\"parent\":\"1\","
       "\"kind\":\"log\"}",
       "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v2\",\"parent\":"
       "\"1\",\"kind\":\"log\"}",
@@ -644,7 +644,7 @@ static void test_descriptors(void) {
   assert(ext_plugin_host_create(&options, &backend, &h) == EXT_PLUGIN_OK);
   ext_plugin_host_destroy(h);
   const char *reverse =
-      "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"a\","
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"a\","
       "\"revision\":\"r\"},\"contracts\":[{\"name\":\"c\",\"version\":\"v1\","
       "\"operations\":[{\"name\":\"o\"}]}],\"reverse\":[{\"name\":\"h\","
       "\"version\":\"v1\",\"operations\":[{\"name\":\"s\"}]}]}";
@@ -666,7 +666,7 @@ static void test_descriptors(void) {
   options.descriptor_len = strlen(reverse);
   assert(ext_plugin_host_create(&options, &extended, &h) == EXT_PLUGIN_UNSUPPORTED);
   const char *plain =
-      "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"a\","
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"a\","
       "\"revision\":\"r\"},\"contracts\":[{\"name\":\"c\",\"version\":\"v1\","
       "\"operations\":[{\"name\":\"o\"}]}]}";
   options.descriptor = (const uint8_t *)plain;

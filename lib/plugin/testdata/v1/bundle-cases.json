@@ -10,25 +10,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -44,6 +26,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -53,30 +51,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -129,25 +125,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -162,6 +140,22 @@
                     "version": "v1"
                   },
                   "operation": "read"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -183,25 +177,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -217,6 +193,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -226,30 +218,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -260,30 +250,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "alternative",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "alternative",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -305,25 +293,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -339,6 +309,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -348,30 +334,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -382,30 +366,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r2"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r2"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -427,25 +409,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -460,6 +424,22 @@
                     "version": "v1"
                   },
                   "operation": "read"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -470,25 +450,7 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -503,6 +465,22 @@
                     "version": "v1"
                   },
                   "operation": "read"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -524,25 +502,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -558,6 +518,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -567,30 +543,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -622,25 +596,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -656,6 +612,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -665,30 +637,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -710,25 +680,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -744,6 +696,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -753,30 +721,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -798,25 +764,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -832,6 +780,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -841,30 +805,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -887,25 +849,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -921,6 +865,22 @@
                   },
                   "operation": "read"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -930,30 +890,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -975,25 +933,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
@@ -1010,7 +950,23 @@
                   "operation": "read"
                 }
               ],
-              "extra": true
+              "extra": true,
+              "kind": "package",
+              "identity": {
+                "id": "consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
+              ]
             },
             "archive": {
               "source": "consumer.zip",
@@ -1019,30 +975,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "provider",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "data",
                   "path": "data",
                   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "provider",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -1279,25 +1233,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "example/consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "main",
@@ -1326,6 +1262,22 @@
                   "os": "darwin",
                   "arch": "arm64"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -1335,30 +1287,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "example/a",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "main",
                   "path": "main.py",
                   "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "example/a",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },
@@ -1414,25 +1364,7 @@
         "packages": [
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "example/consumer",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.consumer",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "main",
@@ -1461,6 +1393,22 @@
                   "os": "darwin",
                   "arch": "arm64"
                 }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "example/consumer",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.consumer",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
+                }
               ]
             },
             "archive": {
@@ -1470,30 +1418,28 @@
           },
           {
             "manifest": {
-              "apiVersion": "ext.package/v1",
-              "descriptor": {
-                "apiVersion": "ext.plugin/v1",
-                "identity": {
-                  "id": "example/a",
-                  "revision": "r1"
-                },
-                "contracts": [
-                  {
-                    "name": "example.value",
-                    "version": "v1",
-                    "operations": [
-                      {
-                        "name": "read"
-                      }
-                    ]
-                  }
-                ]
-              },
+              "apiVersion": "ext.io/v1",
               "artifacts": [
                 {
                   "name": "main",
                   "path": "main.py",
                   "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+                }
+              ],
+              "kind": "package",
+              "identity": {
+                "id": "example/a",
+                "revision": "r1"
+              },
+              "contracts": [
+                {
+                  "name": "example.value",
+                  "version": "v1",
+                  "operations": [
+                    {
+                      "name": "read"
+                    }
+                  ]
                 }
               ]
             },

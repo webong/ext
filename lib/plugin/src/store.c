@@ -111,7 +111,7 @@ static char *package_dir(const char *root, const char *id) {
 }
 static const char *manifest_string(yyjson_val *m, const char *a, const char *b,
                                    const char *c) {
-  yyjson_val *v = yyjson_obj_get(m, a);
+  yyjson_val *v = a ? yyjson_obj_get(m, a) : m;
   if (b)
     v = yyjson_obj_get(v, b);
   if (c)
@@ -199,7 +199,7 @@ static ext_plugin_status check_directory(const ext_plugin_store_layout *layout,
     }
   }
   if (!s && want_id) {
-    const char *id = manifest_string(m, "descriptor", "identity", "id");
+    const char *id = manifest_string(m, NULL, "identity", "id");
     if (!id || strcmp(id, want_id))
       s = EXT_PLUGIN_MISMATCH;
   }
@@ -500,8 +500,8 @@ static ext_plugin_status swap_in(ext_fs *fs, const char *staging, const char *de
   return s;
 }
 static int same_contracts(yyjson_val *a, yyjson_val *b) {
-  yyjson_val *ca = yyjson_obj_get(yyjson_obj_get(a, "descriptor"), "contracts");
-  yyjson_val *cb = yyjson_obj_get(yyjson_obj_get(b, "descriptor"), "contracts");
+  yyjson_val *ca = yyjson_obj_get(a, "contracts");
+  yyjson_val *cb = yyjson_obj_get(b, "contracts");
   size_t n = yyjson_arr_size(ca);
   unsigned char used[64] = {0};
   if (n != yyjson_arr_size(cb) || n > sizeof(used))
@@ -536,14 +536,14 @@ static ext_plugin_status check_upgrade(ext_fs *fs, const char *name,
     s = doc ? ext_manifest_valid(old) : EXT_PLUGIN_INVALID;
   }
   if (!s) {
-    const char *a = manifest_string(old, "descriptor", "identity", "id");
-    const char *b = manifest_string(fresh, "descriptor", "identity", "id");
+    const char *a = manifest_string(old, NULL, "identity", "id");
+    const char *b = manifest_string(fresh, NULL, "identity", "id");
     if (!a || !b || strcmp(a, b) || !same_contracts(old, fresh))
       s = EXT_PLUGIN_MISMATCH;
   }
   if (!s) {
-    const char *a = manifest_string(old, "descriptor", "identity", "revision");
-    const char *b = manifest_string(fresh, "descriptor", "identity", "revision");
+    const char *a = manifest_string(old, NULL, "identity", "revision");
+    const char *b = manifest_string(fresh, NULL, "identity", "revision");
     if (a && b && !strcmp(a, b))
       s = EXT_PLUGIN_INVALID; /* an upgrade needs a new revision */
   }
@@ -581,7 +581,7 @@ static ext_plugin_status put(ext_plugin_store *store, int mode, const char *sour
   }
   yyjson_val *m = doc ? yyjson_doc_get_root(doc) : NULL;
   if (!s) {
-    name = dir_name(manifest_string(m, "descriptor", "identity", "id"));
+    name = dir_name(manifest_string(m, NULL, "identity", "id"));
     if (!name)
       s = EXT_PLUGIN_NOMEM;
   }
@@ -720,7 +720,7 @@ ext_plugin_status ext_plugin_store_remove(ext_plugin_store *store, const char *i
     yyjson_val *m = doc ? yyjson_doc_get_root(doc) : NULL;
     s = doc ? ext_manifest_valid(m) : EXT_PLUGIN_INVALID;
     if (!s) {
-      const char *found = manifest_string(m, "descriptor", "identity", "id");
+      const char *found = manifest_string(m, NULL, "identity", "id");
       if (!found || strcmp(found, id))
         s = EXT_PLUGIN_MISMATCH;
     }
@@ -807,7 +807,7 @@ static ext_plugin_status read_receipt(ext_fs *fs, const char *path, ext_plugin_b
   return EXT_PLUGIN_OK;
 }
 static const char *revision_of(yyjson_doc *doc) {
-  return manifest_string(yyjson_doc_get_root(doc), "descriptor", "identity",
+  return manifest_string(yyjson_doc_get_root(doc), NULL, "identity",
                          "revision");
 }
 /* Finds the installed package a receipt ties to the archive digest: the same
@@ -948,8 +948,8 @@ ext_plugin_status ext_plugin_store_install_archive(ext_plugin_store *store, cons
      * rest of the manifest and every artifact. */
     fresh_doc = ext_parse(fresh.data, fresh.len);
     yyjson_val *m = fresh_doc ? yyjson_doc_get_root(fresh_doc) : NULL;
-    found_id = manifest_string(m, "descriptor", "identity", "id");
-    revision = manifest_string(m, "descriptor", "identity", "revision");
+    found_id = manifest_string(m, NULL, "identity", "id");
+    revision = manifest_string(m, NULL, "identity", "revision");
     if (!found_id || !valid_id(found_id) || !revision || !*revision)
       s = EXT_PLUGIN_INVALID;
     else if (id && strcmp(id, found_id))
@@ -1605,7 +1605,7 @@ static int lists_protocol(yyjson_val *protocols, const char *protocol) {
 static int serves_contract(yyjson_val *m, const char *name, const char *version) {
   size_t i, n;
   yyjson_val *c;
-  yyjson_arr_foreach(yyjson_obj_get(yyjson_obj_get(m, "descriptor"), "contracts"),
+  yyjson_arr_foreach(yyjson_obj_get(m, "contracts"),
                      i, n, c) {
     if (!strcmp(text_of(yyjson_obj_get(c, "name")), name) &&
         !strcmp(text_of(yyjson_obj_get(c, "version")), version))

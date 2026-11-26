@@ -91,7 +91,7 @@ ext_plugin_status ext_progress_frame(yyjson_val *frame, ext_progress_event *even
   if (!EXT_FIELDS(frame, "frame", "apiVersion", "parent", "kind", "stream",
                   "text", "completed", "total", "dropped") ||
       !yyjson_equals_str(yyjson_obj_get(frame, "frame"), "progress") ||
-      !yyjson_equals_str(yyjson_obj_get(frame, "apiVersion"), "ext.plugin/v1") ||
+      !yyjson_equals_str(yyjson_obj_get(frame, "apiVersion"), "ext.io.pc/v1") ||
       !ext_text(id, 1, 0) ||
       !string_field(yyjson_obj_get(frame, "kind"), &kind, &kind_len) ||
       !string_field(yyjson_obj_get(frame, "stream"), &stream, &stream_len) ||

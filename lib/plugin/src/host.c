@@ -809,7 +809,7 @@ static char *reverse_request_json(ext_plugin_host *h, const ext_reverse_request 
       {"payload", r->payload},
       {"parent", r->parent}};
   int ok = root && yyjson_mut_obj_add_str(doc, root, "apiVersion",
-                                          "ext.plugin/v1");
+                                          "ext.io.pc/v1");
   for (size_t i = 0; ok && i < sizeof(fields) / sizeof(*fields); i++) {
     if (!fields[i].value)
       continue;
@@ -1808,8 +1808,8 @@ ext_plugin_status ext_plugin_host_start_with_options(ext_plugin_host *h, const e
     ext_gmtime(&seconds, &t);
     strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%S", &t);
     int n = snprintf(hello, sizeof(hello),
-                     "{\"apiVersion\":\"ext.plugin/"
-                     "v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\","
+                     "{\"apiVersion\":\"ext.io.pc/"
+                     "v1\",\"id\":\"hello\",\"operation\":\"session.hello\","
                      "\"deadline\":\"%s.%03lldZ\"}",
                      stamp, (long long)(wall % 1000));
     frame_call hello_call = {h, o, deadline, "hello", 0, 0, NULL};
@@ -2125,7 +2125,7 @@ static ext_plugin_status call_impl(ext_plugin_host *h, const uint8_t *input, siz
   yyjson_mut_doc_set_root(request, root);
   int ok =
       root &&
-      yyjson_mut_obj_add_str(request, root, "apiVersion", "ext.plugin/v1") &&
+      yyjson_mut_obj_add_str(request, root, "apiVersion", "ext.io.pc/v1") &&
       yyjson_mut_obj_add_str(request, root, "id", id) &&
       yyjson_mut_obj_add_str(request, root, "deadline", date);
   const char *keys[] = {"plugin", "contract", "operation", "surface",

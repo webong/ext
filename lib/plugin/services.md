@@ -502,3 +502,32 @@ references and emits a schema/transaction for a dedicated namespace, with
 session/package/process links and routed session edges. See
 [Ext graph](../../docs/adr-ext-graph.md#live-sessions-and-reconciliation) for
 ownership, correlation and reconciliation requirements.
+
+### Packages contributed by another host
+
+Package manifests use `ext.io/v1`, `kind: "package"`, and top-level `identity`,
+`contracts` and optional `reverse`. They do not embed a runtime descriptor.
+Runtime frames and descriptors use `ext.io.pc/v1`; the initial operation is
+`session.hello`. The two versions evolve independently.
+
+Each execution-graph package row contains `manifest` and exactly one of:
+
+- `directory`: local artifacts, copied and verified before execution. A row's
+  `layout.manifest_path` can override the graph's selected manifest filename.
+- `binding: {"host": "peer-host", "digest": "<64 lowercase hex characters>"}`:
+  a provider supplied by the caller through transport events. No directory,
+  artifacts, entrypoint or `temp_root` is needed for an entirely external graph.
+
+The binding is caller-supplied execution configuration, never manifest authority.
+The caller must review its digest and supply the same digest to `start.reviews`.
+Ext verifies the runtime descriptor against the manifest-derived descriptor.
+Transport events carry `identity` and `request`; the supplying host answers
+`backend_connect` and `backend_invoke`. The contributing host owns cleanup of
+its externally managed provider when the graph closes.
+The caller owns the external provider's integrity, authorization and transport.
+
+External observations contain `binding` and `pid: null`. Their snapshot process
+reference must be `null`; their sessions retain package and route edges without
+fabricated local process vertices. Local nodes still require correlated process
+references. Filenames are host-selected; neither the schema nor the graph probes
+for conventional filenames. Explicit legacy fallback layouts remain caller policy.

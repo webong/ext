@@ -8,7 +8,7 @@ ext_plugin_status ext_reverse_request_frame(yyjson_val *frame,
   if (!EXT_FIELDS(frame, "frame", "apiVersion", "id", "parent", "contract",
                   "operation", "deadline", "payload") ||
       !yyjson_equals_str(yyjson_obj_get(frame, "frame"), "reverse_request") ||
-      !yyjson_equals_str(yyjson_obj_get(frame, "apiVersion"), "ext.plugin/v1"))
+      !yyjson_equals_str(yyjson_obj_get(frame, "apiVersion"), "ext.io.pc/v1"))
     return EXT_PLUGIN_PROTOCOL;
   yyjson_val *id = yyjson_obj_get(frame, "id"),
              *parent = yyjson_obj_get(frame, "parent"),
@@ -43,7 +43,7 @@ static yyjson_mut_val *begin(yyjson_mut_doc *doc, const char *id,
   yyjson_mut_doc_set_root(doc, root);
   if (!root ||
       !yyjson_mut_obj_add_str(doc, root, "frame", "reverse_response") ||
-      !yyjson_mut_obj_add_str(doc, root, "apiVersion", "ext.plugin/v1") ||
+      !yyjson_mut_obj_add_str(doc, root, "apiVersion", "ext.io.pc/v1") ||
       !yyjson_mut_obj_add_strncpy(doc, root, "id", id, id_len))
     return NULL;
   return root;

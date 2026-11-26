@@ -23,7 +23,7 @@ static void pause_ms(unsigned ms) {
 #endif
 
 static const char descriptor[] =
-    "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"ctx/"
+    "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"ctx/"
     "conformance\",\"revision\":\"fixture-1\"},\"contracts\":[{\"name\":"
     "\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},"
     "{\"name\":\"wait\"},{\"name\":\"private-error\"},{\"name\":\"public-"

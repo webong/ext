@@ -93,7 +93,7 @@ static void run_case(const char *fixtures, ext_fs *work, const char *work_path,
   ext_plugin_store *store = NULL;
   yyjson_val *config = yyjson_obj_get(c, "layout");
   ext_plugin_store_layout layout = {text(config, "manifest_path"), text(config, "fallback_path")};
-  if (ext_plugin_store_open_with_layout(root, &limits, config ? &layout : NULL, &store)) {
+  if (ext_plugin_store_open_with_layout(root, &limits, layout.manifest_path && *layout.manifest_path ? &layout : NULL, &store)) {
     FAIL("%s: cannot open the store", name);
     free(base);
     free(root);
@@ -118,8 +118,7 @@ static void run_case(const char *fixtures, ext_fs *work, const char *work_path,
       if (!s) {
         doc = ext_parse(out.data, out.len);
         revision = yyjson_get_str(yyjson_obj_get(
-            yyjson_obj_get(yyjson_obj_get(yyjson_doc_get_root(doc), "descriptor"),
-                           "identity"),
+            yyjson_obj_get(yyjson_doc_get_root(doc), "identity"),
             "revision"));
       }
     } else if (text(step, "load")) {
@@ -127,8 +126,7 @@ static void run_case(const char *fixtures, ext_fs *work, const char *work_path,
       if (!s) {
         doc = ext_parse(out.data, out.len);
         revision = yyjson_get_str(yyjson_obj_get(
-            yyjson_obj_get(yyjson_obj_get(yyjson_doc_get_root(doc), "descriptor"),
-                           "identity"), "revision"));
+            yyjson_obj_get(yyjson_doc_get_root(doc), "identity"), "revision"));
       }
     } else if (text(step, "receipt")) {
       s = ext_plugin_store_receipt(store, text(step, "receipt"), &out);

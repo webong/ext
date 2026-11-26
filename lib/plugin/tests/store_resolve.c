@@ -110,11 +110,11 @@ static void package(const char *dir, const char *id, const char *revision,
   }
   char manifest[12288];
   int n = snprintf(manifest, sizeof(manifest),
-                   "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{"
-                   "\"apiVersion\":\"ext.plugin/v1\","
+                   "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+                   ""
                    "\"identity\":{\"id\":\"%s\",\"revision\":\"%s\"},"
                    "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\","
-                   "\"operations\":[{\"name\":\"run\"}]}]},"
+                   "\"operations\":[{\"name\":\"run\"}]}],"
                    "\"artifacts\":[%s],\"entrypoints\":[%s]}",
                    id, revision, artifacts, entries);
   assert(n > 0 && (size_t)n < sizeof(manifest));

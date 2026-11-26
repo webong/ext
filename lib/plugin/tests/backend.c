@@ -15,7 +15,7 @@
 #include <string.h>
 
 #define DESCRIPTOR                                                             \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"backend/test\","   \
+  "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"backend/test\","   \
   "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"backend.test\","            \
   "\"version\":\"v1\",\"operations\":[{\"name\":\"run\",\"progress\":true},"   \
   "{\"name\":\"quiet\"}]}],\"reverse\":[{\"name\":\"host.svc\",\"version\":"   \
@@ -23,7 +23,7 @@
   "{\"name\":\"secret\"},{\"name\":\"empty\"},{\"name\":\"fail\"},"            \
   "{\"name\":\"gate\"},{\"name\":\"hang\"}]}]}"
 #define PLAIN                                                                  \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"backend/test\","   \
+  "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"backend/test\","   \
   "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"backend.test\","            \
   "\"version\":\"v1\",\"operations\":[{\"name\":\"quiet\"}]}]}"
 #define CONTRACT "\"contract\":{\"name\":\"host.svc\",\"version\":\"v1\"}"
@@ -172,7 +172,7 @@ static ext_plugin_status frame_progress(backend *b, const char *parent,
   /* The frame's own text, a parent of up to 63 characters and a rest of up to 1023. */
   char frame[1280];
   snprintf(frame, sizeof(frame),
-           "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
+           "{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
            "\"parent\":\"%s\",%s}",
            parent, rest);
   return ext_plugin_host_backend_progress(b->host, (const uint8_t *)frame,
@@ -188,7 +188,7 @@ static void request_frame(char *frame, size_t size, const char *id,
   if (parent)
     snprintf(clause, sizeof(clause), ",\"parent\":\"%s\"", parent);
   snprintf(frame, size,
-           "{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\","
+           "{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\","
            "\"id\":\"%s\"%s," CONTRACT ",\"operation\":\"%s\",\"deadline\":\""
            FUTURE "\",\"payload\":{\"n\":1}}",
            id, clause, op);
@@ -248,7 +248,7 @@ static void respond(const char *id, const char *payload, ext_plugin_emit emit,
                     void *context) {
   char body[2048];
   int n = snprintf(body, sizeof(body),
-                   "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\","
+                   "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\","
                    "\"payload\":%s}",
                    id, payload);
   assert(n > 0 && (size_t)n < sizeof(body));
@@ -287,7 +287,7 @@ static ext_plugin_status invoke_cb(void *user, const uint8_t *request, size_t le
     for (int i = 0; i < 400; i++) {
       char frame_text[256];
       snprintf(frame_text, sizeof(frame_text),
-               "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
+               "{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
                "\"parent\":\"%s\",\"kind\":\"log\",\"text\":\"x\"}",
                id);
       int delivered = -1;
@@ -694,7 +694,7 @@ static void test_reverse(void) {
   /* An answer, with the request the hooks saw. */
   answered("call:sign", 1, "\\\"id\\\":\\\"g1\\\",\\\"payload\\\":\\\"signed\\\"");
   assert(seen.authorized == 1 && seen.handled == 1);
-  assert(strstr(seen.request, "\"apiVersion\":\"ext.plugin/v1\""));
+  assert(strstr(seen.request, "\"apiVersion\":\"ext.io.pc/v1\""));
   assert(strstr(seen.request, "\"plugin\":{\"id\":\"backend/test\","
                               "\"revision\":\"r1\"}"));
   assert(strstr(seen.request, "\"surface\":\"signing\""));

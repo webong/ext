@@ -17,7 +17,7 @@
 #include <string.h>
 
 #define DESCRIPTOR                                                             \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"x.y\","            \
+  "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"x.y\","            \
   "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"c\",\"version\":\"1\","     \
   "\"operations\":[{\"name\":\"op\",\"surface\":\"\"}]}]}"
 

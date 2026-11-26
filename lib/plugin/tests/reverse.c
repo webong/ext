@@ -22,7 +22,7 @@
 /* ---- the scripted guest ---- */
 
 #define DESCRIPTOR                                                             \
-  "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"reverse/guest\","  \
+  "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"reverse/guest\","  \
   "\"revision\":\"r1\"},\"contracts\":[{\"name\":\"reverse.test\","           \
   "\"version\":\"v1\",\"operations\":[{\"name\":\"run\",\"progress\":true}]}]," \
   "\"reverse\":[{\"name\":\"host.svc\",\"version\":\"v1\",\"operations\":["    \
@@ -73,7 +73,7 @@ static void send_reverse(const char *id_field, const char *parent,
   char clause[128] = "";
   if (parent)
     snprintf(clause, sizeof(clause), ",\"parent\":\"%s\"", parent);
-  printf("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\","
+  printf("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\","
          "%s%s," CONTRACT ",\"operation\":\"%s\",\"deadline\":%s%s%s}\n",
          id_field, clause, op, deadline, payload ? ",\"payload\":" : "",
          payload ? payload : "");
@@ -100,7 +100,7 @@ static void reverse(const char *id_field, const char *parent, const char *op,
   reply[strcspn(reply, "\r\n")] = 0;
 }
 static void finish(const char *id, const char *reply) {
-  printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"payload\":{"
+  printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\",\"payload\":{"
          "\"done\":true,\"reply\":%s}}\n",
          id, reply[0] ? reply : "null");
   fflush(stdout);
@@ -121,7 +121,7 @@ static int guest(const char *mode) {
     reverse("\"id\":\"g1\"", NULL, "sign", "\"" FUTURE "\"", NULL, reply,
             sizeof(reply));
   }
-  printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":%s}\n",
+  printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"payload\":%s}\n",
          DESCRIPTOR);
   fflush(stdout);
   /* The plugin speaks when no call is in flight. */
@@ -181,7 +181,7 @@ static int guest(const char *mode) {
         busy += strstr(reply, "\"code\":\"busy\"") != NULL;
         gated += strstr(reply, "\"gated\"") != NULL;
       }
-      printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"payload\":{"
+      printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\",\"payload\":{"
              "\"done\":true,\"busy\":%d,\"gated\":%d}}\n",
              id, busy, gated);
       fflush(stdout);
@@ -198,18 +198,18 @@ static int guest(const char *mode) {
               sizeof(first));
       reverse("\"id\":\"g2\"", id, "sign", "\"" FUTURE "\"", "2", reply,
               sizeof(reply));
-      printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"payload\":{"
+      printf("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"%s\",\"payload\":{"
              "\"done\":true,\"first\":%s,\"reply\":%s}}\n",
              id, first, reply);
       fflush(stdout);
       continue;
     } else if (!strcmp(mode, "interleave")) {
-      printf("{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
+      printf("{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
              "\"parent\":\"%s\",\"kind\":\"log\",\"text\":\"one\"}\n",
              id);
       reverse("\"id\":\"g1\"", id, "sign", "\"" FUTURE "\"", NULL, reply,
               sizeof(reply));
-      printf("{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
+      printf("{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
              "\"parent\":\"%s\",\"kind\":\"log\",\"text\":\"two\"}\n",
              id);
     } else if (!strncmp(mode, "bad-", 4)) {
@@ -236,7 +236,7 @@ static int guest(const char *mode) {
         reverse("\"id\":\"g1\",\"id\":\"g2\"", id, "sign", "\"" FUTURE "\"",
                 NULL, reply, sizeof(reply));
       else if (!strcmp(mode, "bad-parentnumber"))
-        put("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\","
+        put("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\","
             "\"id\":\"g1\",\"parent\":5," CONTRACT ",\"operation\":\"sign\","
             "\"deadline\":\"" FUTURE "\"}\n");
       else if (!strcmp(mode, "bad-version"))
@@ -244,11 +244,11 @@ static int guest(const char *mode) {
             "\"id\":\"g1\"," CONTRACT ",\"operation\":\"sign\",\"deadline\":\""
             FUTURE "\"}\n");
       else if (!strcmp(mode, "bad-nocontract"))
-        put("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\","
+        put("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\","
             "\"id\":\"g1\",\"operation\":\"sign\",\"deadline\":\"" FUTURE
             "\"}\n");
       else if (!strcmp(mode, "bad-response"))
-        put("{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\","
+        put("{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\","
             "\"id\":\"g1\",\"payload\":null}\n");
       continue;
     } else {
@@ -547,7 +547,7 @@ static ext_plugin_status request_frame(const char *json) {
   yyjson_doc_free(doc);
   return s;
 }
-#define RV "{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\","
+#define RV "{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\","
 static void test_request_frames(void) {
   assert(request_frame(RV "\"id\":\"g1\",\"parent\":\"1\"," CONTRACT
                           ",\"operation\":\"sign\",\"deadline\":\"" FUTURE
@@ -570,7 +570,7 @@ static void test_request_frames(void) {
                           ",\"operation\":\"a.b/c-d_e\",\"deadline\":"
                           "\"2099-01-01T00:00:00.123456789+01:00\"}") == EXT_PLUGIN_OK);
   static const char *const bad[] = {
-      "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\"}",
+      "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\"}",
       RV "\"id\":\"\"," CONTRACT ",\"operation\":\"o\",\"deadline\":\"" FUTURE "\"}",
       RV "\"id\":\"-a\"," CONTRACT ",\"operation\":\"o\",\"deadline\":\"" FUTURE "\"}",
       RV "\"id\":7," CONTRACT ",\"operation\":\"o\",\"deadline\":\"" FUTURE "\"}",
@@ -607,7 +607,7 @@ static void expect_error(char *text, size_t len, const char *code,
   yyjson_val *root = yyjson_doc_get_root(doc),
              *error = yyjson_obj_get(root, "error");
   assert(yyjson_equals_str(yyjson_obj_get(root, "frame"), "reverse_response"));
-  assert(yyjson_equals_str(yyjson_obj_get(root, "apiVersion"), "ext.plugin/v1"));
+  assert(yyjson_equals_str(yyjson_obj_get(root, "apiVersion"), "ext.io.pc/v1"));
   assert(yyjson_equals_str(yyjson_obj_get(root, "id"), "g7"));
   assert(!yyjson_obj_get(root, "payload"));
   if (!yyjson_equals_str(yyjson_obj_get(error, "code"), code) ||
@@ -632,7 +632,7 @@ static void test_answers(void) {
                             &len);
   assert(line &&
          !strcmp(line, "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext."
-                       "plugin/v1\",\"id\":\"g7\",\"payload\":{\"a\":[1,2.50,"
+                       "io.pc/v1\",\"id\":\"g7\",\"payload\":{\"a\":[1,2.50,"
                        "\"x\"]}}"));
   free(line);
   /* An empty payload is null. */
@@ -698,7 +698,7 @@ static void test_calls(void) {
   answered("call:sign", 1, "\"reply\":{\"frame\":\"reverse_response\"");
   assert(strstr(body, "\"id\":\"g1\",\"payload\":\"signed\""));
   assert(seen.authorized == 1 && seen.handled == 1);
-  assert(strstr(seen.request, "\"apiVersion\":\"ext.plugin/v1\""));
+  assert(strstr(seen.request, "\"apiVersion\":\"ext.io.pc/v1\""));
   assert(strstr(seen.request, "\"id\":\"g1\""));
   assert(strstr(seen.request, "\"plugin\":{\"id\":\"reverse/guest\","
                               "\"revision\":\"r1\"}"));

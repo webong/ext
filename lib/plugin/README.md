@@ -14,7 +14,7 @@ through those facts.
 The same native engine can be embedded in Go, Rust, Zig and Node.js. Static
 linking is the default; a shared library is optional. The
 engine itself contains no Go runtime. The guest executable may use any runtime;
-the baseline fixture happens to be Go. Ext's existing `ext.plugin/v1` guest
+the baseline fixture happens to be Go. Ext's existing `ext.io.pc/v1` guest
 protocol and existing language guest implementations remain unchanged.
 
 ## Names
@@ -211,7 +211,7 @@ policy) from `ext_plugin_backend_options` (kind, configuration pointer and size)
 `EXT_PLUGIN_BACKEND_JSONLINE_PROCESS` accepts `ext_plugin_jsonline_process_options`.
 Unknown kinds return `EXT_PLUGIN_UNSUPPORTED`. `EXT_PLUGIN_BACKEND_EXTENSION` accepts a
 `ext_plugin_backend_extension` vtable for application-supplied runtime mechanics.
-Rebuild all ABI 1 bindings; guest `ext.plugin/v1` is unchanged.
+Rebuild all ABI 1 bindings; guest `ext.io.pc/v1` is unchanged.
 
 ### Runtime extensions
 

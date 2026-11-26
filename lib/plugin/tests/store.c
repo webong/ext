@@ -56,9 +56,9 @@ int main(int argc, char **argv) {
   hex(raw, digest);
   char manifest[2048];
   int n = snprintf(manifest, sizeof(manifest),
-    "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{\"apiVersion\":\"ext.plugin/v1\","
+    "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
     "\"identity\":{\"id\":\"example/a\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"example.read\","
-    "\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]},"
+    "\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}],"
     "\"artifacts\":[{\"name\":\"main\",\"path\":\"src/main.py\",\"sha256\":\"%s\"}]}",
     digest);
   assert(n > 0 && (size_t)n < sizeof(manifest));

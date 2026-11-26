@@ -49,11 +49,11 @@ static void make_package(const char *dir, const char *id, const char *revision,
   hex(raw, sum);
   char manifest[2048];
   int n = snprintf(manifest, sizeof(manifest),
-                   "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{"
-                   "\"apiVersion\":\"ext.plugin/v1\","
+                   "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
+                   ""
                    "\"identity\":{\"id\":\"%s\",\"revision\":\"%s\"},"
                    "\"contracts\":[{\"name\":\"c\",\"version\":\"v1\","
-                   "\"operations\":[{\"name\":\"read\"}]}]},"
+                   "\"operations\":[{\"name\":\"read\"}]}],"
                    "\"artifacts\":[{\"name\":\"main\",\"path\":\"src/main.py\","
                    "\"sha256\":\"%s\"}]}",
                    id, revision, sum);
@@ -145,7 +145,7 @@ static void expect_buffer(ext_plugin_buffer *report, const char *shape,
   ext_plugin_buffer_free(report);
 }
 
-#define MANIFEST_A1 "{\"apiVersion\":\"ext.package/v1\""
+#define MANIFEST_A1 "{\"apiVersion\":\"ext.io/v1\""
 static int has(const ext_plugin_buffer *b, const char *text) {
   size_t n = strlen(text);
   for (size_t i = 0; i + n <= b->len; i++)

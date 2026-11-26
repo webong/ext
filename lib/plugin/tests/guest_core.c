@@ -15,12 +15,12 @@ static ext_plugin_status echo(void *u, void *call, const uint8_t *p, size_t n,
 }
 int main(void) {
   const char *descriptor =
-      "{\"apiVersion\":\"ext.plugin/"
+      "{\"apiVersion\":\"ext.io.pc/"
       "v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{"
       "\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}"
       "]}]}";
   const char *request =
-      "{\"apiVersion\":\"ext.plugin/"
+      "{\"apiVersion\":\"ext.io.pc/"
       "v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},"
       "\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":"
       "\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}";
@@ -43,12 +43,12 @@ int main(void) {
    * public invalid_request response, echoing the id, whenever it has a usable
    * id: the same response for every binding, with the handler never called. */
   const char *mismatched[] = {
-      "{\"apiVersion\":\"ext.plugin/v2\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
-      "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"other\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
-      "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"other\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
-      "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"nope\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
-      "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\"}",
-      "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\",\"surface\":\"s\"}",
+      "{\"apiVersion\":\"ext.io.pc/v2\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"other\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"other\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"nope\",\"deadline\":\"2099-01-01T00:00:00Z\"}",
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\"}",
+      "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\",\"surface\":\"s\"}",
   };
   for (size_t i = 0; i < sizeof(mismatched) / sizeof(mismatched[0]); i++) {
     called = 0;
@@ -71,8 +71,8 @@ int main(void) {
       "7",
       "{}",
       "{\"id\":1}",
-      "{\"id\":\"\",\"apiVersion\":\"ext.plugin/v1\"}",
-      "{\"id\":\"-bad\",\"apiVersion\":\"ext.plugin/v1\"}",
+      "{\"id\":\"\",\"apiVersion\":\"ext.io.pc/v1\"}",
+      "{\"id\":\"-bad\",\"apiVersion\":\"ext.io.pc/v1\"}",
       "{\"id\":\"x\",\"id\":\"y\"}",
   };
   for (size_t i = 0; i < sizeof(unusable) / sizeof(unusable[0]); i++) {

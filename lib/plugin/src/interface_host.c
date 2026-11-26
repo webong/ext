@@ -173,7 +173,21 @@ static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, siz
 static ext_plugin_status event_exchange(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len,
                                         const ext_plugin_call_options *options, ext_plugin_emit emit, void *context) {
   waiter w;
-  int answered = ask_cancel(h, kind, data, len, options->timeout_ms, options->cancel, options->value, &w);
+  char *wrapped=NULL; size_t wrapped_len=0;
+  if(h->event_sink) {
+    yyjson_doc *payload=ext_parse(data,len);
+    yyjson_mut_doc *d=yyjson_mut_doc_new(NULL);
+    yyjson_mut_val *v=d?yyjson_mut_obj(d):NULL;
+    if(v && payload && yyjson_mut_obj_add_val(d,v,"identity",yyjson_val_mut_copy(d,h->graph_consumer)) &&
+       yyjson_mut_obj_add_val(d,v,"request",yyjson_val_mut_copy(d,yyjson_doc_get_root(payload)))) {
+      yyjson_mut_doc_set_root(d,v);wrapped=yyjson_mut_write(d,0,&wrapped_len);
+    }
+    yyjson_doc_free(payload);yyjson_mut_doc_free(d);
+    if(!wrapped)return EXT_PLUGIN_NOMEM;
+  }
+  int answered = ask_cancel(h->event_sink?h->event_sink:h, kind, wrapped?(uint8_t *)wrapped:data,
+    wrapped?wrapped_len:len, options->timeout_ms, options->cancel, h->event_sink?NULL:options->value, &w);
+  free(wrapped);
   ext_plugin_status rc;
   if (ext_plugin_cancel_is_signaled(options->cancel)) rc = EXT_PLUGIN_CANCELED;
   else if (!answered) rc = EXT_PLUGIN_TIMEOUT;

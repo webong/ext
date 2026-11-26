@@ -14,7 +14,7 @@ extern "C" {
 #else
 #define EXT_PLUGIN_HOST_API __attribute__((visibility("default")))
 #endif
-/* Experimental embedding ABI, independent of ext.plugin/v1 and guest ABI v1.
+/* Experimental embedding ABI, independent of ext.io.pc/v1 and guest ABI v1.
  * No ABI stability commitment until the prototype is evaluated. */
 #define EXT_PLUGIN_HOST_ABI_VERSION 2u
 #define EXT_PLUGIN_HOST_MAX_FRAME (24u * 1024u * 1024u)
@@ -548,15 +548,15 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_trust_record(const char *path, 
                                          const uint8_t reviewed[32]);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_trust_revoke(const char *path, const char *scope,
                                          const char *id);
-/* Verify one installed ext.package/v1 directory below root. Its directory is
+/* Verify one installed ext.io/v1 directory below root. Its directory is
  * named by the package id with '/' encoded as "%2f". The manifest id must
  * agree with that name, every listed artifact must match, and no unlisted
  * file may appear. On success out is the directory digest used for trust. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_digest(const char *root, const char *id,
                                          uint8_t out[32]);
 /* The package store: install, upgrade, replace, remove and load reviewed
- * ext.package/v1 packages under a root the application supplies. A package is
- * its plugin.json manifest and the artifacts it lists, in a directory named by
+ * ext.io/v1 packages under a root the application supplies. A package is
+ * its manifest and the artifacts it lists, in a directory named by
  * the package id with '/' encoded as "%2f". The store copies and re-verifies
  * content; it never runs it or grants authority, and it has no default
  * location. A missing root is an empty store and is made (owner-only) by the
@@ -568,7 +568,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_digest(const char *root, 
  * whose digest differs, a directory that does not match its manifest, or an
  * upgrade that changes the id or the contracts; EXT_PLUGIN_EXISTS for an install over
  * an installed id; EXT_PLUGIN_NOT_FOUND for an id that is not installed. The manifest
- * returned is the installed plugin.json, verbatim. */
+ * returned is the installed manifest, verbatim. */
 /* A cross-process writer shared by all stores and approvals under one EXT_HOME.
  * Acquire creates home when absent and exclusively owns .package-write.lock;
  * EXISTS means contention. No waiting or stale-lock recovery. Protect home from
@@ -591,6 +591,14 @@ typedef struct {
   uint32_t max_tree_files;
   uint64_t max_tree_bytes;
 } ext_plugin_store_limits;
+/* Paths are relative to each package root. fallback_path, if set, is used
+ * only when manifest_path is absent. The store retains the selected path when
+ * copying packages, including reviewed snapshots. A NULL layout selects the
+ * legacy plugin.json convention for existing callers. */
+typedef struct {
+  const char *manifest_path;
+  const char *fallback_path;
+} ext_plugin_store_layout;
 /* Keep the owner-execute bit of a file artifact (not a tree's files, which
  * always keep it) that has any execute bit in the source. The default installs
  * only entrypoints as executable. */
@@ -598,12 +606,17 @@ typedef struct {
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_open(const char *root,
                                        const ext_plugin_store_limits *limits,
                                        ext_plugin_store **out);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_open_with_layout(const char *root,
+    const ext_plugin_store_limits *limits, const ext_plugin_store_layout *layout,
+    ext_plugin_store **out);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_digest_with_layout(const char *root,
+    const char *id, const ext_plugin_store_layout *layout, uint8_t out[32]);
 EXT_PLUGIN_HOST_API void ext_plugin_store_close(ext_plugin_store *store);
 /* Copy the package in the directory source into the store. install never
  * replaces an installed id; upgrade replaces an installed package with a new
  * revision of the same id and contracts (the previous installation survives any
  * failure); replace installs or replaces whatever contracts it has. On success
- * *manifest is the installed plugin.json, to be freed with ext_plugin_buffer_free. */
+ * *manifest is the installed manifest, to be freed with ext_plugin_buffer_free. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_install(ext_plugin_store *store, const char *source,
                                           uint32_t flags, ext_plugin_buffer *manifest);
 /* Copy one reviewed package into this private destination store without replacing
@@ -632,7 +645,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_remove(ext_plugin_store *
  * only directories and regular files: a link or special entry, a path that is
  * absolute, leaves the archive, repeats another whatever its case or could not
  * exist on Windows, and an entry that is not what its header declares are
- * EXT_PLUGIN_INVALID. plugin.json is at the top of the archive or in its one top-level
+ * EXT_PLUGIN_INVALID. The selected manifest is relative to the archive root or to its one top-level
  * directory. What was extracted is installed like a directory, so the package
  * is verified against its manifest. A package already installed at the
  * archive's revision must have the archive's content.
@@ -661,7 +674,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_install_archive(ext_plugi
  * deletes it. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_receipt(ext_plugin_store *store, const char *id,
                                           ext_plugin_buffer *receipt);
-/* Read and verify one installed package, returning its plugin.json. */
+/* Read and verify one installed package, returning its manifest. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_load(ext_plugin_store *store, const char *id,
                                        ext_plugin_buffer *manifest);
 /* The ids of the installed packages as a JSON array of strings in byte order.
@@ -677,7 +690,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_store_ids(ext_plugin_store *sto
  * a list.
  *
  * ext_plugin_store_list reads and verifies every package and returns an array of
- * {id, directory, layer, manifest}, the manifest being plugin.json as an
+ * {id, directory, layer, manifest}, the manifest being the selected document as an
  * embedded value. It fails with the status of the first entry that is not a
  * package directory and of the first package that does not verify.
  *
@@ -736,9 +749,12 @@ typedef struct ext_plugin_layered ext_plugin_layered;
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_layered_open(const char *const *roots, size_t count,
                                          const ext_plugin_store_limits *limits,
                                          ext_plugin_layered **out);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_layered_open_with_layout(const char *const *roots,
+    size_t count, const ext_plugin_store_limits *limits, const ext_plugin_store_layout *layout,
+    ext_plugin_layered **out);
 EXT_PLUGIN_HOST_API void ext_plugin_layered_close(ext_plugin_layered *layered);
 /* Read and verify the package from the first root that holds id, returning its
- * plugin.json and, when layer is not NULL, the position of that root.
+ * manifest and, when layer is not NULL, the position of that root.
  * EXT_PLUGIN_NOT_FOUND means no root holds it. */
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_layered_load(ext_plugin_layered *layered, const char *id,
                                          ext_plugin_buffer *manifest, size_t *layer);

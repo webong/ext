@@ -12,5 +12,8 @@ The library does not define grants, approval UI, remote request routing, implici
 permission onboarding. A native mutation receipt reports dispatch separately from later
 verification because operating-system clipboard APIs do not provide a cross-process transaction.
 
-Apple implementations live in `ios/Sources/ExtClipboard`; Android implementations live in
-`android/src/android`. They are shipped by `pkg/ext-darwin` and `pkg/ext-android` respectively.
+The native Apple, Android and .NET implementations live in
+[`lib/system/act/clipboard`](../../../../lib/system/act/clipboard/README.md).
+This Go package retains the portable contract. On Windows, CTX invokes the
+installed `system.clipboard.windows` Ext resource guest; it does not implement
+Win32 clipboard calls in Go.

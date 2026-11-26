@@ -6,15 +6,15 @@
 # Both export the same module names (ExtWeb, ExtSystem, ...), so an app depends on one of them.
 # SwiftPM resolves a package from a repository root and this monorepo's root is not a package, so
 # a release is two pieces:
-#   1. CExtEngine.xcframework.zip, the engine's guest core and package store for the platform's
-#      slices, attached to the GitHub release of that tag, and
+#   1. CExtEngine.xcframework.zip and CExtLedger.xcframework.zip, the plugin
+#      engine and C ledger for the platform's slices, attached to the release, and
 #   2. a distribution package (Package.swift plus the Swift sources) that declares only that
-#      platform and whose binary target points at that archive by URL and checksum, to publish at
+#      platform and whose binary targets point at those archives by URL and checksum, to publish at
 #      the root of the package's dist/ branch (scripts/dist-branch.sh), where SwiftPM can resolve it.
 # This script builds both under dist/ext-<platform>-<version>/ and checks the distribution package
-# builds against the archive. It publishes nothing. It leaves the platform's xcframeworks in
+# builds against the archives. It publishes nothing. It leaves the platform's xcframeworks in
 # pkg/ext-darwin/Frameworks, where the release build's tests use them; run
-# scripts/ext-darwin-xcframework.sh without --platform to get every slice back for development.
+# both xcframework build scripts without --platform to get every slice back for development.
 #
 # What only makes sense on macOS ships only in ext-macos: the ExtFramesGuest executable, a
 # JSON-line guest a host starts as a process, which iOS cannot do.
@@ -59,11 +59,15 @@ mkdir -p "$out"
 
 ./scripts/plugin-mobile-assets.sh --check
 ./scripts/ext-darwin-xcframework.sh --platform "$platform" >/dev/null
+./scripts/ext-darwin-ledger-xcframework.sh --platform "$platform" >/dev/null
 ( cd "$sdk/Frameworks" && ditto -c -k --sequesterRsrc --keepParent CExtEngine.xcframework "../../../$out/CExtEngine.xcframework.zip" )
+( cd "$sdk/Frameworks" && ditto -c -k --sequesterRsrc --keepParent CExtLedger.xcframework "../../../$out/CExtLedger.xcframework.zip" )
 checksum="$(swift package compute-checksum "$out/CExtEngine.xcframework.zip")"
+ledger_checksum="$(swift package compute-checksum "$out/CExtLedger.xcframework.zip")"
 vendored=(yyjson-LICENSE miniz-LICENSE)
 for license in "${vendored[@]}"; do cp "$sdk/Frameworks/$license" "$out/$license"; done
 url="https://github.com/$repository/releases/download/$tag/CExtEngine.xcframework.zip"
+ledger_url="https://github.com/$repository/releases/download/$tag/CExtLedger.xcframework.zip"
 wamr_checksum=""
 wamr_url="https://github.com/$repository/releases/download/$tag/CExtWamr.xcframework.zip"
 if [[ -n "$with_wamr" ]]; then
@@ -107,9 +111,9 @@ if [[ -n "$with_wamr" ]]; then
 else
   rm -rf "$dist/Sources/ExtPluginWamr"
 fi
-python3 - "$sdk/Package.swift" "$dist/Package.swift" "$url" "$checksum" "$wamr_url" "$wamr_checksum" "$platform" "$platforms" <<'PY'
+python3 - "$sdk/Package.swift" "$dist/Package.swift" "$url" "$checksum" "$ledger_url" "$ledger_checksum" "$wamr_url" "$wamr_checksum" "$platform" "$platforms" <<'PY'
 import re, sys
-source, target, url, checksum, wamr_url, wamr_checksum, platform, platforms = sys.argv[1:9]
+source, target, url, checksum, ledger_url, ledger_checksum, wamr_url, wamr_checksum, platform, platforms = sys.argv[1:11]
 text = open(source).read()
 # One platform per release: ext-ios declares iOS, ext-macos declares macOS.
 development = 'platforms: [.macOS(.v12), .iOS(.v13)],'
@@ -120,6 +124,10 @@ local = '.binaryTarget(name: "CExtEngine", path: "Frameworks/CExtEngine.xcframew
 if local not in text:
     raise SystemExit('the development manifest no longer has the expected binary target')
 text = text.replace(local, f'.binaryTarget(name: "CExtEngine", url: "{url}", checksum: "{checksum}")')
+ledger_local = '.binaryTarget(name: "CExtLedger", path: "Frameworks/CExtLedger.xcframework")'
+if ledger_local not in text:
+    raise SystemExit('the development manifest no longer has the expected ledger target')
+text = text.replace(ledger_local, f'.binaryTarget(name: "CExtLedger", url: "{ledger_url}", checksum: "{ledger_checksum}")')
 # The WAMR host is opt-in. The development manifest enables it when a local xcframework exists;
 # a release either pins it by URL and checksum or leaves it out entirely.
 text = re.sub(r'// The WAMR host is opt-in.*?\nlet withWamr[^\n]*\n\n', '', text, flags=re.S)
@@ -156,13 +164,15 @@ verify="$(mktemp -d "${TMPDIR:-/tmp}/$name-release.XXXXXX")"
 trap 'rm -rf "$verify"' EXIT
 cp -R "$dist/Sources" "$verify/Sources"
 ditto -x -k "$out/CExtEngine.xcframework.zip" "$verify/Frameworks"
+ditto -x -k "$out/CExtLedger.xcframework.zip" "$verify/Frameworks"
 sed -E "s#\.binaryTarget\(name: \"CExtEngine\", url: \"[^\"]*\", checksum: \"[^\"]*\"\)#.binaryTarget(name: \"CExtEngine\", path: \"Frameworks/CExtEngine.xcframework\")#" "$dist/Package.swift" >"$verify/Package.swift"
+sed -i '' -E "s#\.binaryTarget\(name: \"CExtLedger\", url: \"[^\"]*\", checksum: \"[^\"]*\"\)#.binaryTarget(name: \"CExtLedger\", path: \"Frameworks/CExtLedger.xcframework\")#" "$verify/Package.swift"
 if [[ -n "$with_wamr" ]]; then
   ditto -x -k "$out/CExtWamr.xcframework.zip" "$verify/Frameworks"
   sed -i '' -E "s#\.binaryTarget\(name: \"CExtWamr\", url: \"[^\"]*\", checksum: \"[^\"]*\"\)#.binaryTarget(name: \"CExtWamr\", path: \"Frameworks/CExtWamr.xcframework\")#" "$verify/Package.swift"
 fi
 if [[ "$platform" == macos ]]; then
-  swift build --package-path "$verify" >/dev/null
+  swift build --disable-sandbox --package-path "$verify" >/dev/null
 else
   for destination in 'generic/platform=iOS' 'generic/platform=iOS Simulator'; do
     (cd "$verify" && xcodebuild build -quiet -scheme Ext-Package -destination "$destination" \
@@ -174,6 +184,7 @@ echo "package   $name"
 echo "version   $version"
 echo "tag       $tag"
 echo "archive   $out/CExtEngine.xcframework.zip"
+echo "ledger    $out/CExtLedger.xcframework.zip"
 echo "checksum  $checksum"
 echo "url       $url"
 echo "licenses  $out/yyjson-LICENSE $out/miniz-LICENSE"

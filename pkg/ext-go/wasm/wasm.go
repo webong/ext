@@ -1,5 +1,4 @@
-// Package wasm binds the protocol-neutral res/web/host WebAssembly runtime to the
-// ext plugin engine.
+// Package wasm binds the wazero runtime to the Ext plugin engine.
 package wasm
 
 import (
@@ -7,6 +6,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
+	"github.com/webong/ext/pkg/ext-go/wasm/runtime"
 	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
@@ -18,14 +18,14 @@ type Options = webwasm.Options
 // CompilationCache keeps compiled modules, so opening the same module again skips
 // compilation: set it in Options.CompilationCache. Share one among the sessions of a
 // process and Close it after they have closed.
-type CompilationCache = webwasm.CompilationCache
+type CompilationCache = runtime.CompilationCache
 
 // NewCompilationCache returns an empty cache that lives in memory.
-func NewCompilationCache() *CompilationCache { return webwasm.NewCompilationCache() }
+func NewCompilationCache() *CompilationCache { return runtime.NewCompilationCache() }
 
 type Backend struct {
 	*jsonline.Client
-	command *webwasm.Command
+	command *runtime.Command
 }
 
 // Open starts a persistent WASI command and binds its raw byte stream to the
@@ -37,7 +37,7 @@ func Open(ctx context.Context, module []byte, opts Options) (*Backend, error) {
 	if opts.StubImports == nil {
 		opts.StubImports = reactorABI.StubImports
 	}
-	command, err := webwasm.Open(ctx, module, opts)
+	command, err := runtime.Open(ctx, module, opts)
 	if err != nil {
 		return nil, engineError(err)
 	}

@@ -13,9 +13,9 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/ext-webkit.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 if [[ -n "$simulator" ]]; then
   # Product schemes do not expose a test action; use the package scheme and select the native tests.
-  (cd res/web/ios && xcodebuild -quiet -scheme ExtWeb-Package \
+  (cd lib/system/web/ios && xcodebuild -quiet -scheme ExtWeb-Package \
     -destination "platform=iOS Simulator,id=$simulator" -derivedDataPath "$work" \
     -only-testing:ExtWebKitTests test)
 else
-  swift test --package-path res/web/ios --filter ExtWebKitTests --scratch-path "$work"
+  swift test --package-path lib/system/web/ios --filter ExtWebKitTests --scratch-path "$work"
 fi

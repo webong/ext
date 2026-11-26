@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
+	wire "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
 )
 
 type Library struct{ api *library.Described }
@@ -72,6 +73,118 @@ func (l *Library) Collect(ctx context.Context, what string, options map[string]a
 		in[k] = v
 	}
 	return call(ctx, l.api.Library(), "collect", in, out)
+}
+
+// FilesystemAt asks the C ledger for the mount containing one existing path.
+func (l *Library) FilesystemAt(ctx context.Context, path string) (wire.FilesystemInfo, error) {
+	var filesystem wire.FilesystemInfo
+	err := call(ctx, l.api.Library(), "host_path", map[string]any{"what": "filesystem", "path": path}, &filesystem)
+	return filesystem, err
+}
+
+// CheckHostAccess checks execute or directory-write access without a probe file.
+func (l *Library) CheckHostAccess(ctx context.Context, path, what string) error {
+	if what != "executable_access" && what != "directory_writable" {
+		return errors.New("ledger: invalid host access check")
+	}
+	return call(ctx, l.api.Library(), "host_path", map[string]any{"what": what, "path": path}, nil)
+}
+
+// ProcessStart reads the OS birth token for a PID so an action can reject a
+// process generation different from the one it observed.
+func (l *Library) ProcessStart(ctx context.Context, pid int) (string, error) {
+	var out struct {
+		StartID string `json:"start_id"`
+	}
+	err := call(ctx, l.api.Library(), "process_start", map[string]any{"pid": pid}, &out)
+	return out.StartID, err
+}
+
+// Program is a named executable observed on a caller-supplied PATH. The
+// ledger checks and resolves it without running it; selection remains with
+// the caller.
+type Program struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	RealPath string `json:"realpath"`
+	Source   string `json:"source"`
+	OnPath   bool   `json:"on_path"`
+}
+
+// ScanPrograms asks the C ledger to discover named executables on searchPath.
+func (l *Library) ScanPrograms(ctx context.Context, names []string, searchPath string) ([]Program, error) {
+	var programs []Program
+	err := call(ctx, l.api.Library(), "program_scan", map[string]any{"names": names, "search_path": searchPath}, &programs)
+	return programs, err
+}
+
+// InspectProgram checks one caller-declared executable path without running it.
+func (l *Library) InspectProgram(ctx context.Context, name, path string) (Program, error) {
+	var program Program
+	err := call(ctx, l.api.Library(), "program_inspect", map[string]any{"name": name, "path": path}, &program)
+	return program, err
+}
+
+// ServiceSpec describes a caller-selected per-user OS service. The C ledger
+// validates and renders it; a platform adapter registers the definition with
+// its native manager.
+type ServiceSpec struct {
+	Name             string            `json:"name"`
+	Description      string            `json:"description,omitempty"`
+	Executable       string            `json:"executable"`
+	Arguments        []string          `json:"arguments,omitempty"`
+	Environment      map[string]string `json:"environment,omitempty"`
+	WorkingDirectory string            `json:"working_directory,omitempty"`
+	Restart          string            `json:"restart,omitempty"`
+	RestartSeconds   int               `json:"restart_seconds,omitempty"`
+	UserID           string            `json:"user_id,omitempty"`
+}
+
+type ServiceDefinition struct {
+	Platform string `json:"platform"`
+	Identity string `json:"identity"`
+	FileName string `json:"file_name"`
+	Content  string `json:"content"`
+	Digest   string `json:"digest"`
+}
+
+// RenderService produces a platform definition without invoking a manager.
+func (l *Library) RenderService(ctx context.Context, platform string, spec ServiceSpec) (ServiceDefinition, error) {
+	var definition ServiceDefinition
+	err := call(ctx, l.api.Library(), "service_render", map[string]any{"platform": platform, "spec": spec}, &definition)
+	return definition, err
+}
+
+// ServiceInspection reports the state of a rendered definition in one
+// caller-selected directory. Created and Existing describe a publish attempt.
+type ServiceInspection struct {
+	Path      string `json:"path"`
+	Installed bool   `json:"installed"`
+	Matches   bool   `json:"matches"`
+	Created   bool   `json:"created"`
+	Existing  bool   `json:"existing"`
+	Digest    string `json:"digest,omitempty"`
+}
+
+func (l *Library) serviceFile(ctx context.Context, operation string, definition ServiceDefinition, directory string) (ServiceInspection, error) {
+	var result ServiceInspection
+	err := call(ctx, l.api.Library(), operation, map[string]any{"definition": definition, "directory": directory}, &result)
+	return result, err
+}
+
+// PublishService writes the definition without replacing an existing file.
+func (l *Library) PublishService(ctx context.Context, definition ServiceDefinition, directory string) (ServiceInspection, error) {
+	return l.serviceFile(ctx, "service_publish", definition, directory)
+}
+
+// InspectService checks the installed definition against the expected content.
+func (l *Library) InspectService(ctx context.Context, definition ServiceDefinition, directory string) (ServiceInspection, error) {
+	return l.serviceFile(ctx, "service_inspect", definition, directory)
+}
+
+// RemoveService removes the definition only while its content still matches.
+func (l *Library) RemoveService(ctx context.Context, definition ServiceDefinition, directory string) (ServiceInspection, error) {
+	return l.serviceFile(ctx, "service_remove", definition, directory)
 }
 func (l *Library) OpenStore(ctx context.Context, backend, path string, options Options) (*NativeStore, error) {
 	if err := ctx.Err(); err != nil {

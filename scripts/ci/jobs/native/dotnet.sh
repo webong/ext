@@ -7,18 +7,23 @@
 if [ "$RUNNER_OS" = Windows ]; then
 (
 ci_pwsh <<'PWSH'
-dotnet build res/system/capture/audio/windows/Ext.Audio.Windows.csproj
-dotnet run --project res/system/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
+dotnet build lib/system/act/capture/audio/windows/Ext.Audio.Windows.csproj
+dotnet run --project lib/system/act/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-dotnet build res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj
-dotnet run --project res/system/capture/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
+dotnet build lib/system/act/clipboard/windows/Ext.Clipboard.Windows.csproj
+dotnet run --project lib/system/act/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-dotnet run --project res/system/capture/surface/windows/Tests/Ext.System.Windows.Tests.csproj
+dotnet build res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj
+dotnet build res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-dotnet build res/int/model/windows/Ext.ML.Windows.csproj
-dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
-dotnet build res/web/windows/Ext.Web.Windows.csproj
-dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+dotnet run --project lib/system/act/capture/surface/windows/Tests/Ext.System.Windows.Tests.csproj
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+dotnet run --project lib/system/net/windows/Tests/Ext.Network.Windows.Tests.csproj
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+dotnet build lib/system/int/model/windows/Ext.ML.Windows.csproj
+dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+dotnet build lib/system/web/windows/Ext.Web.Windows.csproj
+dotnet run --project lib/system/web/windows/Tests/Ext.Web.Windows.Tests.csproj
 PWSH
 )
 ci_import_env
@@ -30,15 +35,16 @@ if [ "$RUNNER_OS" = Windows ]; then
 ci_pwsh <<'PWSH'
 $out = Join-Path $env:RUNNER_TEMP 'nupkg'
 foreach ($project in @(
-    'res/system/capture/audio/windows/Ext.Audio.Windows.csproj',
-    'res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj',
-    'res/system/capture/surface/windows/Ext.System.Windows.csproj',
-    'res/web/windows/Ext.Web.Windows.csproj',
-    'res/int/model/windows/Ext.ML.Windows.csproj')) {
+    'lib/system/act/capture/audio/windows/Ext.Audio.Windows.csproj',
+    'lib/system/act/clipboard/windows/Ext.Clipboard.Windows.csproj',
+    'lib/system/act/capture/surface/windows/Ext.System.Windows.csproj',
+    'lib/system/net/windows/Ext.Network.Windows.csproj',
+    'lib/system/web/windows/Ext.Web.Windows.csproj',
+    'lib/system/int/model/windows/Ext.ML.Windows.csproj')) {
   dotnet pack $project -c Release -p:Version=0.0.0-ci -o $out
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
-if ((Get-ChildItem $out -Filter *.nupkg).Count -ne 5) { throw 'expected five packages' }
+if ((Get-ChildItem $out -Filter *.nupkg).Count -ne 6) { throw 'expected six packages' }
 PWSH
 )
 ci_import_env

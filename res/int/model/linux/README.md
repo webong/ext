@@ -1,7 +1,7 @@
 # Linux ML
 
 Linux has an optional ONNX Runtime CPU backend through the .NET implementation
-in `res/int/model/windows/SystemMl.cs`. The project in `Guest/Ext.ML.Linux.Guest.csproj`
+in `lib/system/int/model/windows/SystemMl.cs`. The project in `Guest/Ext.ML.Linux.Guest.csproj`
 links the same `model.tensor/v1` process guest. Publish it with
 `dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true`,
 then package, install, and trust the `Ext.ML.Linux.Guest` executable as

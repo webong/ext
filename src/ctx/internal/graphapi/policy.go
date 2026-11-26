@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	wire "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
-	"github.com/webong/ext/res/system/service/host"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,9 +12,14 @@ import (
 	"time"
 )
 
+type hostProbe interface {
+	FilesystemAt(context.Context, string) (wire.FilesystemInfo, error)
+	CheckHostAccess(context.Context, string, string) error
+}
+
 // ResolveHostWith applies caller requirements to an observation supplied by the
 // owning engine. It contains selection policy, not graph storage or recording.
-func ResolveHostWith(ctx context.Context, requirements OperationRequirements, observe func(context.Context, OperationRequirements) (HostSnapshot, error)) (HostCandidates, error) {
+func ResolveHostWith(ctx context.Context, requirements OperationRequirements, observe func(context.Context, OperationRequirements) (HostSnapshot, error), probe hostProbe) (HostCandidates, error) {
 	snapshot, err := observe(ctx, requirements)
 	if err != nil {
 		return HostCandidates{}, err
@@ -28,7 +32,7 @@ func ResolveHostWith(ctx context.Context, requirements OperationRequirements, ob
 			if required.SearchPath != nil {
 				searchPath = *required.SearchPath
 			}
-			selected, err := resolveShellExecutable(required.Select, searchPath)
+			selected, err := resolveShellExecutable(ctx, probe, required.Select, searchPath)
 			if err != nil {
 				return HostCandidates{}, requirementCause(requirements, "shell", "", err)
 			}
@@ -36,7 +40,7 @@ func ResolveHostWith(ctx context.Context, requirements OperationRequirements, ob
 				return HostCandidates{}, requirementError(requirements, "shell", "explicit executable does not match requested shell name")
 			}
 			for _, observed := range snapshot.Shells {
-				if host.PathKey(observed.Path) == host.PathKey(selected.Path) {
+				if pathKey(observed.Path) == pathKey(selected.Path) {
 					selected.Sources = observed.Sources
 					selected.ConfiguredDefault = observed.ConfiguredDefault
 				}
@@ -61,11 +65,11 @@ func ResolveHostWith(ctx context.Context, requirements OperationRequirements, ob
 			if err != nil {
 				return HostCandidates{}, requirementCause(requirements, "filesystem", "", err)
 			}
-			filesystem, err := filesystemAt(ctx, path)
+			filesystem, err := probe.FilesystemAt(ctx, path)
 			if err != nil {
 				return HostCandidates{}, requirementCause(requirements, "filesystem", "", err)
 			}
-			filesystem.Source = host.RedactSource(filesystem.Source)
+			filesystem.Source = redactSource(filesystem.Source)
 			items = []wire.FilesystemInfo{filesystem}
 		}
 		for _, filesystem := range items {
@@ -74,7 +78,7 @@ func ResolveHostWith(ctx context.Context, requirements OperationRequirements, ob
 				if err != nil {
 					return HostCandidates{}, err
 				}
-				if host.PathKey(filesystem.MountPoint) != host.PathKey(selected) {
+				if pathKey(filesystem.MountPoint) != pathKey(selected) {
 					continue
 				}
 			}
@@ -103,7 +107,7 @@ func ResolveHostWith(ctx context.Context, requirements OperationRequirements, ob
 // PrepareHost discovers current candidates, selects one for each requirement,
 // and performs live checks. Ambiguous choices require an explicit selection.
 // Webview preparation requires a validator from the consuming backend.
-func PrepareHostWith(ctx context.Context, requirements OperationRequirements, validateWebview WebviewValidator, resolve func(context.Context, OperationRequirements) (HostCandidates, error)) (PreparedHost, error) {
+func PrepareHostWith(ctx context.Context, requirements OperationRequirements, validateWebview WebviewValidator, resolve func(context.Context, OperationRequirements) (HostCandidates, error), probe hostProbe) (PreparedHost, error) {
 	if requirements.Webview != nil && validateWebview == nil {
 		return PreparedHost{}, requirementError(requirements, "webview", "preparation requires a validator from the embedding backend")
 	}
@@ -114,15 +118,15 @@ func PrepareHostWith(ctx context.Context, requirements OperationRequirements, va
 	}
 	result := PreparedHost{Operation: requirements.Operation}
 	if required := requirements.Shell; required != nil {
-		selected, err := chooseShell(candidates.Shells, *required)
+		selected, err := chooseShell(ctx, probe, candidates.Shells, *required)
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "shell", "", err)
 		}
-		live, err := inspectShellExecutable(selected.Path)
+		live, err := inspectShellExecutable(ctx, probe, selected.Path)
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "shell", "", err)
 		}
-		if host.PathKey(live.ResolvedPath) != host.PathKey(selected.ResolvedPath) {
+		if pathKey(live.ResolvedPath) != pathKey(selected.ResolvedPath) {
 			return PreparedHost{}, requirementError(requirements, "shell", "executable changed during preparation")
 		}
 		result.Shell = &selected
@@ -140,11 +144,11 @@ func PrepareHostWith(ctx context.Context, requirements OperationRequirements, va
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "filesystem", "", err)
 		}
-		live, err := filesystemAt(ctx, path)
+		live, err := probe.FilesystemAt(ctx, path)
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "filesystem", "", err)
 		}
-		live.Source = host.RedactSource(live.Source)
+		live.Source = redactSource(live.Source)
 		if !sameFilesystem(live, selected) || !filesystemMatches(live, *required) {
 			return PreparedHost{}, requirementError(requirements, "filesystem", "mount or available space changed during preparation")
 		}
@@ -156,7 +160,7 @@ func PrepareHostWith(ctx context.Context, requirements OperationRequirements, va
 			if !info.IsDir() {
 				path = filepath.Dir(path)
 			}
-			if err := host.DirectoryWritable(path); err != nil {
+			if err := probe.CheckHostAccess(ctx, path, "directory_writable"); err != nil {
 				return PreparedHost{}, requirementCause(requirements, "filesystem", "directory is not writable", err)
 			}
 		}
@@ -194,15 +198,12 @@ func sameShellName(left, right string) bool {
 	return left == right
 }
 
-func inspectShellExecutable(path string) (wire.ShellInfo, error) {
+func inspectShellExecutable(ctx context.Context, probe hostProbe, path string) (wire.ShellInfo, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return wire.ShellInfo{}, err
 	}
-	if !host.IsExecutable(path) {
-		return wire.ShellInfo{}, fmt.Errorf("shell executable is unavailable: %s", path)
-	}
-	if err := host.ExecutableAccess(path); err != nil {
+	if err := probe.CheckHostAccess(ctx, path, "executable_access"); err != nil {
 		return wire.ShellInfo{}, fmt.Errorf("shell executable access: %w", err)
 	}
 	resolved, err := filepath.EvalSymlinks(path)
@@ -216,9 +217,9 @@ func inspectShellExecutable(path string) (wire.ShellInfo, error) {
 	return wire.ShellInfo{Name: name, Path: path, ResolvedPath: resolved, Sources: []string{"explicit-selection"}}, nil
 }
 
-func resolveShellExecutable(selection, searchPath string) (wire.ShellInfo, error) {
+func resolveShellExecutable(ctx context.Context, probe hostProbe, selection, searchPath string) (wire.ShellInfo, error) {
 	if filepath.IsAbs(selection) || strings.ContainsAny(selection, `/\`) {
-		return inspectShellExecutable(selection)
+		return inspectShellExecutable(ctx, probe, selection)
 	}
 	names := []string{selection}
 	if runtime.GOOS == "windows" && filepath.Ext(selection) == "" {
@@ -230,15 +231,15 @@ func resolveShellExecutable(selection, searchPath string) (wire.ShellInfo, error
 		}
 		for _, name := range names {
 			path := filepath.Join(directory, name)
-			if host.IsExecutable(path) {
-				return inspectShellExecutable(path)
+			if probe.CheckHostAccess(ctx, path, "executable_access") == nil {
+				return inspectShellExecutable(ctx, probe, path)
 			}
 		}
 	}
 	return wire.ShellInfo{}, fmt.Errorf("shell %q is not executable on the effective PATH", selection)
 }
 
-func chooseShell(items []wire.ShellInfo, required ShellRequirement) (wire.ShellInfo, error) {
+func chooseShell(ctx context.Context, probe hostProbe, items []wire.ShellInfo, required ShellRequirement) (wire.ShellInfo, error) {
 	if len(items) == 1 {
 		return items[0], nil
 	}
@@ -247,9 +248,9 @@ func chooseShell(items []wire.ShellInfo, required ShellRequirement) (wire.ShellI
 		if required.SearchPath != nil {
 			searchPath = *required.SearchPath
 		}
-		if first, err := resolveShellExecutable(required.Name, searchPath); err == nil {
+		if first, err := resolveShellExecutable(ctx, probe, required.Name, searchPath); err == nil {
 			for _, item := range items {
-				if host.PathKey(first.Path) == host.PathKey(item.Path) {
+				if pathKey(first.Path) == pathKey(item.Path) {
 					return item, nil
 				}
 			}
@@ -292,11 +293,11 @@ func filesystemMatches(item wire.FilesystemInfo, required FilesystemRequirement)
 }
 
 func sameFilesystem(left, right wire.FilesystemInfo) bool {
-	return host.PathKey(left.MountPoint) == host.PathKey(right.MountPoint) && left.Source == right.Source && left.Type == right.Type
+	return pathKey(left.MountPoint) == pathKey(right.MountPoint) && left.Source == right.Source && left.Type == right.Type
 }
 
 func webviewMatches(item wire.WebviewInfo, required WebviewRequirement) bool {
-	return (required.Select == "" || host.PathKey(required.Select) == host.PathKey(item.Location)) &&
+	return (required.Select == "" || pathKey(required.Select) == pathKey(item.Location)) &&
 		(required.Engine == "" || item.Engine == required.Engine) && (required.API == "" || item.API == required.API) &&
 		(required.ABIVersion == "" || item.ABIVersion == required.ABIVersion) && (required.Version == "" || item.Version == required.Version) &&
 		(required.Architecture == "" || item.Architecture == required.Architecture)
@@ -321,17 +322,36 @@ func existingHostPath(path string) (string, error) {
 	}
 }
 
-func filesystemAt(ctx context.Context, path string) (wire.FilesystemInfo, error) {
-	v, err := host.FilesystemAt(ctx, path)
-	out := wire.FilesystemInfo{MountPoint: v.MountPoint, Source: v.Source, Type: v.Type, ReadOnly: v.ReadOnly, Label: v.Label, DriveKind: v.DriveKind, DetailError: v.DetailError}
-	if v.Space != nil {
-		out.Space = &wire.FilesystemSpace{TotalBytes: v.Space.TotalBytes, FreeBytes: v.Space.FreeBytes, AvailableBytes: v.Space.AvailableBytes}
-	}
-	return out, err
-}
 func (g *Graph) ResolveHost(ctx context.Context, r OperationRequirements) (HostCandidates, error) {
-	return ResolveHostWith(ctx, r, g.ObserveRequirements)
+	return ResolveHostWith(ctx, r, g.ObserveRequirements, g.Graph)
 }
 func (g *Graph) PrepareHost(ctx context.Context, r OperationRequirements, v WebviewValidator) (PreparedHost, error) {
-	return PrepareHostWith(ctx, r, v, g.ResolveHost)
+	return PrepareHostWith(ctx, r, v, g.ResolveHost, g.Graph)
+}
+
+func pathKey(path string) string {
+	path = filepath.Clean(path)
+	if runtime.GOOS == "windows" {
+		return strings.ToLower(path)
+	}
+	return path
+}
+
+func redactSource(source string) string {
+	start := 0
+	if strings.HasPrefix(source, "//") {
+		start = 2
+	} else if _, rest, ok := strings.Cut(source, "://"); ok {
+		start = len(source) - len(rest)
+	} else {
+		return source
+	}
+	end := strings.IndexAny(source[start:], "/?#")
+	if end < 0 {
+		end = len(source) - start
+	}
+	if at := strings.LastIndexByte(source[start:start+end], '@'); at >= 0 {
+		return source[:start] + source[start+at+1:]
+	}
+	return source
 }

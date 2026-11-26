@@ -9,8 +9,9 @@ import (
 )
 
 type Config struct {
-	Directory string
-	Run       user.CommandRunner
+	Directory   string
+	Run         user.CommandRunner
+	Definitions user.Definitions
 }
 
 // Manager is a placeholder on hosts without Task Scheduler so importing the

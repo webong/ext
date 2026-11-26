@@ -1,14 +1,18 @@
-# WebAssembly runtime
+# WebAssembly host contract
 
-`github.com/webong/ext/res/web/host/engine/wasm` runs guests compiled to WASI Preview 1
-through wazero. It assigns no protocol to a command's standard input and output;
-callers can use the byte stream for their own framing.
+`github.com/webong/ext/res/web/host/engine/wasm` defines a runtime-neutral
+WebAssembly host API. It owns limits, errors, inspection results, WASI command
+options, byte-stream and reactor interfaces, and the `Runtime` interface. It
+does not import wazero or the Ext plugin engine and does not select a runtime.
 
-This is the `engine/wasm` package of the `res/web/host` Go module. It owns portable module
-inspection, bounded WASI command execution, persistent byte streams, and raw
-application-defined reactor hosting. It imports wazero but no plugin engine.
-`pkg/ext-go/wasm` binds these mechanisms to `engine.Backend`, the CTX JSON-line
-protocol, and the ext plugin reactor ABI.
+The Go wazero implementation lives in
+[`pkg/ext-go/wasm/runtime`](../../../../../pkg/ext-go/wasm/runtime). It supports
+core modules and WASI Preview 1. The sibling `pkg/ext-go/wasm` package adapts it
+to Ext plugin sessions. The installed-executable Wasmtime path remains in
+[`adapters/wasm`](../../../../../adapters/wasm); that adapter does not implement
+the in-process `Runtime` interface.
+
+`reactor.js` stays here as page-side glue for the iOS and Android WebView hosts.
 
 ## Cross-language conformance
 
@@ -18,7 +22,7 @@ WASI modules. Run them with `scripts/plugin-crosslang.sh` from the repository
 root; they build artifacts the tests then execute, so a plain `go test ./...`
 does not exercise them.
 
-`cmd/wasirun` checks a portable C guest core compiled to WASI. Use it through
+`pkg/ext-go/wasm/runtime/cmd/wasirun` checks a portable C guest core compiled to WASI. Use it through
 `scripts/plugin-wasi-core.sh`.
 
 See the [interoperability guide](../../../../../docs/plugin-interoperability.md) and

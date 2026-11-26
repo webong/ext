@@ -234,6 +234,8 @@ static inline int ll_flag_cas(volatile int *p, int expected, int desired) {
 /* ---- contexts ---- */
 int ll_ctx_check(const ext_ledger_context *ctx);
 int64_t ll_now_unix_ms(void);
+int ll_volume_operation(const ext_ledger_context *ctx, const char *operation,
+                        const lj_value *input, char **out, size_t *out_len);
 
 /* ---- platform ---- */
 typedef struct ll_mutex ll_mutex;

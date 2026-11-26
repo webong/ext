@@ -90,7 +90,7 @@ policy stay in Cymonkey. Matched on the native APIs each side calls and on file 
 | --- | --- | --- |
 | `lib/macos-helper` (2.4k lines): `Accessibility.swift`, `Viewer.swift` (window capture, input), `Pointer.swift`, `Clipboard.swift`, `AppleEvents.swift`, `DeviceMedia.swift`, `DeviceAudio`, `MacOSWebViewScripts` | `ExtSystem` (`Accessibility`, `Surface`, `SurfaceControl`, `MediaCapture`, `DesktopPointer`, `AppleEvent`), `ExtClipboard`, `ExtAudio`, `ExtWebKit` | `Runtime.swift`, `ControlClient.swift`, `Configuration.swift`, `Models.swift` |
 | `lib/ios-helper` (620): `WebViewRuntime.swift` (register `WKWebView`s, authorized cookie reads) | `ExtWebKit` (`BrowserWorkspace`, `WorkspaceCookies`), `ExtWeb` | `Protocol.swift`, `DeviceTargetTransport.swift` |
-| `lib/android-helper` (1.0k): `AndroidUserScripts.kt` (476), `AndroidWebViewRuntime.kt` | `res/web/android` in the ext AAR (`DocumentStart`, `BrowserWorkspace`, `WorkspaceCookies`) | `DeviceTargetTransport.kt`, `BrowserSurface.kt`, device capture, projection and playback glue |
+| `lib/android-helper` (1.0k): `AndroidUserScripts.kt` (476), `AndroidWebViewRuntime.kt` | `lib/system/web/android` in the ext AAR (`DocumentStart`, `BrowserWorkspace`, `WorkspaceCookies`) | `DeviceTargetTransport.kt`, `BrowserSurface.kt`, device capture, projection and playback glue |
 | `lib/windows-helper` (486): `WebView2BrowserHelper.cs`, `BrowserScriptPolicy.cs`, `NativePointer.cs`, `DeviceAudio.cs` | `Ext.Web.Windows` (WebView2 workspace), `Ext.Audio.Windows`; capture and pointer in `res/system` | `Program.cs` (outward WebSocket, owner-configured executables) |
 
 Seen in both code bases: `AXUIElement`, `CGEvent`, ScreenCaptureKit (`SCStream`), `NSPasteboard` (macOS);

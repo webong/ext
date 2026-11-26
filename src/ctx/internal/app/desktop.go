@@ -9,7 +9,10 @@ import (
 	"strings"
 	"time"
 
+	ledgerbinding "github.com/webong/ext/pkg/ext-go/cengine/ledger"
+	ledgerwire "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
 	systemsurface "github.com/webong/ext/res/system/capture/surface"
+	"github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
 func desktopCommand(args []string, stdout, stderr io.Writer) int {
@@ -31,14 +34,25 @@ func desktopCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctx: desktop needs --window with an observed window ID")
 		return 2
 	}
-	surfaces, err := systemsurface.DiscoverSurfaces(context.Background(), systemsurface.DefaultSurfaceOptions())
+	lib, err := graphapi.Library()
+	if err != nil {
+		return reportError(stderr, err)
+	}
+	surfaces, err := collectDesktopSurfaces(context.Background(), lib)
 	if err != nil {
 		return reportError(stderr, err)
 	}
 	var target *systemsurface.WindowInfo
 	for index := range surfaces.Windows {
 		if surfaces.Windows[index].ID == request.window {
-			target = &surfaces.Windows[index]
+			window := surfaces.Windows[index]
+			target = &systemsurface.WindowInfo{
+				ID: window.ID, PID: window.PID,
+				ProcessStartID: window.ProcessStartID,
+				Bounds: systemsurface.SurfaceBounds{X: window.Bounds.X, Y: window.Bounds.Y,
+					Width: window.Bounds.Width, Height: window.Bounds.Height},
+				OnScreen: window.OnScreen,
+			}
 			break
 		}
 	}
@@ -46,12 +60,31 @@ func desktopCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctx: window %s is not currently observed (%s)\n", request.window, surfaces.WindowStatus.State)
 		return 1
 	}
+	start, err := lib.ProcessStart(context.Background(), target.PID)
+	if err != nil || start != target.ProcessStartID {
+		return reportError(stderr, systemsurface.ErrSurfaceStale)
+	}
+	backend, closeBackend, err := openSurfaceBackend(context.Background())
+	if err != nil {
+		return reportError(stderr, err)
+	}
+	defer closeBackend()
 	switch action {
 	case "capture":
-		return desktopCapture(*target, request, stdout, stderr)
+		return desktopCapture(*target, request, backend, stdout, stderr)
 	default:
-		return desktopInput(*target, request, stdout, stderr)
+		return desktopInput(*target, request, backend, stdout, stderr)
 	}
+}
+
+// collectDesktopSurfaces uses the ledger's native observation. The action
+// contract remains in res/system; CTX does not start a second Go OS scan.
+func collectDesktopSurfaces(ctx context.Context, lib *ledgerbinding.Library) (ledgerwire.SurfaceSnapshot, error) {
+	ctx, cancel := context.WithTimeout(ctx, systemsurface.DefaultSurfaceOptions().Timeout)
+	defer cancel()
+	var snapshot ledgerwire.SurfaceSnapshot
+	err := lib.Collect(ctx, "surfaces", nil, &snapshot)
+	return snapshot, err
 }
 
 type desktopRequest struct {
@@ -273,13 +306,17 @@ func parseDesktopScroll(raw string) (systemsurface.SurfacePoint, int, int, error
 	return point, deltaX, deltaY, nil
 }
 
-func desktopCapture(target systemsurface.WindowInfo, request desktopRequest, stdout, stderr io.Writer) int {
+func desktopCapture(target systemsurface.WindowInfo, request desktopRequest, backend surfaceGuestBackend, stdout, stderr io.Writer) int {
 	if request.out == "" {
 		fmt.Fprintln(stderr, "ctx: desktop capture needs --out (a file path or - for stdout)")
 		return 2
 	}
 	options := systemsurface.CaptureOptions{MaxBytes: request.maxBytes, MaxPixels: request.maxPixels, Timeout: request.timeout}
-	capture, err := systemsurface.CaptureWindow(context.Background(), target, options)
+	control, err := systemsurface.NewCaptureRequest(target, options)
+	if err != nil {
+		return reportError(stderr, err)
+	}
+	capture, err := backend.Capture(context.Background(), control)
 	if err != nil {
 		return reportError(stderr, err)
 	}
@@ -311,13 +348,17 @@ func desktopCapture(target systemsurface.WindowInfo, request desktopRequest, std
 	return 0
 }
 
-func desktopInput(target systemsurface.WindowInfo, request desktopRequest, stdout, stderr io.Writer) int {
+func desktopInput(target systemsurface.WindowInfo, request desktopRequest, backend surfaceGuestBackend, stdout, stderr io.Writer) int {
 	if !request.hasInput {
 		fmt.Fprintln(stderr, "ctx: desktop input needs --text, --key, --move, --click, --drag, or --scroll")
 		return 2
 	}
 	options := systemsurface.InputOptions{MaxTextRunes: request.maxRunes, Timeout: request.timeout}
-	if err := systemsurface.SendWindowInput(context.Background(), target, request.input, options); err != nil {
+	control, err := systemsurface.NewInputRequest(target, request.input, options)
+	if err != nil {
+		return reportError(stderr, err)
+	}
+	if err := backend.Input(context.Background(), control); err != nil {
 		return reportError(stderr, err)
 	}
 	summary := struct {

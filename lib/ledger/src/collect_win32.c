@@ -335,7 +335,42 @@ int ll_is_executable(const char *path) {
   DWORD attrs = GetFileAttributesW(w);
   free(w);
   size_t n = strlen(path);
-  return attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY) && n > 4 && _stricmp(path + n - 4, ".exe") == 0;
+  if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY) || n < 4) return 0;
+  const char *ext = strrchr(path, '.');
+  if (!ext) return 0;
+  char *configured = ll_os_getenv("PATHEXT");
+  const char *list = configured && *configured ? configured : ".COM;.EXE;.BAT;.CMD";
+  int matched = 0;
+  for (const char *item = list; *item;) {
+    const char *end = strchr(item, ';');
+    size_t length = end ? (size_t)(end - item) : strlen(item);
+    if (length == strlen(ext) && _strnicmp(item, ext, length) == 0) { matched = 1; break; }
+    if (!end) break;
+    item = end + 1;
+  }
+  free(configured);
+  return matched;
+}
+
+int ll_host_access(const char *path, int directory_writable) {
+  wchar_t *name = wide(path);
+  if (!name) return EXT_LEDGER_INVALID;
+  if (directory_writable) {
+    DWORD attributes = GetFileAttributesW(name);
+    if (attributes == INVALID_FILE_ATTRIBUTES) { free(name); return EXT_LEDGER_NOT_FOUND; }
+    if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) { free(name); return EXT_LEDGER_INVALID; }
+  }
+  HANDLE handle = CreateFileW(name, directory_writable ? FILE_ADD_FILE : FILE_EXECUTE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+      directory_writable ? FILE_FLAG_BACKUP_SEMANTICS : 0, NULL);
+  free(name);
+  if (handle == INVALID_HANDLE_VALUE) {
+    DWORD error = GetLastError();
+    return error == ERROR_ACCESS_DENIED ? EXT_LEDGER_DENIED :
+           error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? EXT_LEDGER_NOT_FOUND : EXT_LEDGER_IO;
+  }
+  CloseHandle(handle);
+  return 0;
 }
 
 char *ll_resolve_path(const char *path) {
@@ -558,6 +593,36 @@ int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems
     else if (!present) lj_free(fs);
   }
   lj_free(mounts);
+  return rc;
+}
+
+int ll_platform_filesystem_at(const ext_ledger_context *ctx, const char *path, lj_value **out) {
+  *out = NULL;
+  int rc = ll_ctx_check(ctx);
+  if (rc) return rc;
+  wchar_t *name = wide(path);
+  if (!name) return EXT_LEDGER_INVALID;
+  wchar_t point[32768];
+  BOOL found = GetVolumePathNameW(name, point, 32768);
+  free(name);
+  if (!found) return EXT_LEDGER_UNAVAILABLE;
+  char *mount = utf8(point, -1);
+  if (!mount) return EXT_LEDGER_IO;
+  lj_value *all = lj_new(LJ_ARRAY);
+  if (!all) { free(mount); return EXT_LEDGER_IO; }
+  rc = ll_platform_filesystems(ctx, all);
+  if (!rc) {
+    rc = EXT_LEDGER_NOT_FOUND;
+    for (size_t i = 0; i < all->u.array.len; i++) {
+      const char *candidate = rec_field(all->u.array.items[i], "mount_point");
+      if (candidate && !_stricmp(candidate, mount)) {
+        *out = lj_clone(all->u.array.items[i]);
+        rc = *out ? 0 : EXT_LEDGER_IO;
+        break;
+      }
+    }
+  }
+  lj_free(all); free(mount);
   return rc;
 }
 #endif

@@ -12,20 +12,24 @@ packages, not Go files of their own.
 | Package | Contents |
 | --- | --- |
 | `contract` | Request, response, cookie, policy and session types with their validation; native WebView script capability contracts; `session.endpoint` result validation and redaction (`EndpointResult`). Imports nothing else in the module |
-| `manage/cookie` | Parses, queries and combines cookies. `Get` and `Normalize` require an injected `Backend` for source operations; `InlineOnly`, the parsers and the output helpers work without one. ctx imports it as `browser` |
+| `manage/cookie` | Parses, queries and combines cookies. `Get` and `Normalize` use an injected `Backend`; `ListForSite`, `Select`, `ExportSelected`, `Import` and `Copy` use caller-selected browser backends and verify the selected cookie before transferring its value. ctx imports it as `browser` |
+| `manage/resource` | Exports, validates and imports opaque browser resource bundles through caller-selected backends. The adapter owns each resource payload |
 | `manage/sqlite` | Read-only SQLite reader for browser cookie stores (standard library only, no sqlite3 program) and the sqlite3 helper used by cookie import |
 | `manage/guest` | Portable browser workflows served through adapter-provided backends |
 | `manage/discovery` | Finding the native executables an adapter declares, without launching them |
-| `manage/policy` | Exports the browser policies found at the locations an adapter declares (policy files, policy directories and a registry key), and nowhere else |
 | `artifact/extension` | Extension artifact discovery, packaging, install targets, and the progress line an adapter writes while an install runs |
 | `artifact/userscript` | Userscript metadata, storage and replay, with language-neutral fixtures in `testdata/userscript` |
 | `artifact/bookmarklet` | Bookmarklet generation, with language-neutral fixtures in `testdata/bookmarklet` |
 | `engine/bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
-| `engine/wasm` | Protocol-neutral Go APIs for module inspection, bounded WASI command execution, persistent byte streams and raw reactor hosting through wazero; also `reactor.js`, the shared page-side reactor glue embedded in the iOS and Android WebView hosts |
+| `engine/wasm` | Runtime-neutral WebAssembly host contract: inspection results, WASI command options, byte-stream and reactor interfaces; also `reactor.js`, the shared page-side reactor glue embedded in the iOS and Android WebView hosts. The Go implementation is `pkg/ext-go/wasm/runtime` |
 
 [The WebView example](../../../examples/web/go/plugin-webview) shows the engine with a plugin, and `internal/portcorpus`
 writes the corpus that `scripts/web-differential.sh` uses to compare the Swift and Java
 modules with Go.
+Browser policy file and native tool reads are owned by the browser adapters.
+Chromium-family Go adapters share an optional helper in
+`adapters/chromium/engine/policy`; Firefox and Safari own their reads. The
+wire cases are in `res/web/testdata/policy` for adapters in any language.
 
 ## Layering
 

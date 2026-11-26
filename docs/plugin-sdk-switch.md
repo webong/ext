@@ -219,8 +219,8 @@ Second slice (dispatch on the engine's guest):
   `YYJSON_DISABLE_FAST_FP_CONV` would change behavior (`services.c` reads a number with the
   parser's own routine so as not to depend on `strtod` or the locale), so it is not an option. The
   cost is the engine's and stays. What changed is that a host can now share a compilation cache
-  (`CompilationCache` in the options of `res/web/host/engine/wasm`, re-exported by
-  `pkg/ext-go/wasm`): a later open of the same module takes about 3 ms, and the cross-language tests
+  (the `res/web/host/engine/wasm` options accept a cache from
+  `pkg/ext-go/wasm/runtime`, also exported by `pkg/ext-go/wasm`): a later open of the same module takes about 3 ms, and the cross-language tests
   compile each WASI guest once, before the sessions that the harness times.
 
 Left for the Zig SDK:

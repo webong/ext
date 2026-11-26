@@ -352,6 +352,62 @@ static int call_library(const char *op, const lj_value *in, char **out, size_t *
   const ext_ledger_context *ctx;
   int rc = context(in, &c, &ctx);
   if (rc) return rc;
+  if (!strcmp(op, "service_render")) return ll_service_render(ctx, in, out, out_len);
+  if (!strcmp(op, "volume_create") || !strcmp(op, "volume_inspect") || !strcmp(op, "volume_remove"))
+    return ll_volume_operation(ctx, op, in, out, out_len);
+  if (!strcmp(op, "host_path")) {
+    const char *path = str(in, "path"), *what = str(in, "what");
+    if (!path || !*path || strlen(path) > 4096 || !what) return EXT_LEDGER_INVALID;
+    if (!strcmp(what, "filesystem")) {
+      lj_value *fs = NULL;
+      rc = ll_platform_filesystem_at(ctx, path, &fs);
+      if (rc) return rc;
+      lj_buf b = {0}; lj_write(&b, fs); lj_free(fs);
+      *out = lj_buf_take(&b, out_len);
+      return *out ? EXT_LEDGER_OK : EXT_LEDGER_IO;
+    }
+    if (strcmp(what, "executable_access") && strcmp(what, "directory_writable")) return EXT_LEDGER_INVALID;
+    rc = ll_host_access(path, !strcmp(what, "directory_writable"));
+    if (rc) return rc;
+    return dup_out("{}", 2, out, out_len);
+  }
+  if (!strcmp(op, "process_start")) {
+    int64_t pid = 0;
+    if (num(in, "pid", &pid) != 1 || pid < 1 || pid > 2147483647) return EXT_LEDGER_INVALID;
+    rc = ll_ctx_check(ctx);
+    if (rc) return rc;
+    char start[128];
+    rc = ll_process_start(pid, start, sizeof start);
+    if (rc) return rc;
+    lj_value *value = lj_new(LJ_OBJECT);
+    if (!value) return EXT_LEDGER_IO;
+    lj_value *birth = lj_new_string(start, strlen(start));
+    if (!birth) { lj_free(value); return EXT_LEDGER_IO; }
+    if (lj_object_set(value, "start_id", 8, birth)) { lj_free(value); return EXT_LEDGER_IO; }
+    lj_buf b = {0}; lj_write(&b, value); lj_free(value);
+    *out = lj_buf_take(&b, out_len);
+    return *out ? EXT_LEDGER_OK : EXT_LEDGER_IO;
+  }
+  if (!strcmp(op, "service_publish") || !strcmp(op, "service_inspect") || !strcmp(op, "service_remove"))
+    return ll_service_file(ctx, op, in, out, out_len);
+  if (!strcmp(op, "program_scan")) {
+    lj_value *programs = NULL;
+    rc = ll_collect_programs(ctx, in, &programs);
+    if (rc) return rc;
+    lj_buf b = {0};
+    lj_write(&b, programs);
+    lj_free(programs);
+    *out = lj_buf_take(&b, out_len);
+    return *out ? EXT_LEDGER_OK : EXT_LEDGER_IO;
+  }
+  if (!strcmp(op, "program_inspect")) {
+    lj_value *program = NULL;
+    rc = ll_inspect_program(ctx, in, &program);
+    if (rc) return rc;
+    lj_buf b = {0}; lj_write(&b, program); lj_free(program);
+    *out = lj_buf_take(&b, out_len);
+    return *out ? EXT_LEDGER_OK : EXT_LEDGER_IO;
+  }
   if (!strcmp(op, "collect")) {
     const char *what = str(in, "what");
     int64_t limit = 4096, pid = 0, resource_limit = 1024;

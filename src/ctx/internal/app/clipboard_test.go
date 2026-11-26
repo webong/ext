@@ -9,15 +9,15 @@ import (
 	"testing"
 )
 
-func TestClipboardCommandExplainsMissingBackend(t *testing.T) {
+func TestClipboardCommandExplainsMissingGuest(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("the Windows backend touches the real clipboard")
+		t.Skip("the Windows guest depends on the installed package store")
 	}
 	var stdout, stderr bytes.Buffer
-	if code := clipboardCommand([]string{"generation"}, &stdout, &stderr); code != 2 {
+	if code := clipboardCommand([]string{"generation"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("generation = %d: %s", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "no Go clipboard backend") {
+	if !strings.Contains(stderr.String(), "no clipboard resource guest") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }

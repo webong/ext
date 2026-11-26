@@ -24,4 +24,10 @@ int ext_ledger_supervisor_resolve_orphan(ext_ledger_supervisor *sup, const ext_l
 char *ll_machine_environment(void) { return NULL; }
 int ll_os_exists(const char *path) { return access(path, F_OK) == 0; }
 int ll_collect_shells(const ext_ledger_context *ctx, const char *search_path, lj_value **out) { (void)ctx;(void)search_path;if (out) *out = NULL; return EXT_LEDGER_UNSUPPORTED; }
+int ll_collect_programs(const ext_ledger_context *ctx, const lj_value *in, lj_value **out) { (void)ctx;(void)in;if (out) *out = NULL; return EXT_LEDGER_UNSUPPORTED; }
+int ll_inspect_program(const ext_ledger_context *ctx, const lj_value *in, lj_value **out) { (void)ctx;(void)in;if (out) *out = NULL; return EXT_LEDGER_UNSUPPORTED; }
+int ll_platform_filesystem_at(const ext_ledger_context *ctx, const char *path, lj_value **out) { (void)ctx;(void)path;if (out) *out = NULL; return EXT_LEDGER_UNSUPPORTED; }
+int ll_process_start(int64_t pid, char *out, size_t n) { (void)pid; if (out && n) *out = 0; return EXT_LEDGER_UNSUPPORTED; }
+int ll_host_access(const char *path, int directory_writable) { (void)path;(void)directory_writable; return EXT_LEDGER_UNSUPPORTED; }
+int ll_service_file(const ext_ledger_context *ctx, const char *operation, const lj_value *in, char **out, size_t *out_len) { (void)ctx;(void)operation;(void)in;if (out) *out = NULL;if (out_len) *out_len = 0; return EXT_LEDGER_UNSUPPORTED; }
 int ll_collect_with_options(const ext_ledger_context *ctx, const char *what, int64_t limit, int64_t pid, int64_t resource_limit, char **out, size_t *out_len) { (void)ctx;(void)what;(void)limit;(void)pid;(void)resource_limit;if (out) *out = NULL;if (out_len) *out_len = 0; return EXT_LEDGER_UNSUPPORTED; }

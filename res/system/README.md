@@ -11,29 +11,36 @@ The boundary is local mechanism, not read-only behavior. Consumers choose the
 target and own authorization, approval UI, remote protocols, routing, retention
 and product policy.
 
-The module has no root package. Its packages sit in three groups, which are plain
-directories. Each package owns its native Swift, Java and
-Windows code beside its Go code, and the SDKs (`pkg/ext-darwin`, `pkg/ext-android`) ship
-it from there.
+The module has no root package. Its existing Go packages sit in three groups,
+which are plain directories. Their Swift, Java and C# implementations now live
+in `lib/system` and ship through the platform SDKs. The Go import paths stay
+available during the migration to Ext resource guests.
 
 ## service: what the host provides
 
 | Package | What it is |
 | --- | --- |
-| `service/host` | Shells, mounted filesystems, web views and host resource capacity (CPU, memory, storage, power, container state). Discovery only; nothing is launched |
-| `service/network` | Bounded, read-only local interface, assigned-address, route and resolver observation; opens no connection and supplies no remote service |
-| `service/process` | Process discovery and inspection with bounded resource detail; the lightweight `Lookup` identifies the process behind a window |
-| `service/program` | Finds executables by name on `PATH` and joins them with what an installer reports about the same file, by resolved path; mechanism only, it never branches on a program or installer name |
+| `service/network` | Versioned local interface, address, route and resolver records and validation; native observation runs in `lib/system/net` through Ext resource guests |
 | `service/credential` | Portable credential-store adapter framing (`adapterkit`) and the local CTX credential client (`client`); native stores remain product adapters |
-| `service/user` | Portable per-user service definitions (launchd, systemd, Task Scheduler), non-overwriting publication, registration, start/stop and status through a caller-selected manager; no product identity, layout, port, or health protocol |
+| `service/user` | Go manager contract and OS manager integrations. Rendering and safe publication execute in `lib/ledger` through the injected `Definitions` interface |
+
+The Go host inventory, exact path checks, and executable checks moved to
+`lib/ledger` and its `pkg/ext-go/cengine/ledger` binding. CTX owns installer
+declaration expansion and candidate merging in `src/ctx/internal/program`.
+`service/host` and `service/program` have no Go packages.
+`service/process` has no Go package: the C ledger discovers processes, inspects
+resources, and supplies birth tokens. CTX desktop actions take window observations
+and process birth tokens from the ledger. `capture/surface` retains the portable
+snapshot and action contracts, and accepts a caller-supplied birth-token lookup
+when it revalidates a target before native capture or input.
 
 ## capture: content and events crossing the device edge
 
 | Package | What it is |
 | --- | --- |
-| `capture/surface` | Displays, windows, accessibility structure and permission state; window capture and atomic input; the `DesktopDriver` seam that caller-selected tools implement; `NativeDesktop`, the macOS and Windows implementation of that seam with the OS's own APIs (whole-desktop capture, input, held-button `PointerSession`) |
+| `capture/surface` | Portable display and window records, bounds, and the `ext.system.surface/v1` capture/input request contract. The C ledger observes windows; installed macOS and Windows resource guests use native libraries in `lib/system/act/capture/surface` to act on them. `DesktopDriver` remains the seam for caller-selected desktop tools |
 | `capture/audio` | Bounded, transport-free audio-device observation and caller-selected PCM16 capture/playback interfaces; native implementations select no device |
-| `capture/clipboard` | Bounded, transport-free clipboard contracts, the Apple and Android native implementations shipped by the platform SDKs, and the Win32 backend for Go consumers |
+| `capture/clipboard` | Portable clipboard contract and bounds; the native Swift, Java and C# implementations live in `lib/system/act/clipboard`, with a Windows Ext resource guest under `capture/clipboard/windows/Guest` |
 | `capture/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |
 | `capture/media` | Bounded PCM16 and RIFF/WAVE framing; picture-image sampling/change detection, crop, annotation and contact sheets; caller-supplied video frame sampling; recording options and stream contract |
 
@@ -41,7 +48,8 @@ it from there.
 
 | Package | What it is |
 | --- | --- |
-| `device/volume` | Pinned private-directory creation, inspection and removal for a caller-selected path |
+| Private directories | The C ledger owns create, inspect and bounded removal; Go consumers use `pkg/ext-go/cengine/ledger` |
+| `device/dirlock` | A shared directory lock utility used by package and adapter writers |
 | `device/image` | Bounded snapshot (`Export`), restore and archive digest of a caller-selected directory tree. It is a tar.gz snapshot today; real disk-image tooling (`hdiutil`, VHD) would be a native tool owned by an adapter |
 
 "Device" here means storage devices. Audio devices are `capture/audio`.
@@ -50,14 +58,14 @@ it from there.
 
 | Path | What it is |
 | --- | --- |
-| `capture/surface/ios` (`ExtSystem`) | Apple surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture |
-| `service/host/ios` (`ExtHost`) | Apple host-resource observation |
-| `capture/share/ios` (`ExtShare`) | Apple share-extension normalization and keyboard-extension editing helpers |
-| `capture/audio/ios` (`ExtAudio`) | Bounded PCM playback |
-| `capture/clipboard/ios`, `service/network/ios` | `ExtClipboard`, `ExtNetwork` |
-| `*/android` beside each package | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission/resource APIs, MediaProjection capture, bounded PCM playback, clipboard and network observation. Java packages stay `io.github.webong.ext.system.*`, `...clipboard`, `...network` |
-| `capture/audio/windows` (`Ext.Audio.Windows`) | Windows WASAPI endpoint discovery, system or microphone capture and bounded PCM playback for .NET consumers (NAudio) |
-| `capture/clipboard/windows` (`Ext.Clipboard.Windows`) | Generation-checked Win32 clipboard access for .NET consumers, with no package dependencies |
+| `lib/system/act/capture/surface/ios` (`ExtSystem`) | Apple surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture |
+| `pkg/ext-darwin/Sources/ExtHost` | Swift binding to C ledger host-resource observation |
+| `lib/system/act/share/ios` (`ExtShare`) | Apple share-extension normalization and keyboard-extension editing helpers |
+| `lib/system/act/capture/audio/ios` (`ExtAudio`) | Bounded PCM playback |
+| `lib/system/act/clipboard/ios`, `lib/system/net/ios` | `ExtClipboard`, `ExtNetwork` |
+| Android implementations beside those libraries | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission/resource APIs, MediaProjection capture, bounded PCM playback, clipboard and network observation. Java packages stay `io.github.webong.ext.system.*`, `...clipboard`, `...network` |
+| `lib/system/act/capture/audio/windows` (`Ext.Audio.Windows`) | Windows WASAPI endpoint discovery, system or microphone capture and bounded PCM playback for .NET consumers (NAudio) |
+| `lib/system/act/clipboard/windows` (`Ext.Clipboard.Windows`) | Generation-checked Win32 clipboard access for .NET consumers, with no package dependencies |
 
 Android observes app-visible surfaces, accessibility structure and permission
 state and exposes caller-consented MediaProjection capture and bounded PCM

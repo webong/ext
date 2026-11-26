@@ -104,7 +104,7 @@ import (
 	"fmt"
 	"time"
 
-	wasm "github.com/webong/ext/res/web/host/engine/wasm"
+	wasm "github.com/webong/ext/pkg/ext-go/wasm/runtime"
 )
 
 // (module (func (export "_start")))

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	"github.com/webong/ext/res/system/service/host/dirlock"
+	"github.com/webong/ext/res/system/device/dirlock"
 	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 

@@ -294,7 +294,7 @@ protection. Direct `ctx shell -- <command>` execution retains its command mode.
 
 ## Running processes and resources
 
-Process discovery is another capability of the `res/system` collectors (`service/process`). It works
+Process discovery is a C ledger collector. It works
 without adapters and does not contain product-name dispatch or a browser list.
 These commands take one snapshot and exit:
 
@@ -438,20 +438,17 @@ Run ordinary contract/parser tests with:
 (cd res/system && go test ./...) && (cd pkg/ext-go/cengine && go test ./ledger/...) && (cd src/ctx && go test ./internal/app)
 ```
 
-Enable native fixtures explicitly (the shell must permit subprocess inspection
-and binding temporary loopback sockets):
+Run the native C process collector test (the shell must permit subprocess
+inspection and binding temporary loopback sockets):
 
 ```sh
-EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system/service/process \
-  -run '^(TestNativeProcess|TestProcess|TestLiveProcess)' -count=3 -timeout=5m
+cmake -S lib/ledger -B build/ledger -DEXT_LEDGER_TESTS=ON
+cmake --build build/ledger
+ctest --test-dir build/ledger -R '^ledger_collect$' --output-on-failure
 ```
 
-On PowerShell, set `$env:EXT_GRAPH_PROCESS_NATIVE_TESTS = '1'` before the same
-`go test` command. The native GitHub Actions workflow now runs this step on
-macOS, Linux, and Windows. It fails when expected fixture resources are missing;
-partial coverage is not used to excuse a missing expected file or socket.
-The Linux permission test explicitly skips root execution because that would
-not establish the unprivileged denial behavior.
+The native GitHub Actions workflow runs the C ledger suite on macOS, Linux,
+and Windows. A cross-build alone does not prove native process behavior.
 
 Validation recorded on 2026-10-04:
 

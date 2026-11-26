@@ -51,6 +51,7 @@ use (
 	./pkg/ext-go/yaegi
 	./res/int
 	./res/system
+	./res/system/service/network/linux/guest
 	./res/web/host
 	./src/ctn
 	./src/ctn/inference

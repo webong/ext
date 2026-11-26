@@ -16,6 +16,7 @@ import (
 	"time"
 
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	wasmruntime "github.com/webong/ext/pkg/ext-go/wasm/runtime"
 	wasm "github.com/webong/ext/res/web/host/engine/wasm"
 	"github.com/webong/ext/src/cto/sandbox"
 )
@@ -56,7 +57,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if candidate, ok := lookupExternal(request.Selection); ok {
 			return doctorExternal(candidate, stdout, stderr)
 		}
-		if _, err := wasm.RunCommand(context.Background(), smokeModule, wasm.CommandOptions{}); err != nil {
+		if _, err := wasmruntime.RunCommand(context.Background(), smokeModule, wasm.CommandOptions{}); err != nil {
 			fmt.Fprintf(stderr, "wasm: the embedded engine cannot run a module: %v\n", err)
 			return 1
 		}
@@ -196,7 +197,7 @@ func execute(selection string, arguments []string, stdin io.Reader, stdout, stde
 	}
 	// Choose by what the module needs, not by what the machine has: this engine
 	// runs WASI and pure modules, and says precisely why it cannot run others.
-	inspection, err := wasm.Inspect(context.Background(), module)
+	inspection, err := wasmruntime.Inspect(context.Background(), module)
 	if err != nil {
 		fmt.Fprintf(stderr, "wasm: %v\n", err)
 		return 1
@@ -257,7 +258,7 @@ func execute(selection string, arguments []string, stdin io.Reader, stdout, stde
 			})
 		}
 	}
-	code, err := wasm.RunCommand(ctx, module, options)
+	code, err := wasmruntime.RunCommand(ctx, module, options)
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		fmt.Fprintf(stderr, "wasm: stopped after %s\n", *timeout)

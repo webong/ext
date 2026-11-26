@@ -1,0 +1,17 @@
+{
+  "doc": "policy.export request and response validation shared by adapter languages",
+  "requests": [
+    {"name": "current", "value": {"version": 2}, "valid": true},
+    {"name": "old version", "value": {"version": 1}, "valid": false},
+    {"name": "unknown field", "value": {"version": 2, "cookie": {}}, "valid": false}
+  ],
+  "bundles": [
+    {"name": "empty", "value": {"version": 2, "entries": []}, "valid": true},
+    {"name": "managed JSON", "value": {"version": 2, "entries": [{"location": "/etc/browser/policies.json", "level": "managed", "format": "json", "content": "{\"HomepageLocation\":\"https://example.test\"}"}]}, "valid": true},
+    {"name": "managed plist", "value": {"version": 2, "entries": [{"location": "/Library/Managed Preferences/browser.plist", "level": "managed", "format": "plist", "content": "<plist/>"}]}, "valid": true},
+    {"name": "old version", "value": {"version": 1, "entries": []}, "valid": false},
+    {"name": "missing entries", "value": {"version": 2}, "valid": false},
+    {"name": "missing location", "value": {"version": 2, "entries": [{"location": "", "level": "managed", "format": "plist", "content": "<plist/>"}]}, "valid": false},
+    {"name": "invalid JSON content", "value": {"version": 2, "entries": [{"location": "managed.json", "level": "managed", "format": "json", "content": "{"}]}, "valid": false}
+  ]
+}

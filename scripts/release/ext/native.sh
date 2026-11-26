@@ -28,5 +28,17 @@ python=$(command -v python3 || command -v python)
 for target in $targets; do
   "$python" scripts/stage-cli-engine.py stage "$library" "$target" "release-out/native/$target" --ledger "$ledger"
 done
+case "$platform" in
+  linux-x86_64) guest_arch=amd64 ;;
+  linux-aarch64) guest_arch=arm64 ;;
+  *) guest_arch= ;;
+esac
+if [ -n "$guest_arch" ]; then
+  (cd res/system/service/network/linux/guest && CGO_ENABLED=1 go build -o "$build/network-linux" .)
+  package="release-out/system.network.linux-$guest_arch"
+  "$python" scripts/release/pack-resource-guest.py \
+    res/system/service/network/linux/guest/ext.json "$build/network-linux" "$package" linux "$guest_arch"
+  rm -rf "$package"
+fi
 )
 ci_import_env

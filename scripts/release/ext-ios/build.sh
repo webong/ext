@@ -22,7 +22,7 @@ ci_import_env
 (
 set -euo pipefail
 device="$(apple_simulator)"
-cd res/web/ios
+cd lib/system/web/ios
 xcodebuild test -scheme ExtWeb-Package -destination "platform=iOS Simulator,id=$device"
 )
 ci_import_env
@@ -31,7 +31,7 @@ ci_import_env
 (
 set -euo pipefail
 device="$(apple_simulator)"
-cd res/system/capture/clipboard/ios
+cd lib/system/act/clipboard/ios
 xcodebuild test -scheme ExtClipboard -destination "platform=iOS Simulator,id=$device"
 )
 ci_import_env
@@ -40,8 +40,8 @@ ci_import_env
 (
 set -euo pipefail
 device="$(apple_simulator)"
-for package in capture/surface/ios:ExtSystem service/host/ios:ExtHost capture/share/ios:ExtShare capture/audio/ios:ExtAudio; do
-  (cd "res/system/${package%%:*}" && xcodebuild test -scheme "${package##*:}" -destination "platform=iOS Simulator,id=$device")
+for package in capture/surface/ios:ExtSystem capture/share/ios:ExtShare capture/audio/ios:ExtAudio; do
+  (cd "lib/system/${package%%:*}" && xcodebuild test -scheme "${package##*:}" -destination "platform=iOS Simulator,id=$device")
 done
 )
 ci_import_env
@@ -50,7 +50,7 @@ ci_import_env
 (
 set -euo pipefail
 device="$(apple_simulator)"
-cd res/system/service/network/ios
+cd lib/system/net/ios
 xcodebuild test -scheme ExtNetwork -destination "platform=iOS Simulator,id=$device"
 )
 ci_import_env

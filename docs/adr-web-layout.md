@@ -18,10 +18,10 @@ for another repository. Ext should own that library, and the layout should say w
 | Web artifacts on every runtime | `host/artifact`, `ios`, `android`, `windows`, and `pkg/ext-web` |
 | A way to run web content | `host/engine` (`bundle`, the web engine, and `wasm`) |
 
-Every browser adapter and ctx import the first group. `wasm` is used by
-`pkg/ext-go/wasm` and `adapters/wasm`, and `bundle` by one example. The browser
-adapters do not require wazero in their `go.mod`, so keeping `wasm` in the module
-costs them nothing.
+Every browser adapter and ctx import the first group. `wasm` defines the host
+contract used by `pkg/ext-go/wasm` and `adapters/wasm`, and `bundle` is used by
+one example. Since 2026-11-26, wazero lives in `pkg/ext-go/wasm/runtime`, so
+the web host module itself has no runtime dependency.
 
 ## Decision
 

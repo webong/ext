@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/system/service/program"
+	"github.com/webong/ext/src/ctx/internal/program"
 )
 
 func TestProgramsEnvironmentValueIsOneTabSeparatedLinePerCandidate(t *testing.T) {

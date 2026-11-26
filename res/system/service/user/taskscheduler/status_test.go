@@ -4,6 +4,8 @@ import (
 	"errors"
 	"runtime"
 	"testing"
+
+	"github.com/webong/ext/res/system/service/user/testdefinitions"
 )
 
 func TestTaskStatusParsesNativeListOutput(t *testing.T) {
@@ -23,7 +25,7 @@ func TestTaskStatusParsesNativeListOutput(t *testing.T) {
 
 func TestNewPlatformAvailability(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		if _, err := New(Config{Directory: t.TempDir()}); err != nil {
+		if _, err := New(Config{Directory: t.TempDir(), Definitions: testdefinitions.Backend{}}); err != nil {
 			t.Fatal(err)
 		}
 		return

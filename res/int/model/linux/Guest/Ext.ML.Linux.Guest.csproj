@@ -7,7 +7,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../windows/Ext.ML.Windows.csproj" />
+    <ProjectReference Include="../../../../../lib/system/int/model/windows/Ext.ML.Windows.csproj" />
     <Compile Include="../../windows/Guest/Program.cs" Link="Program.cs" />
   </ItemGroup>
 </Project>

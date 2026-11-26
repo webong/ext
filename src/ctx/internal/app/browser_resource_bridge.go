@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -9,8 +10,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/webong/ext/src/ctx/internal/config"
 	browsershare "github.com/webong/ext/res/web/host/contract"
+	resourcekit "github.com/webong/ext/res/web/host/manage/resource"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 var browserResourceName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
@@ -19,6 +21,12 @@ var browserResourceName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // routes it without interpreting browser-specific secrets or policy formats.
 type browserResourceBundle = browsershare.ResourceBundle
 type browserResourceRequest = browsershare.ResourceRequest
+
+func selectedResourceShare(resolver *config.Resolver, endpoint browserEndpoint, stderr io.Writer) resourcekit.Invoke {
+	return func(_ context.Context, kind, operation string, request browserResourceRequest, response any) error {
+		return invokeBrowserShareJSON(resolver, endpoint, kind, operation, request, response, stderr)
+	}
+}
 
 func shareBrowserGenericCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 || !browserResourceName.MatchString(args[0]) {
@@ -87,11 +95,7 @@ func shareBrowserGenericCommand(resolver *config.Resolver, args []string, stdout
 		if target.Adapter.Manifest.Name == source.Adapter.Manifest.Name && target.Profile == source.Profile {
 			return reportError(stderr, errors.New("source and target are the same browser profile"))
 		}
-		bundle, err := exportBrowserResource(resolver, source, resource, request, stderr)
-		if err != nil {
-			return reportError(stderr, err)
-		}
-		if err := invokeBrowserShareJSON(resolver, target, resource, "import", browserResourceRequest{Version: browsershare.Version, Args: adapterArgs, Bundle: &bundle, Replace: *replace}, nil, stderr); err != nil {
+		if _, err := resourcekit.Copy(context.Background(), selectedResourceShare(resolver, source, stderr), selectedResourceShare(resolver, target, stderr), resource, source.Adapter.Manifest.Name+":"+source.Profile, adapterArgs, *replace); err != nil {
 			return reportError(stderr, err)
 		}
 		fmt.Fprintf(stdout, "shared %s into %s\n", resource, *toProfile)
@@ -107,7 +111,7 @@ func shareBrowserGenericCommand(resolver *config.Resolver, args []string, stdout
 	} else if err := requireNewOutputFile(*toFile); err != nil {
 		return reportError(stderr, err)
 	}
-	bundle, err := exportBrowserResource(resolver, source, resource, request, stderr)
+	bundle, err := resourcekit.Export(context.Background(), selectedResourceShare(resolver, source, stderr), resource, source.Adapter.Manifest.Name+":"+source.Profile, adapterArgs)
 	if err != nil {
 		return reportError(stderr, err)
 	}
@@ -122,18 +126,6 @@ func shareBrowserGenericCommand(resolver *config.Resolver, args []string, stdout
 	}
 	fmt.Fprintf(stdout, "exported %s into %s (mode 0600)\n", resource, *toFile)
 	return 0
-}
-
-func exportBrowserResource(resolver *config.Resolver, source browserEndpoint, resource string, request browserResourceRequest, stderr io.Writer) (browserResourceBundle, error) {
-	var bundle browserResourceBundle
-	if err := invokeBrowserShareJSON(resolver, source, resource, "export", request, &bundle, stderr); err != nil {
-		return bundle, err
-	}
-	if err := validateBrowserResourceBundle(bundle, resource); err != nil {
-		return bundle, err
-	}
-	bundle.Source = source.Adapter.Manifest.Name + ":" + source.Profile
-	return bundle, nil
 }
 
 func importBrowserResource(resolver *config.Resolver, resource, fromFile, toProfile string, replace bool, adapterArgs []string, stdout, stderr io.Writer) int {
@@ -166,18 +158,14 @@ func importBrowserResource(resolver *config.Resolver, resource, fromFile, toProf
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return reportErrorCode(stderr, errors.New("resource bundle contains trailing data"), 2)
 	}
-	if err := validateBrowserResourceBundle(bundle, resource); err != nil {
+	if err := browsershare.ValidateResourceBundle(bundle, resource); err != nil {
 		return reportErrorCode(stderr, err, 2)
 	}
-	if err := invokeBrowserShareJSON(resolver, target, resource, "import", browserResourceRequest{Version: browsershare.Version, Args: adapterArgs, Bundle: &bundle, Replace: replace}, nil, stderr); err != nil {
+	if err := resourcekit.Import(context.Background(), selectedResourceShare(resolver, target, stderr), resource, adapterArgs, bundle, replace); err != nil {
 		return reportError(stderr, err)
 	}
 	fmt.Fprintf(stdout, "imported %s into %s\n", resource, toProfile)
 	return 0
-}
-
-func validateBrowserResourceBundle(bundle browserResourceBundle, resource string) error {
-	return browsershare.ValidateResourceBundle(bundle, resource)
 }
 
 func requireOutputPipe(stdout io.Writer) error {

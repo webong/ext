@@ -64,9 +64,15 @@ char *ll_path_clean(const char *path);
 const char *ll_executable_suffix(void); /* ".exe" on Windows */
 /* Appends one FilesystemInfo per mounted filesystem (source not yet redacted). */
 int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems);
+int ll_platform_filesystem_at(const ext_ledger_context *ctx, const char *path, lj_value **out);
+int ll_host_access(const char *path, int directory_writable);
 lj_value *ll_filesystem_space(uint64_t blocks, uint64_t free_blocks, uint64_t available, uint64_t size);
 
 int ll_collect_shells(const ext_ledger_context *ctx, const char *search_path, lj_value **out);
+int ll_collect_programs(const ext_ledger_context *ctx, const lj_value *in, lj_value **out); /* collect_programs.c */
+int ll_inspect_program(const ext_ledger_context *ctx, const lj_value *in, lj_value **out); /* collect_programs.c */
+int ll_service_render(const ext_ledger_context *ctx, const lj_value *in, char **out, size_t *out_len); /* service_definition.c */
+int ll_service_file(const ext_ledger_context *ctx, const char *operation, const lj_value *in, char **out, size_t *out_len); /* service_store.c */
 int ll_collect_filesystems(const ext_ledger_context *ctx, lj_value **out);
 int ll_collect_resources(const ext_ledger_context *ctx, lj_value **out); /* collect_resources.c */
 int ll_collect_webviews(const ext_ledger_context *ctx, lj_value **out);  /* collect_webviews.c */

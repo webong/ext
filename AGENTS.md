@@ -38,7 +38,7 @@ selectable external product, provider, browser, or native service and supplies
 that selection through an adapter capability or backend. For example, Safari
 and Chrome integration belongs in their adapters, while the WKWebView and
 Android WebView implementations of the public `res/web` workspace API belong in
-`res/web/ios` and `res/web/android`.
+`lib/system/web/ios` and `lib/system/web/android`.
 
 `pkg/ext-web` is ext's JavaScript/TypeScript package for code that runs inside a
 browser extension. Ext owns it; Cymonkey and Xallet consume it. Like `pkg/ext-darwin` and
@@ -70,7 +70,9 @@ library and ships a private Ext package guest. Only `cmd/ext` ships a public bin
 transport bridge executable lifecycle in `cmd/ext/internal/bridgecmd`; ext-go
 retains only the reusable transport libraries. A product
 never imports another product module. The standalone `src/cto/sandbox` contract
-is available to its consumers. Shared implementation code goes in `pkg/` or `res/`.
+is available to its consumers. Reusable native OS mechanisms go in `lib/system`;
+`res/` owns their Ext contracts and guests. Existing published Go packages under
+`res/` remain available during migration.
 `examples/` holds runnable teaching examples for every language and binding, grouped by
 purpose (`plugins/`, `ledger/`, `web/`, plus the shell adapter and Android consumer).
 It is a container, not a Go module. Related Go examples have their own unpublished
@@ -86,12 +88,16 @@ The layers, the rules every `res/` module follows (fixtures as the contract, cap
 reporting, one vocabulary of error codes, bounds) and the language support tiers are in
 [the architecture ADR](docs/adr-architecture.md).
 
-`res/` is a container for reusable modules rather than a package. Each
-subdirectory is its own Go module, except `res/web`, which is a container too,
-and nothing lives at that level: no Go package
-and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/web/host` depends on wazero
-for its protocol-neutral WebAssembly runtime and never on the plugin engine;
+`res/` is the Ext resource capability layer: versioned contracts, fixtures and
+guest entrypoints. Reusable native implementations are in `lib/system`, including
+`lib/system/web` and `lib/system/int`. Remaining Go modules under `res/` keep
+their published import paths while callers migrate. Ledger-owned host, program,
+process and surface observation have been removed from Go. Do not move Go
+implementations into `lib/system`. Each subdirectory remains its
+own Go module, except `res/web`, which is a container too. Nothing lives at the
+root of `res/`. Keep container directories free of shared logic
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/web/host` defines
+the protocol-neutral WebAssembly host contract without wazero or the plugin engine;
 `res/system` depends on `golang.org/x/sys`. The Go ledger binds C and uses ledger-owned wire records; it never requires `res/system` (`src/ctx/internal/arch` enforces it).
 
 `res/web` has no Go code at its top. Its Go module is `res/web/host`
@@ -99,18 +105,26 @@ for its protocol-neutral WebAssembly runtime and never on the plugin engine;
 `github.com/webong/ext/res/web` is never tagged again. Inside `host`, packages are
 grouped by role and the group directories hold no Go files of their own: `contract`
 (the shared vocabulary, which imports nothing else in the module), `manage` (`cookie`,
-`sqlite`, `guest`, `discovery` and `policy`: the host side of reading and managing a
+`resource`, `sqlite`, `guest`, `discovery` and `policy`: the host side of reading and managing a
 browser), `artifact` (`extension`, `userscript` and `bookmarklet`) and `engine` (`bundle`
 and `wasm`). `artifact` imports only `contract`, `engine` imports nothing else in the
 module, and `manage` may import `contract` and `artifact`; `src/ctx/internal/arch`
-enforces it. The iOS, Android and WebView2 modules (`ios`, `android`, `windows`) are
-siblings of `host`. `testdata` at the top holds the fixtures every runtime runs, and
+enforces it. The native iOS, Android and WebView2 libraries are in
+`lib/system/web/ios`, `lib/system/web/android` and `lib/system/web/windows`.
+`testdata` at the top holds the fixtures every runtime runs, and
 `docs` the guides for the mobile modules.
 The shared fixtures are outside the `host` module, so its Go tests find them by
 walking up (`host/internal/fixtures`) and skip when run without the repository.
 
-`lib/` is a container for native libraries that several language bindings
-share. Nothing lives at that level. `lib/plugin` is the portable C plugin
+`lib/` is a container for reusable native libraries. `lib/system` owns code
+that talks to OS-provided implementations across capability areas. `web` is
+for web, `int` for intelligence, `act` for actions such as clipboard, share,
+capture and input, and `net` for networking. `lib/ledger` owns the C host-resource
+collector. Its Swift and Android Java bindings and wire models belong in
+`pkg/ext-darwin` and `pkg/ext-android`. Platform implementations use Swift, Java and C#. Those libraries do not depend
+on `res/` or the Ext guest SDK; their guest adapters depend on the libraries
+and the SDK for the implementation language. Nothing lives at the `lib/` root.
+`lib/plugin` is the portable C plugin
 engine, built with CMake; all its public names are in the `ext_plugin_` name space with the side next
 (`ext_plugin_host_*` for the host ABI, `ext_plugin_guest_*` for the guest ABI and the C guest API,
 `ext_plugin_store_*`, `ext_plugin_services_call`; see its README): it is not a Go module, has no `go.mod` and is not
@@ -169,8 +183,8 @@ published paths are not reused by a different module.
 
 Runtime backends that own a heavy runtime stay outside the engine module:
 `pkg/ext-go/hashicorp` is a separate module for go-plugin/grpc, while
-`pkg/ext-go/wasm` binds the protocol-neutral wazero runtime in `res/web/host/engine/wasm`
-to `engine.Backend`, and `pkg/ext-go/yaegi` interprets a guest shipped as Go source
+`pkg/ext-go/wasm/runtime` implements the contract in `res/web/host/engine/wasm`
+with wazero, `pkg/ext-go/wasm` binds it to `engine.Backend`, and `pkg/ext-go/yaegi` interprets a guest shipped as Go source
 (entrypoint runtime `go-source`, a tree artifact) in-process with yaegi, limited to the
 standard library packages the host allows and the ext guest packages. A backend never
 depends on `pkg/ext-go/cgoengine`, so a wazero, grpc or yaegi user needs no C toolchain and the engine binding is not in their
@@ -197,12 +211,12 @@ CTN owns its content verification workflow and durable file catalog in
 
 The reusable libraries are:
 
-- `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/host/engine/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-darwin` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`. Its Go module is `res/web/host`.
+- `res/web/host` for the published Go web contracts and workflows during migration. Native WKWebView, Android WebView and WebView2 libraries live under `lib/system/web`; `res/web` owns the Ext-facing web capability and shared fixtures.
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
-- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. The module has no root package; its packages sit in three groups, which are plain directories: `service` (what the host provides, looked up and used: `host` for shells, filesystems, web views and resource capacity, `network`, `process`, `program`, `credential` and `user` for per-user service definitions), `capture` (content and events crossing the device edge: `surface` for displays, windows, accessibility, permission, capture and input, `audio`, `clipboard`, `share` and `media`) and `device` (`volume` for snapshots and private directories, `image` for snapshot archives). Each package owns its own iOS, Android and Windows code (the .NET libraries are `capture/audio/windows` and `capture/clipboard/windows`). The Windows .NET libraries of `res/` (those two, `res/web/windows` and `res/int/model/windows`) ship as NuGet packages named like their assemblies, released together under the tag `ext-windows-vX.Y.Z`, the Windows platform package (the counterpart of `ext-ios` and `ext-android`); the .NET guest SDK `ExtIO` and plugin host `ExtIO.Host` (`pkg/ext-dotnet`), a language package, are released on their own as `ext-dotnet-vX.Y.Z`.
+- `res/system` for the published Go system APIs during migration. Native Apple, Android and .NET system libraries live under `lib/system/act` and `lib/system/net`; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `res/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
-- `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
+- `res/int` for the published Go intelligence contracts and Ext guests. Native Core ML, Android model and .NET inference libraries live under `lib/system/int/model`. CTN chooses providers, models, credentials and policy.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
 - `pkg/ext-go/engine` for Go plugin sessions and guest authoring. Shared plugin contracts are aliases of `core/plugin`; shared ledger records live directly in `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; the compatibility ledger aliases have also been removed. The recorder wrapper module, Go recorder implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library and store location; ledger mechanics execute in C.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is not committed: the `tools` module generates it on each platform, the binding beside it (`internal/ccgo`) builds only with `-tags ext_c2go`, the ext-plugin release translates, tests against the pure-Go engine (`engine/plugin/plugintest/enginetest`) and publishes each platform's as the c2go driver's archive, and a project fetches it (`go tool ext bundle fetch -lib ext_plugin -driver c2go`); it depends on `engine` only.
@@ -210,7 +224,7 @@ The reusable libraries are:
 - `pkg/ext-go/core` for the switcher: `core/driver` picks how a program runs each library of `lib/`, go (the pure-Go `engine`) or one of the C drivers `cengine` serves (purego, cgo, ccgo), by name, by `EXT_ENGINE` or as the best available one ([the library opener ADR](docs/adr-library-opener.md)). `core/plugin` owns shared plugin types, validation and backend interfaces; `core/ledger` owns graph records and error vocabulary, with wire observation types in `core/ledger/observation`. Core uses only the standard library; host selection belongs to consumers. Core never imports either engine and has no root package, because the umbrella published the selection package at `pkg/ext-go/core` up to v0.12.0 (that package is gone: Go reaches lib/plugin through its description, `cengine/library.Describe` or a binding `ext bundle bind` generates).
 - `pkg/ext-go/cengine/cguest/backend`, a package within the `cengine` module, for the plugin backend that runs plugin guests built as C shared libraries, like `yaegi`, `hashicorp` and `wasm`: `cguest` speaks `ext.plugin/v1` over `cengine/cguest` (the frames, the frame limit, the default deadline, the descriptor and response checks, the engine's errors) and `cguest/guest` is the Go guest export (`-buildmode=c-shared`). It imports `core/plugin` and the local loader, never `cgoengine`. Running such a guest is not loading a library of `lib/`: the plugin contract plays no part in how the drivers reach `lib/plugin` or `lib/ledger`.
 - `pkg/ext-go/cengine` for the C side of every library of `lib/`, with generic loading packages that know none of them; the module requires purego, `core` for shared plugin and ledger contracts: it serves the C drivers (purego, cgo and ccgo), and `cgoengine` and `c2goengine` stay their own modules and register with it, so a program downloads the ccgo translation only when it imports it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens the built copy of the C library once per canonical path and binds its exports. `cengine/fetch` is how a Go project that uses ext-go brings a C library in before it builds: from the library's citation it downloads and verifies each target's archive and writes a Go package the project imports, for cgo (headers and a static library linked through `${SRCDIR}`), c2go (the translation) or purego (an embedded shared library); ext-go itself carries no C ([the library opener ADR](docs/adr-library-opener.md)). `cengine/bind` generates a typed Go binding of a library from the description of its interface (lib/plugin's `interface.json`). ext-go is a program SDK and has no command: `cengine/libcmd` is the shared command package behind ext's builtin `ext bundle fetch` and `ext bundle bind`, which a project runs as `go tool ext bundle ...` from `go generate` after `go get -tool github.com/webong/ext/cmd/ext`. `cengine/cguest` loads C ABI guests (the `ext_plugin_guest_*` exports) and exchanges frames with them as bytes, with `cguest/abi` for the ABI's constants; what the frames mean is `pkg/ext-go/cengine/cguest/backend`'s. The module path is new; the `ext_cengine` build tag and the old `pkg/plugin-go/cengine` module name the C plugin engine binding, now `cgoengine`.
-- `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
+- `pkg/ext-go/wasm` for the Go wazero implementation in `runtime` and the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the contract in `res/web/host/engine/wasm`. The `runtime` package imports no plugin package.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
 - `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host`; it has no root Go package and holds benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
@@ -224,9 +238,10 @@ Ext. The portable model types and inference interfaces live in `res/int/model`.
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin, the
 WebAssembly `engine.Backend` and the yaegi interpreter, belong inside the plugin library
-(`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`, `pkg/ext-go/yaegi`). The reusable WebAssembly mechanism
-belongs to `res/web/host/engine/wasm` and never imports the plugin engine; `pkg/ext-go/wasm`
-adapts it. None of them is a product adapter. Keep the shared host/guest contract
+(`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`, `pkg/ext-go/yaegi`). The WebAssembly host contract
+belongs to `res/web/host/engine/wasm` and imports neither wazero nor the plugin engine;
+`pkg/ext-go/wasm/runtime` implements it, and `pkg/ext-go/wasm` adapts that implementation
+to plugins. None of them is a product adapter. Keep the shared host/guest contract
 independent of backend choice so existing and future plugin implementations can use it.
 
 Product adapter engines and stores that are reused across adapters
@@ -283,40 +298,60 @@ macOS slice, `ext-macos-vX.Y.Z`, `dist/ext-macos`), each with a generated manife
 its platform; its own `Package.swift` stays multi-platform for development and CI. Both export the
 same module names, so an app depends on one of them, or on `pkg/ext-darwin` from source. Each SDK ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
 written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
-`res/web` is a container whose Go module is `res/web/host`, and it holds the iOS module (`res/web/ios`, the SwiftPM packages `ExtWeb`
-and `ExtWebKit`) and the Android module (`res/web/android`, the Java packages
+`res/web` is a container whose Go module is `res/web/host`; the native web libraries are the iOS module (`lib/system/web/ios`, the SwiftPM packages `ExtWeb`
+and `ExtWebKit`) and the Android module (`lib/system/web/android`, the Java packages
 `io.github.webong.ext.web` and `io.github.webong.ext.web.android`) of the same web library.
 Portable rules are checked against one set of fixtures; native workspace targets and source sets
-remain separate from those portable rules. The mobile modules in `res/web` import nothing of
+remain separate from those portable rules. The native mobile web libraries in `lib/system/web` import nothing of
 the plugin code or the C engine and build and test with Swift or a JDK/Android SDK
 (`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`).
-The Go-only `res/web/host/engine/wasm` package imports wazero but no plugin code;
-`pkg/ext-go/wasm` supplies that binding. `pkg/ext-darwin`
-reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
+The Go-only `res/web/host/engine/wasm` package defines the contract without wazero;
+`pkg/ext-go/wasm/runtime` supplies the implementation and `pkg/ext-go/wasm` the plugin binding. `pkg/ext-darwin`
+reaches `lib/system/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
-`res/web/android` into its AAR. Edit web code in `res/web`, never in
-the SDKs. `res/system/capture/clipboard` follows the same ownership model: its Swift
+`lib/system/web/android` into its AAR. Edit native web code in `lib/system/web`
+and Ext contracts in `res/web`, never in the SDKs. `lib/system/act/clipboard` follows the same ownership model: its Swift
 target is linked into `pkg/ext-darwin`, and its portable and Android Java source
-sets are compiled into the `pkg/ext-android` AAR. Edit clipboard code in
-`res/system/capture/clipboard`. `res/system/service/network` follows that ownership model: its
+sets are compiled into the `pkg/ext-android` AAR. Edit native clipboard code in
+`lib/system/act/clipboard`. `lib/system/net` follows that ownership model: its
 Swift target is linked into `pkg/ext-darwin`, and its Java source sets are compiled
-into the `pkg/ext-android` AAR. Edit those implementations in `res/system/service/network`.
+into the `pkg/ext-android` AAR. Edit those implementations in `lib/system/net`.
+`res/system/capture/clipboard` retains the portable Go contract; CTX on Windows
+invokes the installed `system.clipboard.windows` Ext resource guest backed by
+`lib/system/act/clipboard/windows`, with no Go Win32 fallback.
+`lib/system/net/linux` owns Linux native network observation in C. The
+private-volume creation, inspection and removal live in `lib/ledger` and are
+reached from Go through `pkg/ext-go/cengine/ledger`; `res/system/device/volume`
+has no Go implementation or fallback.
+The Windows network resource guest in `res/system/service/network/windows/Guest`
+serves `ext.system.network/v1` using `lib/system/net/windows`.
+The private Linux network guest is a nested, unpublished Go module at
+`res/system/service/network/linux/guest`; it uses Go only for Ext transport
+and links the C mechanism from `lib/system/net/linux`.
 `res/system/service/network` exposes local state only.
-`res/system/capture/share` follows the same ownership model for mobile share and
+`lib/system/act/share` follows the same ownership model for mobile share and
 keyboard extensions: its Swift target ships through `pkg/ext-darwin` as `ExtShare`, and its Java source sets compile into the `pkg/ext-android` AAR.
 The Android share and keyboard binding classes live in
-`res/system/capture/share/android/src/android`, beside the portable model.
-`capture/surface` (`ExtSystem`), `service/host` (`ExtHost`) and `capture/audio` (`ExtAudio`) follow the same
-model: each owns the Swift and Java code for its own Go package. `res/system/service/user`
-owns portable per-user service definitions and their non-overwriting
-publication; the macOS launchd and Windows Task Scheduler backends are platform
-implementations in `res/system/service/user`, while `systemctl --user` is a
-selectable native tool owned by `adapters/systemd`.
+`lib/system/act/share/android/src/android`, beside the portable model.
+`act/capture/surface` (`ExtSystem`) and `act/capture/audio` (`ExtAudio`) follow the same
+model. The mobile `ExtHost` binding belongs to `pkg/ext-darwin`; C owns its resource collection.
+The C ledger owns host inventory, exact filesystem and access checks, named
+executable checks, and per-user service definition rendering and safe
+publication. CTX binds these through `pkg/ext-go/cengine/ledger` and keeps
+installer declaration expansion and candidate merging in `src/ctx/internal/program`.
+`res/system/service/host`, `res/system/service/program` and
+`res/system/service/process` have no Go package;
+the shared directory lock is `res/system/device/dirlock`.
+`res/system/service/user` retains the Go manager contract, while the
+macOS launchd and Windows Task Scheduler backends are platform implementations
+there; `systemctl --user` remains a selectable native tool owned by
+`adapters/systemd`. Managers receive a ledger-backed definition interface.
 `res/system/capture/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
 and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
 `adapters/alsa`, `adapters/wayland`, and `adapters/x11`; `adapters/ffmpeg` owns recording on
-macOS and Windows, where capture and input need no tool and are `surface.NativeDesktop`. `adapters/pipewire`
+macOS and Windows, while installed `system.surface` resource guests use the
+native Swift and .NET libraries for selected-window capture and input. `adapters/pipewire`
 implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
 by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters
@@ -340,24 +375,24 @@ c-shared guest, since two Go runtimes there share the TLS slot for g. purego is 
 of `pkg/ext-go/cengine` only, never of `pkg/ext-go/engine` or `cgoengine`, and both builds run the
 cshared tests and the shared host cases (`scripts/cshared-purego.sh`). `res/web/host/engine/wasm`
 is a package of the `res/web/host` module, not a nested module. `pkg/ext-go/wasm`
-remains a separate module because it binds that reusable runtime to the plugin
-engine without reversing the dependency into `res/`.
+remains a separate module because it implements that contract with wazero and
+binds it to the plugin engine without reversing the dependency into `res/`.
 
 Moving a library into or out of `pkg/` changes public import paths. Update
 `AGENTS.md`, the docs, and the language SDKs together, and verify with
 `go build ./...` and `go vet ./...`.
 
 Mobile browser workspaces are platform implementations of the public `res/web`
-API, not product adapters. WKWebView code lives in `res/web/ios/Sources/ExtWebKit`
+API, not product adapters. WKWebView code lives in `lib/system/web/ios/Sources/ExtWebKit`
 and is exposed by `pkg/ext-darwin`; Android WebView and optional AndroidX
-document-start integration live in `res/web/android/src/android` and are compiled
+document-start integration live in `lib/system/web/android/src/android` and are compiled
 into the `pkg/ext-android` AAR. Portable reviewed-userscript preparation stays in
 the portable targets and source sets. Keep Expo, app identity, storage policy,
 and UI out of these libraries. Native changes are tested with
 `scripts/web-workspace-ios.sh` and `scripts/web-workspace-android.sh`.
 
 The same rule applies to an application-owned WebView2: its document-script and
-profile-extension implementation lives in `res/web/windows`, not in an Edge or
+profile-extension implementation lives in `lib/system/web/windows`, not in an Edge or
 Chromium product adapter. The caller supplies source already prepared by the
 portable userscript tooling and owns persistence, profile choice and approval.
 

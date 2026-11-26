@@ -52,6 +52,6 @@ accept the cases without `error`, and reject the others. Fixtures cover the
 shared rules above; the object shapes of a consumer's manifest need not match
 the Go `Record`.
 
-The Swift module (`res/web/ios`) and the Java module (`res/web/android`) run these files too.
+The Swift module (`lib/system/web/ios`) and the Java module (`lib/system/web/android`) run these files too.
 The JavaScript userscript registry in `pkg/ext-web` repeats the ID rule, so it runs the `id` cases of
 `v1alpha1/record.json` (`pkg/ext-web/userscripts.fixtures.test.mjs`).

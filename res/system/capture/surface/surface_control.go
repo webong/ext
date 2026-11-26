@@ -1,7 +1,6 @@
 package surface
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -60,35 +59,6 @@ func captureOptions(options CaptureOptions) (CaptureOptions, error) {
 	return options, nil
 }
 
-// CaptureWindow captures a currently observed window after revalidating its
-// opaque ID and process generation. It never prompts for permission, selects a
-// target, persists the image, or applies caller policy.
-func CaptureWindow(ctx context.Context, target WindowInfo, options CaptureOptions) (SurfaceCapture, error) {
-	if err := validateSurfaceTarget(target); err != nil {
-		return SurfaceCapture{}, err
-	}
-	options, err := captureOptions(options)
-	if err != nil {
-		return SurfaceCapture{}, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, options.Timeout)
-	defer cancel()
-	result, err := platformCaptureWindow(ctx, target, options)
-	if err != nil {
-		return SurfaceCapture{}, err
-	}
-	if result.Width <= 0 || result.Height <= 0 || len(result.Data) == 0 || result.Format == "" {
-		return SurfaceCapture{}, errors.New("native capture returned an invalid image")
-	}
-	if result.Width > options.MaxPixels/result.Height || len(result.Data) > options.MaxBytes {
-		return SurfaceCapture{}, errors.New("native capture exceeded configured limits")
-	}
-	if result.CapturedAt.IsZero() {
-		result.CapturedAt = time.Now().UTC()
-	}
-	return result, nil
-}
-
 // SurfaceInputKind identifies one bounded, atomic native input operation.
 type SurfaceInputKind string
 
@@ -143,29 +113,6 @@ func inputOptions(options InputOptions) (InputOptions, error) {
 		return options, errors.New("input text limit exceeds library ceiling")
 	}
 	return options, nil
-}
-
-// SendWindowInput sends one bounded operation to a revalidated local window.
-// It does not choose or activate the window, hold input across calls, implement
-// an approval policy, or expose a remote protocol.
-func SendWindowInput(ctx context.Context, target WindowInfo, input SurfaceInput, options InputOptions) error {
-	if err := validateSurfaceTarget(target); err != nil {
-		return err
-	}
-	options, err := inputOptions(options)
-	if err != nil {
-		return err
-	}
-	input, err = validateSurfaceInput(input, options)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(ctx, options.Timeout)
-	defer cancel()
-	if err := platformSendWindowInput(ctx, target, input); err != nil {
-		return err
-	}
-	return nil
 }
 
 func validateSurfaceTarget(target WindowInfo) error {

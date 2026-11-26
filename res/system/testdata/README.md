@@ -21,7 +21,7 @@ current version.
 | Go | `fixtures_test.go` of each package, helper in `internal/fixtures` | `go test ./res/system/...` finds `testdata` by walking up |
 | Swift | `Tests/*/FixtureTests.swift` of each `ios` package | `swift test --package-path res/system/<area>/ios` (macOS) |
 | Java | `src/test/java/...` of each `android` module, helper in `internal/fixtures/java` | `scripts/system-android.sh`, from the repository root |
-| C# | `Tests/Fixtures.cs` of each `Ext.<Area>.Windows` library (`capture/clipboard/windows`, `capture/audio/windows`) | `dotnet run --project res/system/capture/<area>/windows/Tests` (Windows); the same file lookup |
+| C# | `Tests/Fixtures.cs` of each `Ext.<Area>.Windows` library (`lib/system/act/clipboard/windows`, `lib/system/act/capture/audio/windows`) | Run the library's Windows test project; the same file lookup |
 
 `EXT_SYSTEM_TESTDATA` points a runner at a copy elsewhere.
 

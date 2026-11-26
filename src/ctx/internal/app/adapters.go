@@ -17,7 +17,7 @@ import (
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
-	"github.com/webong/ext/res/system/service/host/dirlock"
+	"github.com/webong/ext/res/system/device/dirlock"
 	"github.com/webong/ext/src/ctx/internal/config"
 )
 
@@ -375,7 +375,11 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 			// no native executable to locate.
 			var err error
 			declared := append(append([]string(nil), candidate.Manifest.Commands...), candidate.Manifest.ComputerCommands...)
-			realCommand, err = locateRealCommand(commandName, declared, len(adapterPrograms(resolver, candidate)) > 0)
+			programs, scanErr := adapterPrograms(resolver, candidate)
+			if scanErr != nil {
+				return reportErrorCode(stderr, scanErr, 127)
+			}
+			realCommand, err = locateRealCommand(commandName, declared, len(programs) > 0)
 			if err != nil {
 				return reportErrorCode(stderr, err, 127)
 			}
@@ -421,7 +425,11 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	if candidate.IsRuntime("manager") {
 		command.Env = setEnvironment(command.Env, "EXT_MANAGER_ADDRESS", "")
 	}
-	if programs := adapterPrograms(resolver, candidate); programs != nil {
+	programs, err := adapterPrograms(resolver, candidate)
+	if err != nil {
+		return reportError(stderr, err)
+	}
+	if programs != nil {
 		command.Env = setEnvironment(command.Env, programsEnvironment, programsEnvironmentValue(programs))
 	}
 	for key, value := range extraEnv {

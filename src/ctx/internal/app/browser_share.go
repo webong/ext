@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -11,10 +12,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ext/src/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	browsershare "github.com/webong/ext/res/web/host/contract"
 	browser "github.com/webong/ext/res/web/host/manage/cookie"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 type browserEndpoint struct {
@@ -64,6 +65,12 @@ func invokeBrowserShareJSON(resolver *config.Resolver, endpoint browserEndpoint,
 }
 
 type browserCookieBundle = browsershare.CookieBundle
+
+func selectedCookieShare(resolver *config.Resolver, endpoint browserEndpoint, stderr io.Writer) browser.Share {
+	return func(_ context.Context, operation string, request browserShareRequest, response any) error {
+		return browserAdapterShare(resolver, endpoint, "cookie", operation, request, response, stderr)
+	}
+}
 
 type cookieAttributeFilter map[string]string
 
@@ -175,21 +182,10 @@ func shareBrowserCommand(resolver *config.Resolver, args []string, stdout, stder
 		fmt.Fprintln(stderr, "ctx: cookie copy needs --name and exactly one of --to-profile, --to-file, or --stdout; --replace only applies to --to-profile")
 		return 2
 	}
-	var cookies []browserCookie
-	if err := browserAdapterShare(resolver, source, "cookie", "list", browserShareRequest{Site: siteURL.String()}, &cookies, stderr); err != nil {
+	cookies, err := browser.ListForSite(context.Background(), selectedCookieShare(resolver, source, stderr), siteURL)
+	if err != nil {
 		return reportError(stderr, err)
 	}
-	filtered := make([]browserCookie, 0, len(cookies))
-	for _, cookie := range cookies {
-		cookie.Value = ""
-		if err := browsershare.ValidateCookie(cookie); err != nil {
-			return reportError(stderr, fmt.Errorf("source adapter returned invalid cookie metadata: %w", err))
-		}
-		if browsershare.CookieMatchesSite(siteURL, cookie) {
-			filtered = append(filtered, cookie)
-		}
-	}
-	cookies = filtered
 	if action == "list" {
 		for _, cookie := range cookies {
 			encodedAttributes, _ := json.Marshal(cookie.Attributes)
@@ -198,21 +194,18 @@ func shareBrowserCommand(resolver *config.Resolver, args []string, stdout, stder
 		}
 		return 0
 	}
-	selected := make([]browserCookie, 0, 1)
-	for _, cookie := range cookies {
-		if cookie.Name == *name && (*domain == "" || cookie.Domain == *domain) && (*path == "" || cookie.Path == *path) && (*id == 0 || cookie.ID == *id) && (*ref == "" || cookie.Ref == *ref) && cookieMatchesAttributes(cookie, attributes) {
-			selected = append(selected, cookie)
-		}
-	}
-	if len(selected) == 0 {
+	cookie, err := browser.Select(cookies, browser.Selector{Name: *name, Domain: *domain, Path: *path, ID: *id, Ref: *ref, Attributes: attributes})
+	if errors.Is(err, browser.ErrNoMatch) {
 		fmt.Fprintln(stderr, "ctx: no matching cookie; use cookie list to inspect site cookie names and scopes")
 		return 1
 	}
-	if len(selected) != 1 {
+	if errors.Is(err, browser.ErrAmbiguous) {
 		fmt.Fprintln(stderr, "ctx: multiple cookies match; add --id from cookie list (or narrow by --domain, --path, or --attribute)")
 		return 1
 	}
-	cookie := selected[0]
+	if err != nil {
+		return reportError(stderr, err)
+	}
 	if *toProfile != "" {
 		target, err := parseBrowserEndpoint(*toProfile)
 		if err != nil {
@@ -226,18 +219,7 @@ func shareBrowserCommand(resolver *config.Resolver, args []string, stdout, stder
 			fmt.Fprintln(stderr, "ctx: source and target are the same browser profile")
 			return 1
 		}
-		var exported browserCookie
-		if err := browserAdapterShare(resolver, source, "cookie", "export", browserShareRequest{Site: siteURL.String(), Cookie: cookie}, &exported, stderr); err != nil {
-			return reportError(stderr, err)
-		}
-		if !sameListedCookie(exported, cookie) {
-			return reportError(stderr, errors.New("source adapter returned a different cookie than selected"))
-		}
-		bundle := browserCookieBundle{Version: browsershare.Version, Source: source.Adapter.Manifest.Name + ":" + source.Profile, Site: cookieBundleSite(siteURL), Cookie: exported}
-		if err := validateBrowserCookieBundle(bundle); err != nil {
-			return reportError(stderr, err)
-		}
-		if err := browserAdapterShare(resolver, target, "cookie", "import", browserShareRequest{Bundle: &bundle, Replace: *replace}, nil, stderr); err != nil {
+		if _, err := browser.Copy(context.Background(), selectedCookieShare(resolver, source, stderr), selectedCookieShare(resolver, target, stderr), source.Adapter.Manifest.Name+":"+source.Profile, siteURL, cookie, *replace); err != nil {
 			return reportError(stderr, err)
 		}
 		fmt.Fprintf(stdout, "shared cookie %s for %s into %s\n", cookie.Name, siteURL.Hostname(), *toProfile)
@@ -260,15 +242,8 @@ func shareBrowserCommand(resolver *config.Resolver, args []string, stdout, stder
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return reportError(stderr, err)
 	}
-	var exported browserCookie
-	if err := browserAdapterShare(resolver, source, "cookie", "export", browserShareRequest{Site: siteURL.String(), Cookie: cookie}, &exported, stderr); err != nil {
-		return reportError(stderr, err)
-	}
-	if !sameListedCookie(exported, cookie) {
-		return reportError(stderr, errors.New("source adapter returned a different cookie than selected"))
-	}
-	bundle := browserCookieBundle{Version: browsershare.Version, Source: source.Adapter.Manifest.Name + ":" + source.Profile, Site: cookieBundleSite(siteURL), Cookie: exported}
-	if err := validateBrowserCookieBundle(bundle); err != nil {
+	bundle, err := browser.ExportSelected(context.Background(), selectedCookieShare(resolver, source, stderr), source.Adapter.Manifest.Name+":"+source.Profile, siteURL, cookie)
+	if err != nil {
 		return reportError(stderr, err)
 	}
 	if *toStdout {
@@ -361,14 +336,14 @@ func shareBrowserCookieImport(resolver *config.Resolver, args []string, stdout, 
 	if len(selected) != 1 {
 		return reportErrorCode(stderr, errors.New("cookie import needs exactly one matching active cookie; select --name, --domain, --path, or --attribute"), 2)
 	}
-	bundle, err := browser.BundleCookie(selected[0], cookieBundleSite(siteURL))
+	bundle, err := browser.BundleCookie(selected[0], browser.BundleSite(siteURL))
 	if err != nil {
 		return reportErrorCode(stderr, err, 2)
 	}
 	if len(metadata.Warnings) > 0 {
 		fmt.Fprintf(stderr, "ctx: warning: input query reported %d warnings; importing only the selected cookie\n", len(metadata.Warnings))
 	}
-	if err := browserAdapterShare(resolver, target, "cookie", "import", browserShareRequest{Bundle: &bundle, Replace: *replace}, nil, stderr); err != nil {
+	if err := browser.Import(context.Background(), selectedCookieShare(resolver, target, stderr), bundle, *replace); err != nil {
 		return reportError(stderr, err)
 	}
 	fmt.Fprintf(stdout, "imported cookie %s into %s\n", bundle.Cookie.Name, *toProfile)
@@ -377,10 +352,6 @@ func shareBrowserCookieImport(resolver *config.Resolver, args []string, stdout, 
 
 func parseCookieSite(raw string) (*url.URL, error) {
 	return browsershare.ParseSite(raw)
-}
-
-func cookieBundleSite(site *url.URL) string {
-	return (&url.URL{Scheme: site.Scheme, Host: site.Host, Path: site.Path, RawPath: site.RawPath}).String()
 }
 
 func resolveBrowserSource(resolver *config.Resolver, choice string) (browserEndpoint, error) {
@@ -418,12 +389,4 @@ func parseBrowserEndpoint(choice string) (browserEndpoint, error) {
 
 func writeCookieBundle(path string, bundle browserCookieBundle) error {
 	return writePrivateJSON(path, bundle)
-}
-
-func sameListedCookie(a, b browserCookie) bool {
-	return browsershare.SameListedCookie(a, b)
-}
-
-func validateBrowserCookieBundle(bundle browserCookieBundle) error {
-	return browsershare.ValidateCookieBundle(bundle)
 }

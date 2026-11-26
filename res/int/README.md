@@ -1,12 +1,13 @@
 # Intelligence resources
 
-`res/int` is the reusable intelligence module. Its packages define portable
-contracts and bounded mechanisms; applications choose providers, models,
+`res/int` retains its published Go intelligence contracts and Ext guest
+entrypoints. Native model libraries live in `lib/system/int/model`.
+Applications choose providers, models,
 credentials, roots, and authorization policy.
 
 | Package | Scope |
 | --- | --- |
-| `model` | Verified local model bundles, tensors, and native backends |
+| `model` | Go model contracts and verified bundles; Core ML, Android and .NET backends are in `lib/system/int/model` |
 | `inference` | Generation, embeddings, transcription, speech, and provider contracts |
 | `perception` | Multimodal findings and image observations |
 | `realtime` | Duplex model session and event contracts |

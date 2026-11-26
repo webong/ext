@@ -15,7 +15,7 @@ import (
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
-	"github.com/webong/ext/res/system/service/host/dirlock"
+	"github.com/webong/ext/res/system/device/dirlock"
 )
 
 // Prepare reviews and snapshots the complete dependency closure under the writer.

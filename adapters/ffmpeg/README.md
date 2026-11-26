@@ -5,14 +5,13 @@ Windows with the `ffmpeg` command-line tool. It owns `ffmpeg` invocation and the
 process. The caller selects the capture source, the format, the frame rate and the duration and
 byte bounds; the adapter chooses no display, device, output path or approval flow.
 
-Capture and input on those platforms need no tool: `surface.NativeDesktop` in `res/system` does
-them with the operating system's own APIs. Recording does need an encoder, so `NativeDesktop` takes
-this recorder as `NativeDesktopOptions.Recorder`:
+CTX's selected-window capture and input on those platforms use installed Ext
+surface resource guests backed by native Swift and .NET libraries. This adapter
+provides recording directly through `media.Recorder`:
 
 ```go
 recorder, err := ffmpeg.New(ffmpeg.Config{Source: "1:none"}) // macOS: an AVFoundation device
-desktop, err := surface.NewNativeDesktop(surface.NativeDesktopOptions{Recorder: recorder})
-recording, err := surface.RecordDesktop(ctx, desktop, media.RecordingOptions{Format: "mp4"})
+recording, err := recorder.Record(ctx, media.RecordingOptions{Format: "mp4"})
 ```
 
 | Platform | ffmpeg input | `Config.Source` |

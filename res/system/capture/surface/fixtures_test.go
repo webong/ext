@@ -1,14 +1,12 @@
 package surface
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/webong/ext/res/system/internal/fixtures"
-	proc "github.com/webong/ext/res/system/service/process"
 )
 
 type snapshotCase struct {
@@ -100,42 +98,5 @@ func TestFixtures(t *testing.T) {
 		t.Run("accessibilityOptions/"+c.Name, func(t *testing.T) {
 			expectCode(t, codes, c.Code, AccessibilityOptions{MaxElements: c.MaxElements, MaxDepth: c.MaxDepth, Timeout: time.Second}.Validate())
 		})
-	}
-}
-
-// TestObserverProducesValidSnapshots checks the rules against what this machine reports.
-func TestObserverProducesValidSnapshots(t *testing.T) {
-	ctx := context.Background()
-	surfaces, err := DiscoverSurfaces(ctx, DefaultSurfaceOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := surfaces.Validate(); err != nil {
-		t.Fatalf("%v\n%+v", err, surfaces)
-	}
-	permissions, err := DiscoverPermissions(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := permissions.Validate(); err != nil {
-		t.Fatalf("%v\n%+v", err, permissions)
-	}
-	tree, err := DiscoverAccessibility(ctx, DefaultAccessibilityOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := tree.Validate(); err != nil {
-		t.Fatalf("%v\n%+v", err, tree)
-	}
-	// Go's observers always say why something could not be read.
-	for name, status := range map[string]proc.CollectionStatus{"display": surfaces.DisplayStatus, "window": surfaces.WindowStatus, "accessibility": tree.Status} {
-		if (status.State == "unavailable" || status.State == "permission-denied") && status.Reason == "" {
-			t.Errorf("%s status %q has no reason", name, status.State)
-		}
-	}
-	for name, permission := range map[string]PermissionInfo{"accessibility": permissions.Accessibility, "screen recording": permissions.ScreenRecording} {
-		if permission.State == "unavailable" && permission.Reason == "" {
-			t.Errorf("%s permission is unavailable without a reason", name)
-		}
 	}
 }

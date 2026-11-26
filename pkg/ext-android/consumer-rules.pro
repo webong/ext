@@ -22,6 +22,11 @@
     <init>(int, java.lang.String);
 }
 
+# lib/ledger/src/android_resources_jni.c exports this method by its JNI name.
+-keep class io.github.webong.ext.system.android.SystemResourcesObserver {
+    private static native java.lang.String collectNative();
+}
+
 # Optional AndroidX document-start bridge uses these public APIs reflectively.
 -keep class androidx.webkit.WebViewFeature { public static boolean isFeatureSupported(java.lang.String); }
 -keep class androidx.webkit.WebViewCompat { public static *** addDocumentStartJavaScript(...); }

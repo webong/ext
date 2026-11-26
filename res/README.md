@@ -1,16 +1,16 @@
-# Shared resources
+# Ext resources
 
-`res/` is a container for reusable modules. Each subdirectory is its own Go
-module, except `web`, which is a container too (its Go module is `web/host`), and
-nothing lives at this level: no Go package and no repository-wide
-policy. `web/host` depends only on the standard library and wazero; `system` depends only on
-`golang.org/x/sys`.
+`res/` owns versioned Ext resource contracts and their guest entrypoints.
+Reusable native OS, web and intelligence implementations live in
+[`lib/system`](../lib/system/README.md). The existing Go modules in `res/` keep
+their published import paths during migration; they still contain Go mechanisms
+that have not yet been moved behind Ext guests. Nothing lives at the `res/` root.
 
 | Module | Import path | Contents |
 | --- | --- | --- |
-| [`web`](web/README.md) | `github.com/webong/ext/res/web/host` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, the web engine, and protocol-neutral WebAssembly execution. A container: the Go module is `web/host`, beside the iOS (`web/ios`), Android (`web/android`) and WebView2 (`web/windows`) modules. The browser-extension JavaScript library is [`pkg/ext-web`](../pkg/ext-web/README.md) |
-| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Local graphical and textual shell substrate: surfaces, capture, media, volumes, clipboard, credential integration, network-state observation, process supervision, and system observation. Depends only on `golang.org/x/sys` |
-| [`int`](int/README.md) | `github.com/webong/ext/res/int` | Portable model, inference, perception, and real-time intelligence contracts and mechanisms |
+| [`web`](web/README.md) | `github.com/webong/ext/res/web/host` | Existing Go web contracts and workflows, Ext-facing fixtures and guides; native web libraries are in `lib/system/web` |
+| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Existing Go system APIs, contracts and fixtures; native platform libraries are in `lib/system/act/capture` and `lib/system/service` |
+| [`int`](int/README.md) | `github.com/webong/ext/res/int` | Existing Go intelligence contracts and Ext model guests; native model libraries are in `lib/system/int` |
 
 All resource modules are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.

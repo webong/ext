@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/system/service/program"
+	"github.com/webong/ext/src/ctx/internal/program"
 )
 
 func TestInstallerCommandAddRemoveLs(t *testing.T) {
@@ -101,13 +101,23 @@ func TestConfiguredInstallersJoinThePathScan(t *testing.T) {
 		}
 		return ""
 	}
-	reports := configuredInstallerReports(installers, []string{"node"}, env)
+	reports, err := configuredInstallerReports(installers, []string{"node"}, env)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(reports["mytools"]) != 2 {
 		t.Fatalf("reports = %#v", reports)
 	}
 	// One of the two is also on PATH: it becomes one candidate that names the installer.
 	onPath := filepath.Join(root, "v2", "bin")
-	merged := program.Merge(program.Scan([]string{"node"}, onPath), reports)
+	scanned, err := program.Scan([]string{"node"}, onPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged, err := program.Merge(scanned, reports)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(merged) != 2 {
 		t.Fatalf("merged = %#v", merged)
 	}

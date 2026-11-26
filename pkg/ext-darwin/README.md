@@ -8,9 +8,9 @@ system-observation, and network-observation libraries do not depend on each othe
   shared [C engine](../../lib/plugin/README.md); host a WebAssembly reactor in a web view or in WAMR;
   keep installed `ext.package/v1` packages in the engine's package store.
 - **Web** (`ExtWeb`): the cookie, userscript and bookmarklet rules of [`res/web`](../../res/web/README.md),
-  in Swift, run against the same fixtures as Go. The code is `res/web/ios`; this package ships it. See Web rules.
+  in Swift, run against the same fixtures as Go. The code is `lib/system/web/ios`; this package ships it. See Web rules.
 
-`ExtWeb` lives in [`res/web/ios`](../../res/web/ios/README.md) and imports nothing of the plugin code or
+`ExtWeb` lives in [`lib/system/web/ios`](../../lib/system/web/ios/README.md) and imports nothing of the plugin code or
 the engine. An app that uses only `ExtWeb` links no engine code; it still resolves the package, whose manifest
 declares the engine's binary target.
 
@@ -69,7 +69,7 @@ that has its own transport.
 
 `ExtWeb` is the iOS module of [`res/web`](../../res/web/README.md): the cookie, userscript and bookmarklet
 rules in Swift, with no dependency on the plugin code or the engine. Its code, its tests and its usage are in
-[`res/web/ios`](../../res/web/ios/README.md); `Sources/ExtWeb` here is a link to it, so an app that adds this
+[`lib/system/web/ios`](../../lib/system/web/ios/README.md); `Sources/ExtWeb` here is a link to it, so an app that adds this
 package gets the `ExtWeb` product beside the plugin ones, and `scripts/ext-darwin-release.sh` stages a real copy.
 
 ```swift
@@ -81,20 +81,20 @@ let url = try Bookmarklet.encode("alert(document.title)")
 ```
 
 ```sh
-scripts/web-ios.sh            # swift test of res/web/ios; needs Swift, not the engine xcframework
+scripts/web-ios.sh            # swift test of lib/system/web/ios; needs Swift, not the engine xcframework
 ```
 
 ## Clipboard
 
 `ExtClipboard` ships the bounded clipboard values and caller-owned Apple native
-binding from [`res/system/capture/clipboard`](../../res/system/capture/clipboard/README.md). It supports macOS
+binding from [`lib/system/act/clipboard`](../../lib/system/act/clipboard/README.md). It supports macOS
 and iOS, requires an explicit format and byte policy, and performs no remote
 routing or approval UI.
 
 ## System observation
 
 `ExtSystem` ships the local display and window observation model from
-[`res/system/capture/surface`](../../res/system/capture/surface/ios). It also observes read-only native UI
+[`res/system/capture/surface`](../../lib/system/act/capture/surface/ios). It also observes read-only native UI
 structure and accessibility/screen-recording permission state. macOS reports the
 focused accessible application and visible desktop windows; iOS reports only the
 calling application's views and windows. Text is opt-in. Neither binding exposes
@@ -114,9 +114,9 @@ application identifier.
 
 ### Host resources and audio playback
 
-`ExtHost` ships the bounded host-resource observation (memory, storage, power, container state) of
-[`res/system/service/host`](../../res/system/service/host/ios), and `ExtAudio` ships bounded PCM
-playback for [`res/system/capture/audio`](../../res/system/capture/audio/ios). Each is its own SwiftPM
+`ExtHost` binds the C ledger's bounded host-resource observation (memory, storage, power, container state)
+through [its Swift target](Sources/ExtHost) and `CExtLedger.xcframework`; `ExtAudio` ships bounded PCM
+playback for [`lib/system/act/capture/audio`](../../lib/system/act/capture/audio/ios). Each is its own SwiftPM
 product, built from the package that owns it.
 
 ## Network observation
@@ -205,7 +205,7 @@ scripts/ext-darwin-xcframework.sh     # macOS, iOS and iOS Simulator slices (--p
 swift test --package-path pkg/ext-darwin
 xcodebuild test -scheme Ext-Package \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/ext-darwin
-scripts/web-ios.sh                    # just ExtWeb (res/web/ios), without the xcframework
+scripts/web-ios.sh                    # just ExtWeb (lib/system/web/ios), without the xcframework
 ```
 
 `scripts/ext-darwin-xcframework.sh` compiles the engine's guest core and the package store (a mutex and
@@ -507,13 +507,13 @@ macOS. It is not run in the iOS Simulator.
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
 - A WASM interpreter reachable from the C engine exists as the optional WAMR host
   (`lib/plugin/wamr`, `ExtPluginWamr` here), built for and run on the iOS Simulator; it has not
-  run on a physical device. `res/web/host/engine/wasm`, which is Go and wazero, is the separate Go route.
+  run on a physical device. `pkg/ext-go/wasm/runtime`, which uses Go and wazero, is the separate Go route; its contract stays in `res/web/host/engine/wasm`.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules `ExtWeb` ports.
 
 ## Browser workspace
 
 The `ExtWebKit` product exposes the native browser workspace owned by
-[`res/web/ios`](../../res/web/ios/WORKSPACE.md). It uses `ExtWeb` for reviewed
+[`lib/system/web/ios`](../../lib/system/web/ios/WORKSPACE.md). It uses `ExtWeb` for reviewed
 userscript validation and document-start replay, with navigation/state callbacks
 and caller-selected WebKit storage. It has no dependency on the plugin engine.
 Its source link is materialized by the existing release staging step.

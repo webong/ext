@@ -3,8 +3,9 @@
 # ext-android-<version>.aar, or ext-android-wamr-<version>.aar with --with-wamr. The two builds
 # share the directory, so a release stages both in turn.
 # The AAR holds the guest SDK, package store, WebView host, web rules, native clipboard binding,
-# and local system shell support (classes.jar), plus libextjni for arm64-v8a and
-# x86_64. It publishes nothing. Needs the Android SDK (platform, build-tools, NDK), a JDK, cmake.
+# and local system shell support (classes.jar), plus libextjni and the C ledger's
+# libext_ledger for arm64-v8a and x86_64. It publishes nothing. Needs the Android
+# SDK (platform, build-tools, NDK), a JDK and CMake.
 #
 # --with-wamr also builds the optional WAMR host: libextwamrjni for the same ABIs and the
 # WamrPluginHost classes. WAMR is Apache-2.0 with the LLVM exception; its license is staged as
@@ -42,21 +43,24 @@ for abi in arm64-v8a x86_64; do
   targets=(extjni)
   [[ -z "$wamr" ]] || targets+=(extwamrjni)
   for target in "${targets[@]}"; do cmake --build "$work/native-$abi" --target "$target" -j 4 >/dev/null; done
+  cmake -S lib/ledger -B "$work/ledger-$abi" "${args[@]}" \
+    -DEXT_LEDGER_SHARED=ON -DEXT_LEDGER_TESTS=OFF -DEXT_LEDGER_COMMAND=OFF >/dev/null
+  cmake --build "$work/ledger-$abi" --target ext_ledger_shared -j 4 >/dev/null
   mkdir -p "$work/aar/jni/$abi"
   for target in "${targets[@]}"; do cp "$work/native-$abi/lib$target.so" "$work/aar/jni/$abi/"; done
+  cp "$work/ledger-$abi/libext_ledger.so" "$work/aar/jni/$abi/"
 done
 
 # classes.jar (Java 17, which the guest SDK uses; the app's D8 desugars it): the guest SDK, WebView host, web rules and clipboard binding, plus the WAMR host classes when requested.
 mkdir -p "$work/classes"
-# The plugin code and the WebView host are this package's; the web rules are res/web/android's.
-sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java res/web/android/src/android/java \
-  res/system/capture/clipboard/android/src/main/java res/system/capture/clipboard/android/src/android/java \
-  res/system/capture/surface/android/src/main/java res/system/capture/surface/android/src/android/java \
-  res/system/service/host/android/src/main/java res/system/service/host/android/src/android/java \
-  res/system/capture/share/android/src/main/java res/system/capture/share/android/src/android/java \
-  res/system/capture/audio/android/src/main/java res/system/capture/audio/android/src/android/java \
-  res/system/service/network/android/src/main/java res/system/service/network/android/src/android/java \
-  res/int/model/android/src/main/java res/int/model/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+# The plugin code and the WebView host are this package's; the web rules are lib/system/web/android's.
+sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" lib/system/web/android/src/main/java lib/system/web/android/src/android/java \
+  lib/system/act/clipboard/android/src/main/java lib/system/act/clipboard/android/src/android/java \
+  lib/system/act/capture/surface/android/src/main/java lib/system/act/capture/surface/android/src/android/java \
+  lib/system/act/share/android/src/main/java lib/system/act/share/android/src/android/java \
+  lib/system/act/capture/audio/android/src/main/java lib/system/act/capture/audio/android/src/android/java \
+  lib/system/net/android/src/main/java lib/system/net/android/src/android/java \
+  lib/system/int/model/android/src/main/java lib/system/int/model/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )
@@ -88,6 +92,7 @@ fi
 # Prove it: the AAR must hold what it claims, and nothing of WAMR unless asked.
 listing="$(unzip -Z1 "$out/$aar_name")"
 for entry in AndroidManifest.xml classes.jar proguard.txt jni/arm64-v8a/libextjni.so jni/x86_64/libextjni.so \
+  jni/arm64-v8a/libext_ledger.so jni/x86_64/libext_ledger.so \
   META-INF/yyjson-LICENSE META-INF/miniz-LICENSE; do
   grep -qx "$entry" <<<"$listing" || { echo "AAR is missing $entry" >&2; exit 1; }
 done

@@ -37,7 +37,7 @@ Each case runs its steps in order on a new, empty store with the vocabulary regi
 | `observe_shell` | `cwd`, `profile`, `selections` (an object of strings) | nothing |
 | `observe_web` | `provider`, `profile`, `scheme`, `host` | nothing |
 | `observe_host` | the host inventory: `shells`, `filesystems`, `webviews`, `permissions` and the other kinds of `res/system`, in their JSON form. An absent kind keeps what was observed of it; an empty list removes it | nothing |
-| `observe_processes` | a process snapshot of `res/system/service/process`, in its JSON form | nothing |
+| `observe_processes` | a C ledger process snapshot in the shared observation JSON form | nothing |
 | `observe_inventory` | `adapters`, `aliases`, `installers` (below) | nothing |
 | `snapshot` | none | the store snapshot of `ext.system` |
 | `resolve_inventory` | `runtime` (empty for every runtime) | the inventory: `observed_at` and `contexts` |
@@ -46,7 +46,7 @@ Each case runs its steps in order on a new, empty store with the vocabulary regi
 An adapter is `name`, `runtime`, `selector`, `discovery_status`, `surfaces`, `capabilities`,
 `supports`, `engine`, `role`, `browser_share`, `trusted`, `list_supported`, `observe_supported`,
 `listed`, `contexts` (`selection`, `capabilities`, `supports`, `browser_share`, `attributes`),
-`programs` (as `res/system/service/program` reports them), `resources` (`id`, `kind`,
+`programs` (as the C ledger scan and CTX report them), `resources` (`id`, `kind`,
 `context`, `attributes`) and `relations` (`from`, `to`, `kind`). An alias is `space`, `name`,
 `adapter`, `selection` and `metadata`; an installer is `name` and `source`.
 

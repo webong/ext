@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	wire "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
-	programwire "github.com/webong/ext/res/system/service/program"
+	programwire "github.com/webong/ext/src/ctx/internal/program"
 	"io"
 	"strings"
 	"sync"
@@ -79,6 +79,10 @@ func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, can
 	if err != nil {
 		return systemgraph.AdapterObservation{}, err
 	}
+	programs, err := adapterPrograms(resolver, candidate)
+	if err != nil {
+		return systemgraph.AdapterObservation{}, err
+	}
 	observation := systemgraph.AdapterObservation{
 		Name: candidate.Manifest.Name, Runtime: candidate.Manifest.Runtime,
 		Selector:         candidate.Manifest.SelectorKey,
@@ -92,7 +96,7 @@ func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, can
 		ListSupported:    candidate.HasCapability("list"),
 		ObserveSupported: candidate.HasCapability("observe"),
 		DiscoveryStatus:  "not-supported",
-		Programs:         ledgerPrograms(adapterPrograms(resolver, candidate)),
+		Programs:         ledgerPrograms(programs),
 	}
 	if !trusted {
 		observation.DiscoveryStatus = "untrusted"

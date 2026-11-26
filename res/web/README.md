@@ -1,17 +1,18 @@
 # res/web
 
-`res/web` is ext's web library. Like `res/`, it is a container: it holds no Go code at
-its top, and each place web code runs has a directory of its own. Any ext product or
-other program can use it. Nothing here depends on the plugin engine, an adapter, a
-browser engine, or any CTX application code; `pkg/ext-go/wasm` adds the ext plugin
+`res/web` owns the Ext-facing web contracts, fixtures and guides. It holds no Go
+code at its top. The native Apple, Android and Windows libraries have moved to
+[`lib/system/web`](../../lib/system/web/README.md). The published Go host module
+remains here during migration; `pkg/ext-go/wasm/runtime` implements
+the WebAssembly host contract with wazero and `pkg/ext-go/wasm` adds the Ext plugin
 binding.
 
 | Directory | What it is | Built and tested with |
 | --- | --- | --- |
 | [`host`](host/README.md) | The Go module `github.com/webong/ext/res/web/host`: web code that runs on the host, outside any browser | `go test ./...` in `host` |
-| [`ios`](ios/README.md) | The SwiftPM package `ExtWeb` (macOS 12, iOS 13) | `scripts/web-ios.sh` (Swift only) |
-| [`android`](android/README.md) | The Java package `io.github.webong.ext.web` | `scripts/web-android.sh` (a JDK only) |
-| [`windows`](windows/README.md) | The .NET library `Ext.Web.Windows` | `dotnet build` and its console test project |
+| [`lib/system/web/ios`](../../lib/system/web/ios/README.md) | The SwiftPM packages `ExtWeb` and `ExtWebKit` | `scripts/web-ios.sh` |
+| [`lib/system/web/android`](../../lib/system/web/android/README.md) | The Java package `io.github.webong.ext.web` | `scripts/web-android.sh` |
+| [`lib/system/web/windows`](../../lib/system/web/windows/README.md) | The .NET library `Ext.Web.Windows` | `dotnet build` and its console test project |
 | [`docs`](docs) | Guides for the mobile modules | |
 | [`testdata`](testdata) | Language-neutral fixtures that the Go, Swift and Java modules all run | |
 
@@ -24,8 +25,8 @@ platform like `pkg/ext-darwin` and `pkg/ext-android`.
 | It provides | Where | What it is for |
 | --- | --- | --- |
 | **A browser-management kit** | `host/contract`, `host/manage`, `host/artifact/extension` | The protocol that hosts and browser adapters agree on, the workflows served through adapter-provided backends, and the mechanisms every browser adapter needs: artifact inspection and packaging, executable discovery, policy files, and reading cookie stores |
-| **Web artifacts on every runtime** | `host/artifact`, `ios`, `android`, `windows`, and `pkg/ext-web` | The same rules for each place web code runs: the host (Go), inside an app's WebView (`ios`, `android`, `windows`), and inside a browser extension (`pkg/ext-web`) |
-| **A way to run web content** | `host/engine` | The web engine, which serves a bundle to a browser the host opens, and a protocol-neutral WebAssembly runtime through wazero. Neither one manages a browser |
+| **Web artifacts on every runtime** | `host/artifact`, `lib/system/web`, and `pkg/ext-web` | The same rules for each place web code runs: the host (Go), inside a native app's WebView, and inside a browser extension (`pkg/ext-web`) |
+| **A way to run web content** | `host/engine` | The web engine serves a bundle to a browser the host opens; `engine/wasm` defines a runtime-neutral WebAssembly host contract implemented with wazero in `pkg/ext-go/wasm/runtime`. Neither manages a browser |
 
 Native storage, discovery and tooling belong under `adapters/<name>/`. Nothing here
 chooses a browser implementation by name — hosts supply selection and authorization
@@ -33,7 +34,7 @@ policy.
 
 ## Platform modules
 
-`ios` and `android` are the cookie, userscript and bookmarklet rules written out for their
+`lib/system/web/ios` and `lib/system/web/android` are the cookie, userscript and bookmarklet rules written out for their
 platform, so a phone app needs no Go runtime and no native library for them. `windows`
 hosts prepared userscripts in WebView2. None of them is a Go package, and none is part
 of the `host` module zip or its version: apps take the mobile modules through
@@ -54,8 +55,8 @@ lifetime.
 `WorkspaceScripts.prepare` in the mobile modules validates a complete set of
 reviewed userscript records, rejects duplicate IDs and target mismatches, and
 generates replay source for enabled records. Native workspaces also live here:
-[`ios/Sources/ExtWebKit`](ios/WORKSPACE.md) and
-[`android/src/android`](android/WORKSPACE.md), shipped by the platform SDKs.
+[`ExtWebKit`](../../lib/system/web/ios/WORKSPACE.md) and
+[`Android WebView`](../../lib/system/web/android/WORKSPACE.md), shipped by the platform SDKs.
 Separate targets/source sets keep the portable rules free of native webview imports.
 
 `userscript.InspectCompatibility`, `Userscript.compatibility(of:)`, and

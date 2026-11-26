@@ -546,7 +546,7 @@
             "OS": "ubuntu-22.04",
             "PLATFORM": "linux-x86_64"
           },
-          "setup": {},
+          "setup": {"go": "1.26.x"},
           "artifact": "release-ext-native-linux-x86_64",
           "timeout": 30
         },
@@ -558,7 +558,7 @@
             "OS": "ubuntu-22.04-arm",
             "PLATFORM": "linux-aarch64"
           },
-          "setup": {},
+          "setup": {"go": "1.26.x"},
           "artifact": "release-ext-native-linux-aarch64",
           "timeout": 30
         },

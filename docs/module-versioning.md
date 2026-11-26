@@ -105,10 +105,20 @@ renamed, so those two keep the old name.
 The .NET code ships as two packages, through `.github/workflows/release.yml`, both published with
 `--latest=false`. `ext-windows-vX.Y.Z` (package `ext-windows`) is the Windows platform package, the
 counterpart of `ext-ios` and `ext-android`: the NuGet packages `Ext.Audio.Windows`
-(`res/system/capture/audio/windows`), `Ext.Clipboard.Windows` (`res/system/capture/clipboard/windows`),
-`Ext.System.Windows` (`res/system/capture/surface/windows`),
-`Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows` (`res/int/model/windows`), at one version, built,
-tested and packed on Windows. `ext-dotnet-vX.Y.Z` (package `ext-dotnet`) is the .NET language package, the
+(`lib/system/act/capture/audio/windows`), `Ext.Clipboard.Windows` (`lib/system/act/clipboard/windows`),
+`Ext.System.Windows` (`lib/system/act/capture/surface/windows`),
+`Ext.Network.Windows` (`lib/system/net/windows`), `Ext.Web.Windows` (`lib/system/web/windows`)
+and `Ext.ML.Windows` (`lib/system/int/model/windows`), at one version, built,
+tested and packed on Windows.
+Windows platform releases also attach sealed `system.clipboard.windows.zip`,
+`system.network.windows.zip`, and `system.surface.windows.zip` Ext resource guests. These are installed
+through `ext package`; their executables are private package artifacts.
+The `ext-vX.Y.Z` release also attaches sealed
+`system.network.linux-amd64.zip` and `system.network.linux-arm64.zip` resource
+packages, built from the C network library on the matching Linux runners.
+The macOS platform release also attaches `system.surface.darwin.zip`, a private
+Ext guest over its native Swift surface library.
+The `ext-dotnet-vX.Y.Z` release (package `ext-dotnet`) is the .NET language package, the
 counterpart of `ext-rust`, `ext-ts` and `ext-python`: the guest SDK `ExtIO` (`pkg/ext-dotnet/ExtIO`) and the
 cross-platform plugin host `ExtIO.Host` (`pkg/ext-dotnet/ExtIO.Host`), built, tested and packed on Linux. Releases up to `ext-dotnet-v0.2.0` held all
 five packages; tags cannot be renamed, so those keep their name. Each release attaches its packages with their
@@ -145,7 +155,7 @@ Python package `ext-plugin` and the Zig package `ext_plugin`. None of the four i
 first four have since become `ext-io` (see [the `ext-io` language packages](#the-ext-io-language-packages)).
 `pkg/plugin-go` keeps its name for now, because renaming it changes published Go module paths.
 
-`res/web/ios` (the SwiftPM package `ExtWeb`) and `res/web/android` (the Java package
+`lib/system/web/ios` (the SwiftPM package `ExtWeb`) and `lib/system/web/android` (the Java package
 `io.github.webong.ext.web`) sit beside the Go module `res/web/host`, not inside it: its module zip does
 not carry them, and a change to them needs no `res/web/host/vX.Y.Z` tag.
 They reach apps through `pkg/ext-darwin` and `pkg/ext-android`, so they are released with those, under
@@ -240,23 +250,26 @@ a pending publisher for the first release. Tags cannot be moved or deleted, so a
 a manual run of its workflow on main has passed. `ext-plugin-engine` (`pkg/ext-rust/engine`) is never
 published.
 
-## WebAssembly mechanics moved into `res/web`
+## WebAssembly host contract and Go runtime
 
-Protocol-neutral WebAssembly inspection, WASI command execution, persistent byte
-streams and raw reactor hosting live at `res/web/host/engine/wasm` inside the
-`github.com/webong/ext/res/web/host` module (the module was `github.com/webong/ext/res/web`
-until it moved; see below). That reusable module depends on wazero
-but never on the plugin engine.
+The initial split put protocol-neutral WebAssembly inspection, WASI execution,
+byte streams and raw reactor hosting in `res/web/host/engine/wasm` inside the
+`github.com/webong/ext/res/web/host` module (previously
+`github.com/webong/ext/res/web`). The later split keeps the public options,
+results, errors and runtime interfaces at that import path and moves the
+wazero implementation to `pkg/ext-go/wasm/runtime`. The web host module now
+depends on neither wazero nor the plugin engine.
 
-The `github.com/webong/ext/pkg/ext-go/wasm` module remains the engine-facing
-binding. It depends on the web module (`res/web` through v0.6.0, `res/web/host` since) and adapts the raw runtime to `engine.Backend`,
-the JSON-line transport and the ext plugin reactor ABI. The first split releases
-are `res/web/v0.6.0` and `pkg/ext-go/wasm/v0.3.0`; existing plugin callers keep
-the `pkg/ext-go/wasm` import while protocol-neutral consumers import
-`github.com/webong/ext/res/web/host/engine/wasm`.
+The `github.com/webong/ext/pkg/ext-go/wasm` module implements the contract
+with wazero and adapts it to `engine.Backend`, the JSON-line transport and the
+Ext plugin reactor ABI. The first split releases were `res/web/v0.6.0` and
+`pkg/ext-go/wasm/v0.3.0`. Existing plugin callers keep the `pkg/ext-go/wasm`
+import; generic Go execution uses its `runtime` subpackage. The old
+`res/web/host/engine/wasm` execution functions are removed, so consumers of
+those functions must migrate to `pkg/ext-go/wasm/runtime`.
 
 Clipboard, credential and local network-observation code were consolidated into
-the `res/system` module as `res/system/capture/clipboard`, `res/system/service/credential` and
+the `res/system` module as `lib/system/act/clipboard`, `res/system/service/credential` and
 `res/system/service/network`. The historical `res/clipboard`, `res/credential` and
 `res/network` module paths are retired rather than reused. Clipboard and
 network Apple and Android source sets still reach applications through
@@ -361,7 +374,8 @@ The packages moved with it, and their import paths changed:
 | --- | --- |
 | the root package, `package web`, imported by ctx as `browser` | `manage/cookie`, `package cookie` |
 | `contract` | `contract` |
-| `guest`, `sqlite`, `discovery`, `policy` | `manage/guest`, `manage/sqlite`, `manage/discovery`, `manage/policy` |
+| `guest`, `sqlite`, `discovery` | `manage/guest`, `manage/sqlite`, `manage/discovery` |
+| `policy` | `manage/policy` at that migration, then browser adapter-owned reads with an optional Chromium-family Go helper in `adapters/chromium/engine/policy` |
 | `extension`, `userscript`, `bookmarklet` | `artifact/extension`, `artifact/userscript`, `artifact/bookmarklet` |
 | `bundle`, `wasm` | `engine/bundle`, `engine/wasm` |
 
@@ -486,7 +500,7 @@ done
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. Most light libraries
 (`pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the `res/*`
-modules other than `res/system`) declare `go 1.23.0`; `res/web/host` additionally
+modules other than `res/system`) declare `go 1.23.0`; `pkg/ext-go/wasm`
 pins wazero at a version with that floor. `res/system` declares `go 1.25.0` because its bounded
 volume operations use `os.Root`; `pkg/ext-go/engine` now also declares Go 1.25
 because its C-backed ledger API requires `cengine` and `res/system`. adapters that import its credential packages
@@ -518,8 +532,8 @@ separate modules under its product tree:
 | `src/ctn/model` | CTN’s public `model.tensor/v1` tensor-provider bridge | `engine`, `res/int` |
 | `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `res/int` |
 | `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `res/int` |
-| `res/web/host` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
-| `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
+| `res/web/host` | portable web tooling and the runtime-neutral WebAssembly host contract | standard library only |
+| `pkg/ext-go/wasm` | wazero implementation of `res/web/host/engine/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `res/web/host`; third-party wazero |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
@@ -566,7 +580,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
-| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/host/engine/wasm` |
+| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `pkg/ext-go/wasm/runtime` and its contract is `res/web/host/engine/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
 | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`, up to v0.8.0) | `pkg/ext-go/engine` and `.../engine/<subpackage>` (`pkg/ext-go/engine`, from v0.1.0); the subpackage paths below `contract` are unchanged below `engine` (`contract/host/store` becomes `engine/host/store`, `contract/package` becomes `engine/package`, and so on) |
@@ -582,10 +596,10 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |
 | `res/graph/store` (package `store`), `res/graph/store/storetest`, `res/graph/supervisor` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger` (package `ledger`), `pkg/ext-go/engine/ledger/ledgertest` (package `ledgertest`), `pkg/ext-go/engine/ledger/supervisor`, in module `pkg/ext-go/engine`: the pure-Go fallback of `lib/ledger`, standard library only |
 | the root package `res/graph` (package `graph`) and `res/graph/store/sqlite` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger/recorder` (package `recorder`) and `.../recorder/sqlite`, the module `pkg/ext-go/engine/ledger/recorder` (from v0.1.0), which requires `pkg/ext-go/engine` and `res/system`. Historical layout: the Go recorder and SQLite store have since been removed; use `cengine/ledger` |
-| the collectors in the root package of `res/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | `res/system/service/host`, `.../service/process`, `.../capture/surface` (`res/system`, from v0.3.0) |
+| the collectors in the root package of `res/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | historically `res/system/service/host`, `.../service/process`, `.../capture/surface` (`res/system`, from v0.3.0); host, process and surface observation now execute in `lib/ledger` through `pkg/ext-go/cengine/ledger`, while `capture/surface` retains portable contracts and native action APIs |
 | `res/system/audio`, `res/system/clipboard`, `res/system/share`, `res/system/media` | `res/system/capture/audio`, `.../clipboard`, `.../share`, `.../media` (`res/system`, from v0.3.0) |
 | `res/system/network`, `res/system/program`, `res/system/credential/...`, `res/system/service` | `res/system/service/network`, `.../program`, `.../credential/...`, `.../user` (`res/system`, from v0.3.0) |
-| `res/system/volume` | `res/system/device/volume` (private directories) and `res/system/device/image` (snapshot archives) (`res/system`, from v0.3.0) |
+| `res/system/volume` | historically `res/system/device/volume` for private directories; that Go implementation is removed and `pkg/ext-go/cengine/ledger` binds ledger's native volume operations. Snapshot archives remain `res/system/device/image` (`res/system`, from v0.3.0) |
 
 `res/graph` is the one path of this repository that is reused by a different module. Its tags v0.1.0
 and v0.1.1 (v0.1.1 carries `// Deprecated: use github.com/webong/ext/res/system.`) belong to a module that was

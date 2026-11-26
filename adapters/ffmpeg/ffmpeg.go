@@ -3,9 +3,8 @@
 // caller selects the capture source, the bounds and the destination, and the adapter chooses
 // no display, device, output path or approval flow.
 //
-// It is an adapter because ffmpeg is an external tool. The portable desktop code that captures
-// and sends input on those platforms, with no tool at all, is surface.NativeDesktop in
-// res/system; pass this recorder to it as NativeDesktopOptions.Recorder to record.
+// It is an adapter because ffmpeg is an external tool. Installed Ext surface
+// resource guests provide selected-window capture and input separately.
 package ffmpeg
 
 import (

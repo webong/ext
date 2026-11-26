@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/webong/ext/res/system/service/program"
+	"github.com/webong/ext/src/ctx/internal/program"
 )
 
 // A recognition is the user's statement that a file was installed by an installer.

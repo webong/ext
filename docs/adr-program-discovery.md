@@ -1,6 +1,6 @@
 # ADR: Program discovery and installers
 
-Status: accepted and built. `res/system/service/program`, the `programs` operation in `ctx`, the
+Status: accepted and built. The C ledger's program scan, CTX's private candidate selection, the `programs` operation in `ctx`, the
 `homebrew` installer adapter and the `php`, `python` and `node` runtime adapters were run
 end to end, and the system graph records each program, its installer and the contexts
 that use it. There is deliberately no command that lists programs: other programs read
@@ -83,7 +83,8 @@ The vocabulary is open: core does not enumerate it.
 
 | Concern | Owner |
 | --- | --- |
-| Candidate type, scanning `PATH` for given names, resolving links, merging records for one executable | `res/system/service/program`. Mechanism only: it never branches on a program or installer name. |
+| Scanning `PATH` for given names and inspecting executable paths | `lib/ledger` in C, exposed to Go through `pkg/ext-go/cengine/ledger`. |
+| Candidate type and merging reports for one executable | `src/ctx/internal/program`, CTX's private selection code. |
 | Where an installer keeps programs, and what it installed | the installer adapter, through a new `programs` operation |
 | What a program is: its version, its selection name (`8.3`), whether it is usable | the runtime adapter, which owns the language |
 
@@ -120,7 +121,7 @@ adapter. For `homebrew`, `run` runs `brew`.
 ### Data flow
 
 1. CTX builds the list of names from every adapter's `computer_commands`.
-2. It scans `PATH` for those names with `res/system/service/program`. This only stats
+2. It scans `PATH` for those names through the C ledger. This only inspects
    files; it executes nothing.
 3. It calls `programs NAME...` on each trusted installer adapter.
 4. `program.Merge` joins both lists by resolved path. A program found by an
@@ -179,7 +180,7 @@ a PowerShell twin for each one only to run `ls` is more code than the fact it
 reports. An installer can therefore be declarative: a package with no executable, a
 `program_roots` file of directory patterns, `role = ["installer"]` and the single
 capability `programs`. CTX expands the patterns and looks for the asked names in the
-directories that match, with `program.ScanRoots` in `res/system/service/program`. The
+directories that match, with `program.ScanRoots` in `src/ctx/internal/program`. The
 mechanism never recognises a tool by name: the patterns are data from a trusted
 package, as an installer's script output is.
 
@@ -264,41 +265,11 @@ across both literal paths and command names. [CTX program discovery](../src/ctx/
 
 The C ledger recorder also receives program observations from its caller. Its
 supervisor has an internal command lookup for launching a process. Declared
-availability is a host lookup in `res/system/service/program`. [Ledger recorder](../lib/ledger/src/record_inventory.c),
-[ledger supervisor lookup](../lib/ledger/src/process.h)
-
-`program.MatchDeclared` returns the first matching location, or an empty string
-when none is available. It stats absolute paths and checks bare names in the
-supplied PATH order. It skips relative search directories, checks cancellation
-between lookups, and returns `program.ErrDiscoveryLimit` when either input exceeds
-128 entries or 64 KiB. Consumers that support relative configured paths resolve
-them against their chosen base before calling it. A result records presence only.
-
-A Package observer can use a match to decide which configured metadata to emit.
-It supplies the literal paths and command names from one candidate at a time.
-
-```go
-location, err := program.MatchDeclared(ctx, candidate.Paths, os.Getenv("PATH"))
-if err != nil {
-    return err
-}
-if location != "" {
-    emitPackage(candidate)
-}
-```
-
-A CTX-style adapter preflight can check the first available declared command
-on its selected search path.
-
-```go
-location, err := program.MatchDeclared(ctx, manifest.ComputerCommands, pathWithoutShims())
-if err != nil {
-    return err
-}
-if location != "" {
-    recordAvailableCommand(location)
-}
-```
+availability and executable inspection now use the C ledger's `program_scan` and
+`program_inspect` operations. CTX owns its bounds and selection of declared
+locations; it propagates ledger errors instead of treating them as an empty scan.
+[Ledger recorder](../lib/ledger/src/record_inventory.c),
+[ledger program collector](../lib/ledger/src/collect_programs.c)
 
 ## Non-goals
 

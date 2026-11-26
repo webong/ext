@@ -117,7 +117,7 @@ A reactor may call operations its host offers, the ones its descriptor lists und
 
 A host that does not carry reverse calls provides the import and answers `2`. Today
 the WAMR backend carries them (after `ext_wamr_backend_bind_host`); the wazero host
-(`res/web/host/engine/wasm`) and the page glue the web views use (`reactor.js`) answer
+(`pkg/ext-go/wasm/runtime`) and the page glue the web views use (`reactor.js`) answer
 `2`.
 
 ## Producing a reactor
@@ -136,7 +136,7 @@ module needs no `_start`. Compiling `ext_plugin_guest.h`-style C needs a bump al
 
 | Host | Status |
 |---|---|
-| `wasm.OpenReactor` in `pkg/ext-go/wasm`, over the raw `res/web/host/engine/wasm` reactor host on wazero | Implemented. The Rust SDK's shared guest, built as a reactor, passes the full cross-language conformance suite through it: round trips, concurrent calls, public and private errors, deadline cancellation, close while a call is blocked. |
+| `wasm.OpenReactor` in `pkg/ext-go/wasm`, over the raw `pkg/ext-go/wasm/runtime` reactor host on wazero | Implemented. The Rust SDK's shared guest, built as a reactor, passes the full cross-language conformance suite through it: round trips, concurrent calls, public and private errors, deadline cancellation, close while a call is blocked. |
 | A hidden `WKWebView`, `WebViewPluginHost` in `pkg/ext-darwin` | Implemented over the page API of `res/web/host/engine/bundle` (`shim.js`). The Rust reactor passes its 9 tests on macOS and in the iOS 18.3 Simulator: handshake, echo with Unicode and large numbers, public and sanitized private errors, ordering, a guest that honours its deadline, and destroying the page when a call overruns. Not run on a physical device. |
 | A hidden Android `WebView`, `WebViewPluginHost` in `pkg/ext-android` | Implemented in plain Java over the same page API and the same glue. The Rust reactor passes the same 9 checks in a real `WebView` on an Android 14 (API 34) emulator; not run on a physical device. |
 | WAMR inside `lib/plugin` (optional, `EXT_WITH_WAMR`) | Implemented as the fallback route in [`lib/plugin/wamr`](../lib/plugin/wamr/README.md). The Rust SDK's conformance reactor passes its test on macOS, in the iOS 18.3 Simulator and on an Android 14 emulator; deadline, cancel, close, memory and instruction limits all stop a guest. It needs metering and the thread manager on in WAMR to meet the deadline rules. It carries `ext_plugin.reverse`: the Rust SDK's `reactor_reverse` example calls its host's hooks and, through the guest registry, another reactor, with hardware and with software bound checks, on macOS. Not run on a physical device. |

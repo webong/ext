@@ -1,7 +1,6 @@
-// Package surface observes the local display, window, accessibility and permission
-// state, and captures a window and sends atomic input to one. Targets are explicitly
-// observed values whose identity is revalidated before an operation; no handle of the
-// native toolkit is exposed. The DesktopDriver interface is the seam that caller-selected
-// tools implement where the OS does not allow a direct implementation (for example
-// Wayland), and the package never selects a driver by name.
+// Package surface defines portable display and window records, bounded
+// capture/input requests and validation. The C ledger observes native surfaces;
+// installed Ext resource guests use the Swift and .NET libraries to operate on
+// selected windows. DesktopDriver remains a seam for caller-selected desktop
+// tools such as X11 and Wayland. This package chooses no native backend.
 package surface

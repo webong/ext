@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/webong/ext/res/system/service/user"
+	"github.com/webong/ext/res/system/service/user/testdefinitions"
 )
 
 type call struct {
@@ -67,7 +68,7 @@ func (f *fakeRunner) contains(executable, argument string) bool {
 func testManager(t *testing.T, run *fakeRunner) (*Manager, string) {
 	t.Helper()
 	directory := t.TempDir()
-	manager, err := New(Config{Directory: directory, UID: os.Getuid(), Run: run.run})
+	manager, err := New(Config{Directory: directory, UID: os.Getuid(), Run: run.run, Definitions: testdefinitions.Backend{}})
 	if err != nil {
 		t.Fatal(err)
 	}

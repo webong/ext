@@ -3,12 +3,9 @@
 package network
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
-	"runtime"
-	"sort"
 	"strings"
 	"time"
 
@@ -126,79 +123,6 @@ func (o Options) Validate() error {
 	return nil
 }
 
-// Discover observes local network interfaces, routes, and resolver settings.
-// It performs no DNS lookup and opens no network connection.
-func Discover(ctx context.Context, options Options) (Snapshot, error) {
-	err := options.Validate()
-	if err != nil {
-		return Snapshot{}, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, options.Timeout)
-	defer cancel()
-	now := time.Now().UTC()
-	result := Snapshot{Platform: runtime.GOOS, ObservedAt: now, Interfaces: []Interface{}, Routes: []Route{}, Resolver: Resolver{Servers: []string{}, Search: []string{}, Options: []string{}}}
-	result.Interfaces, result.InterfaceStatus, err = discoverInterfaces(ctx, options)
-	if err != nil {
-		return result, err
-	}
-	result.Routes, result.RouteStatus, err = platformRoutes(ctx, options.MaxRoutes)
-	if err != nil {
-		return result, err
-	}
-	result.Resolver, result.ResolverStatus, err = platformResolver(ctx)
-	if err != nil {
-		return result, err
-	}
-	stamp(&result.InterfaceStatus, now)
-	stamp(&result.RouteStatus, now)
-	stamp(&result.ResolverStatus, now)
-	sort.Slice(result.Interfaces, func(i, j int) bool { return result.Interfaces[i].Index < result.Interfaces[j].Index })
-	sort.Slice(result.Routes, func(i, j int) bool {
-		a, b := result.Routes[i], result.Routes[j]
-		return a.Destination+"\x00"+a.Gateway+"\x00"+a.Interface < b.Destination+"\x00"+b.Gateway+"\x00"+b.Interface
-	})
-	return result, ctx.Err()
-}
-
-func discoverInterfaces(ctx context.Context, options Options) ([]Interface, CollectionStatus, error) {
-	values, err := net.Interfaces()
-	if err != nil {
-		return []Interface{}, unavailable(err, "network interface enumeration failed"), nil
-	}
-	result := make([]Interface, 0, min(len(values), options.MaxInterfaces))
-	partial := len(values) > options.MaxInterfaces
-	for _, value := range values {
-		if err := ctx.Err(); err != nil {
-			return nil, CollectionStatus{}, err
-		}
-		if len(result) >= options.MaxInterfaces {
-			break
-		}
-		item := Interface{Index: value.Index, Name: value.Name, MTU: value.MTU, HardwareAddress: value.HardwareAddr.String(), Flags: interfaceFlags(value.Flags), Addresses: []Address{}}
-		addresses, addressErr := value.Addrs()
-		if addressErr != nil {
-			partial = true
-		} else {
-			if len(addresses) > options.MaxAddresses {
-				partial = true
-				addresses = addresses[:options.MaxAddresses]
-			}
-			for _, raw := range addresses {
-				address, ok := parseAddress(raw.String())
-				if ok {
-					item.Addresses = append(item.Addresses, address)
-				}
-			}
-			sort.Slice(item.Addresses, func(i, j int) bool { return item.Addresses[i].IP < item.Addresses[j].IP })
-		}
-		result = append(result, item)
-	}
-	if partial {
-		return result, status("partial", "interface or address limit reached, or an interface could not be inspected"), nil
-	}
-	return result, status("complete", ""), nil
-}
-
 func parseAddress(value string) (Address, bool) {
 	ip, network, err := net.ParseCIDR(value)
 	if err != nil {
@@ -223,41 +147,6 @@ func parseAddress(value string) (Address, bool) {
 		scope = "multicast"
 	}
 	return Address{IP: ip.String(), PrefixLength: prefix, Family: family, Scope: scope}, true
-}
-
-func interfaceFlags(flags net.Flags) []string {
-	result := []string{}
-	for bit, name := range map[net.Flags]string{net.FlagUp: "up", net.FlagBroadcast: "broadcast", net.FlagLoopback: "loopback", net.FlagPointToPoint: "point-to-point", net.FlagMulticast: "multicast", net.FlagRunning: "running"} {
-		if flags&bit != 0 {
-			result = append(result, name)
-		}
-	}
-	return result
-}
-
-func status(state, detail string) CollectionStatus {
-	return CollectionStatus{State: state, Detail: detail}
-}
-
-// unavailable reports something this platform can observe but could not now. The reason comes
-// from err, the failure of the native read: permission, tool_missing, or no_device when the source
-// to read is absent or did not answer (a nil err).
-func unavailable(err error, detail string) CollectionStatus {
-	return CollectionStatus{State: "unavailable", Reason: capability.Unavailable(err), Detail: detail}
-}
-
-// unsupported reports a platform that cannot observe something at all.
-func unsupported(detail string) CollectionStatus {
-	return CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
-}
-func stamp(value *CollectionStatus, observed time.Time) {
-	if value.State == "" {
-		value.State = "complete"
-	}
-	if value.ObservedAt == nil {
-		timeValue := observed
-		value.ObservedAt = &timeValue
-	}
 }
 
 // cleanResolver trims each entry (leading and trailing U+0009 to U+000D and U+0020) and drops empty

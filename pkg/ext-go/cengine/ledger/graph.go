@@ -57,6 +57,12 @@ func (g *Graph) Record(ctx context.Context, op string, input, out any) error {
 func (g *Graph) Collect(ctx context.Context, what string, options map[string]any, out any) error {
 	return g.Store.library.Collect(ctx, what, options, out)
 }
+func (g *Graph) FilesystemAt(ctx context.Context, path string) (wire.FilesystemInfo, error) {
+	return g.Store.library.FilesystemAt(ctx, path)
+}
+func (g *Graph) CheckHostAccess(ctx context.Context, path, what string) error {
+	return g.Store.library.CheckHostAccess(ctx, path, what)
+}
 func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selections map[string]string) error {
 	return g.Record(ctx, "observe_shell", map[string]any{"cwd": cwd, "profile": profile, "selections": selections}, nil)
 }

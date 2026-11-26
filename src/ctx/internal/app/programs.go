@@ -10,9 +10,9 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/webong/ext/src/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	"github.com/webong/ext/res/system/service/program"
+	"github.com/webong/ext/src/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/program"
 )
 
 // programsEnvironment is the variable a runtime adapter reads to learn which
@@ -28,9 +28,9 @@ var programCache struct {
 // adapterPrograms returns the candidates for the commands an adapter declares,
 // or nil when it declares none. Installers are never given candidates: they are
 // the source of them.
-func adapterPrograms(resolver *config.Resolver, candidate *modpkg.Adapter) []program.Candidate {
+func adapterPrograms(resolver *config.Resolver, candidate *modpkg.Adapter) ([]program.Candidate, error) {
 	if len(candidate.Manifest.ComputerCommands) == 0 || candidate.HasRole("installer") {
-		return nil
+		return nil, nil
 	}
 	return discoverPrograms(resolver, candidate.Manifest.ComputerCommands)
 }
@@ -39,15 +39,18 @@ func adapterPrograms(resolver *config.Resolver, candidate *modpkg.Adapter) []pro
 // reports for the names. Candidates are observations; CTX never runs them. The
 // result is kept for the life of the process because a scan fans out to every
 // runtime adapter.
-func discoverPrograms(resolver *config.Resolver, names []string) []program.Candidate {
+func discoverPrograms(resolver *config.Resolver, names []string) ([]program.Candidate, error) {
 	names = uniqueSorted(names)
 	key := strings.Join(names, "\x00")
 	programCache.Lock()
 	defer programCache.Unlock()
 	if cached, ok := programCache.byNames[key]; ok {
-		return cached
+		return cached, nil
 	}
-	scanned := program.Scan(names, pathWithoutShims())
+	scanned, err := program.Scan(names, pathWithoutShims())
+	if err != nil {
+		return nil, err
+	}
 	reports := map[string][]program.Candidate{}
 	store := adapterStore()
 	if installed, err := store.List(); err == nil {
@@ -60,7 +63,10 @@ func discoverPrograms(resolver *config.Resolver, names []string) []program.Candi
 			}
 			if installer.Declarative() {
 				// Data only: CTX looks in the directories the package names. Nothing runs.
-				reports[installer.Manifest.Name] = program.ScanRoots(names, installer.Manifest.ProgramRoots, os.Getenv)
+				reports[installer.Manifest.Name], err = program.ScanRoots(names, installer.Manifest.ProgramRoots, os.Getenv)
+				if err != nil {
+					return nil, err
+				}
 				continue
 			}
 			if reported, ok := installerPrograms(resolver, installer, names); ok {
@@ -70,15 +76,23 @@ func discoverPrograms(resolver *config.Resolver, names []string) []program.Candi
 	}
 	// Installers the user described in installers.json join the adapters' reports; a
 	// name both give is one installer.
-	for name, found := range configuredInstallerReports(readConfiguredInstallers(), names, os.Getenv) {
+	configured, err := configuredInstallerReports(readConfiguredInstallers(), names, os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	for name, found := range configured {
 		reports[name] = append(reports[name], found...)
 	}
-	merged := applyRecognised(program.Merge(scanned, reports), readRecognised())
+	merged, err := program.Merge(scanned, reports)
+	if err != nil {
+		return nil, err
+	}
+	merged = applyRecognised(merged, readRecognised())
 	if programCache.byNames == nil {
 		programCache.byNames = map[string][]program.Candidate{}
 	}
 	programCache.byNames[key] = merged
-	return merged
+	return merged, nil
 }
 
 type installerProgramsDocument struct {

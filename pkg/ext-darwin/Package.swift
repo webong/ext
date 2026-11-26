@@ -31,7 +31,7 @@ let package = Package(
         // The frames conformance guest: a JSON-line process the Go cross-language suite drives.
         .executable(name: "ExtFramesGuest", targets: ["ExtFramesGuest"]),
         // The portable web rules of res/web: cookies, userscripts and bookmarklets. It has no
-        // dependency on the plugin code or the engine. Sources/ExtWeb is a link to res/web/ios,
+        // dependency on the plugin code or the engine. Sources/ExtWeb is a link to lib/system/web/ios,
         // where the code and its tests live.
         .library(name: "ExtWeb", targets: ["ExtWeb"]),
         .library(name: "ExtWebKit", targets: ["ExtWebKit"]),
@@ -45,6 +45,7 @@ let package = Package(
     ],
     targets: [
         .binaryTarget(name: "CExtEngine", path: "Frameworks/CExtEngine.xcframework"),
+        .binaryTarget(name: "CExtLedger", path: "Frameworks/CExtLedger.xcframework"),
         .target(name: "ExtPluginGuest", dependencies: ["CExtEngine"]),
         .target(name: "CExtPluginShim", dependencies: ["CExtEngine"]),
         .target(name: "ExtPluginExports", dependencies: ["ExtPluginGuest", "CExtPluginShim", "CExtEngine"]),
@@ -58,7 +59,12 @@ let package = Package(
         .target(name: "ExtWebKit", dependencies: ["ExtWeb"]),
         .target(name: "ExtClipboard"),
         .target(name: "ExtSystem"),
-        .target(name: "ExtHost"),
+        .target(name: "ExtHost", dependencies: ["CExtLedger"], linkerSettings: [
+            .linkedFramework("CoreFoundation"),
+            .linkedFramework("ApplicationServices", .when(platforms: [.macOS])),
+            .linkedFramework("UIKit", .when(platforms: [.iOS])),
+        ]),
+        .testTarget(name: "ExtHostTests", dependencies: ["ExtHost"]),
         .target(name: "ExtShare"),
         .target(name: "ExtAudio"),
         .target(name: "ExtML"),

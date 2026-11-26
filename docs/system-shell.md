@@ -41,9 +41,9 @@ Local actions are intentionally narrower than a control product:
 - libraries never add allowlists, remote endpoints, approval UI or grants.
 
 Consumers compose these mechanisms with their own trust and session model.
-For example, Cymonkey can approve a surface, invoke `res/system`, encode the
-result for its interface, and record an audit event without maintaining another
-copy of the native implementation.
+For example, Cymonkey can approve a surface, invoke an installed Ext surface
+resource guest, encode the result for its interface, and record an audit event
+without maintaining another copy of the native implementation.
 
 ## Current platform coverage
 
@@ -52,7 +52,7 @@ copy of the native implementation.
 | host/process/filesystem observation | yes | yes | platform subset | — | platform subset |
 | host resource capacity, container, uptime | yes | yes | macOS sysctl | — | physical + effective capacity |
 | surface/accessibility/permission observation | yes | yes | yes | — | app-visible subset |
-| window capture and atomic input | yes, where the legacy Core Graphics symbol remains | yes | macOS, ScreenCaptureKit/Accessibility | — | — |
+| window capture and atomic input | through the installed macOS surface guest | through the installed Windows surface guest | macOS, ScreenCaptureKit/Accessibility | yes | — |
 | accessibility actions and typed Apple Events | — | — | macOS | — | — |
 | screen/system-audio/microphone capture | — | — | macOS and iOS (ReplayKit) | WASAPI audio | MediaProjection |
 | PCM playback | — | — | macOS and iOS | WASAPI | yes |
@@ -99,15 +99,13 @@ mixing, or transport policy. PipeWire and PulseAudio are separate adapters; no
 library selects between them by name.
 
 `res/system/capture/surface.DesktopDriver` is the portable seam for desktop-scoped operations by
-external tools. On macOS and Windows the operating system itself provides them, so
-`surface.NativeDesktop` is a platform implementation of that seam and not an adapter: it captures
-every display and sends pointer and keyboard input with Core Graphics, GDI and `SendInput`, in
-desktop coordinates that start at the top-left of all displays combined. Holding a pointer button
-across calls is possible only inside a `PointerSession`, which releases every held button on close, on
-its time limit and when its context ends; `SystemDesktopPointer` in `ExtSystem` does the same on
-macOS for Swift hosts. Recording needs an encoder, so `NativeDesktop` takes a `media.Recorder`;
-`adapters/ffmpeg` is one for macOS and Windows. The tool-based drivers below are for the platforms and
-sessions where the OS gives no such API. `adapters/x11` implements capture, keyboard and pointer input,
+external tools. CTX's selected-window capture and input on macOS and Windows
+use installed `system.surface` resource guests backed by the Swift and .NET
+libraries in `lib/system/act/capture/surface`; the C ledger supplies the
+observed window and process identity. The native libraries also provide
+pointer sessions to their direct language consumers. Recording needs an
+encoder; `adapters/ffmpeg` supplies one for macOS and Windows. The tool-based
+drivers below cover other desktop sessions. `adapters/x11` implements capture, keyboard and pointer input,
 and bounded `ffmpeg` recording with `import` and `xdotool`; `adapters/wayland`
 implements capture, keyboard input, and optional pointer input through an
 explicitly configured `ydotool` (`ydotoold`/uinput), and optional bounded

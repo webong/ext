@@ -1,5 +1,5 @@
 /* Processes: observe_processes (recorder/v1). A snapshot of
- * res/system/service/process becomes the machine's process tree, the
+ * the native collector becomes the machine's process tree, the
  * executables and applications its processes run, and their resources.
  * Records are reconciled against the stored graph at its revision. Values take
  * the shapes the Go types give them when they are encoded, so the attributes

@@ -13,6 +13,7 @@
 #include "recorder.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,7 @@
 #include <sys/param.h>
 #elif defined(__linux__)
 #include <sys/statvfs.h>
+#include <sys/vfs.h>
 #endif
 
 char ll_path_list_separator(void) { return ':'; }
@@ -34,6 +36,16 @@ const char *ll_executable_suffix(void) { return ""; }
 int ll_is_executable(const char *path) {
   struct stat st;
   return stat(path, &st) == 0 && S_ISREG(st.st_mode) && (st.st_mode & 0111) != 0 && access(path, X_OK) == 0;
+}
+
+int ll_host_access(const char *path, int directory_writable) {
+  if (directory_writable) {
+    struct stat st;
+    if (stat(path, &st)) return errno == EACCES ? EXT_LEDGER_DENIED : errno == ENOENT ? EXT_LEDGER_NOT_FOUND : EXT_LEDGER_IO;
+    if (!S_ISDIR(st.st_mode)) return EXT_LEDGER_INVALID;
+  }
+  return access(path, directory_writable ? W_OK | X_OK : X_OK) == 0 ? 0 :
+         errno == EACCES ? EXT_LEDGER_DENIED : errno == ENOENT ? EXT_LEDGER_NOT_FOUND : EXT_LEDGER_IO;
 }
 
 char *ll_resolve_path(const char *path) {
@@ -191,6 +203,56 @@ int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems
   fclose(f);
   return rc;
 }
+
+int ll_platform_filesystem_at(const ext_ledger_context *ctx, const char *path, lj_value **out) {
+  *out = NULL;
+  int fd = open(path, 0x200000 /* O_PATH */ | O_CLOEXEC);
+  if (fd < 0) return errno == EACCES ? EXT_LEDGER_DENIED : errno == ENOENT ? EXT_LEDGER_NOT_FOUND : EXT_LEDGER_IO;
+  char fdinfo[64];
+  snprintf(fdinfo, sizeof fdinfo, "/proc/self/fdinfo/%d", fd);
+  FILE *info = fopen(fdinfo, "r");
+  if (!info) { close(fd); return EXT_LEDGER_IO; }
+  char line[512], mount_id[32] = "";
+  while (fgets(line, sizeof line, info))
+    if (sscanf(line, "mnt_id: %31s", mount_id) == 1) break;
+  fclose(info);
+  if (!*mount_id) { close(fd); return EXT_LEDGER_UNAVAILABLE; }
+  FILE *mounts = fopen("/proc/self/mountinfo", "r");
+  if (!mounts) { close(fd); return EXT_LEDGER_UNAVAILABLE; }
+  char *entry = malloc(1 << 20);
+  if (!entry) { fclose(mounts); close(fd); return EXT_LEDGER_IO; }
+  int rc = EXT_LEDGER_NOT_FOUND;
+  while (fgets(entry, 1 << 20, mounts)) {
+    int check = ll_ctx_check(ctx);
+    if (check) { rc = check; break; }
+    char *space = strchr(entry, ' ');
+    if (!space || (size_t)(space - entry) != strlen(mount_id) || memcmp(entry, mount_id, strlen(mount_id))) continue;
+    char *dash = strstr(entry, " - ");
+    if (!dash) { rc = EXT_LEDGER_IO; break; }
+    *dash = 0;
+    char *before[64], *after[16];
+    int nb = split(entry, before, 64), na = split(dash + 3, after, 16);
+    if (nb < 6 || na < 3) { rc = EXT_LEDGER_IO; break; }
+    char *point = unescape(before[4]), *source = unescape(after[1]);
+    if (!point || !source) { free(point); free(source); rc = EXT_LEDGER_IO; break; }
+    int read_only = 0;
+    for (char *option = strtok(before[5], ","); option; option = strtok(NULL, ","))
+      if (!strcmp(option, "ro")) read_only = 1;
+    for (char *option = strtok(after[2], ","); option; option = strtok(NULL, ","))
+      if (!strcmp(option, "ro")) read_only = 1;
+    struct statfs st;
+    lj_value *capacity = NULL;
+    if (fstatfs(fd, &st)) { free(point); free(source); rc = EXT_LEDGER_IO; break; }
+    uint64_t size = st.f_frsize > 0 ? (uint64_t)st.f_frsize : (uint64_t)st.f_bsize;
+    if (size) capacity = ll_filesystem_space(st.f_blocks, st.f_bfree, st.f_bavail, size);
+    *out = filesystem(point, source, after[0], read_only, capacity, NULL);
+    free(point); free(source);
+    rc = *out ? 0 : EXT_LEDGER_IO;
+    break;
+  }
+  free(entry); fclose(mounts); close(fd);
+  return rc;
+}
 #elif defined(__APPLE__)
 int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems) {
   for (int attempt = 0; attempt < 3; attempt++) {
@@ -220,11 +282,25 @@ int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems
   }
   return EXT_LEDGER_BUSY; /* mounted filesystems changed during discovery */
 }
+
+int ll_platform_filesystem_at(const ext_ledger_context *ctx, const char *path, lj_value **out) {
+  *out = NULL;
+  int rc = ll_ctx_check(ctx);
+  if (rc) return rc;
+  struct statfs st;
+  if (statfs(path, &st)) return errno == EACCES ? EXT_LEDGER_DENIED : errno == ENOENT ? EXT_LEDGER_NOT_FOUND : EXT_LEDGER_IO;
+  *out = filesystem(st.f_mntonname, st.f_mntfromname, st.f_fstypename, (st.f_flags & MNT_RDONLY) != 0,
+                    ll_filesystem_space(st.f_blocks, st.f_bfree, st.f_bavail, st.f_bsize), NULL);
+  return *out ? 0 : EXT_LEDGER_IO;
+}
 #else
 int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems) {
   (void)ctx;
   (void)filesystems;
   return EXT_LEDGER_UNSUPPORTED;
+}
+int ll_platform_filesystem_at(const ext_ledger_context *ctx, const char *path, lj_value **out) {
+  (void)ctx; (void)path; *out = NULL; return EXT_LEDGER_UNSUPPORTED;
 }
 #endif
 #endif

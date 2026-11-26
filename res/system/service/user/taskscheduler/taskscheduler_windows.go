@@ -19,12 +19,14 @@ type Config struct {
 	// Directory is the caller-selected directory for the task XML definition.
 	Directory string
 	// Run is optional; the default captures bounded native command output.
-	Run user.CommandRunner
+	Run         user.CommandRunner
+	Definitions user.Definitions
 }
 
 type Manager struct {
-	directory string
-	run       user.CommandRunner
+	directory   string
+	run         user.CommandRunner
+	definitions user.Definitions
 }
 
 func New(config Config) (*Manager, error) {
@@ -34,21 +36,24 @@ func New(config Config) (*Manager, error) {
 	if config.Run == nil {
 		config.Run = user.ExecRunner
 	}
-	return &Manager{directory: filepath.Clean(config.Directory), run: config.Run}, nil
+	if config.Definitions == nil {
+		return nil, fmt.Errorf("%w: ledger definitions are required", user.ErrInvalid)
+	}
+	return &Manager{directory: filepath.Clean(config.Directory), run: config.Run, definitions: config.Definitions}, nil
 }
 
 func (m *Manager) Platform() user.Platform { return user.PlatformWindows }
 func (m *Manager) Name() string            { return "taskscheduler" }
 
 func (m *Manager) Register(ctx context.Context, spec user.Spec) (user.Registration, error) {
-	def, err := user.Render(spec, user.PlatformWindows)
+	def, err := m.definitions.Render(ctx, spec, user.PlatformWindows)
 	if err != nil {
 		return user.Registration{}, err
 	}
 	if _, queryErr := m.query(ctx, def.Identity); queryErr == nil {
 		return user.Registration{Definition: def}, user.ErrRegistered
 	}
-	publication, err := user.Publish(def, m.directory)
+	publication, err := m.definitions.Publish(ctx, def, m.directory)
 	registration := user.Registration{Definition: def, Publication: publication}
 	if err != nil {
 		return registration, err
@@ -63,11 +68,11 @@ func (m *Manager) Register(ctx context.Context, spec user.Spec) (user.Registrati
 }
 
 func (m *Manager) Unregister(ctx context.Context, spec user.Spec) error {
-	def, err := user.Render(spec, user.PlatformWindows)
+	def, err := m.definitions.Render(ctx, spec, user.PlatformWindows)
 	if err != nil {
 		return err
 	}
-	if _, err = user.CheckDefinition(def, m.directory); err != nil {
+	if _, err = user.CheckDefinition(ctx, m.definitions, def, m.directory); err != nil {
 		return err
 	}
 	if _, deleteErr := m.run(ctx, "", "schtasks.exe", "/Delete", "/TN", def.Identity, "/F"); deleteErr != nil {
@@ -75,11 +80,11 @@ func (m *Manager) Unregister(ctx context.Context, spec user.Spec) error {
 			return fmt.Errorf("unregister scheduled task: %w", deleteErr)
 		}
 	}
-	return user.Remove(def, m.directory)
+	return m.definitions.Remove(ctx, def, m.directory)
 }
 
 func (m *Manager) Start(ctx context.Context, spec user.Spec) error {
-	def, err := m.requireDefinition(spec)
+	def, err := m.requireDefinition(ctx, spec)
 	if err != nil {
 		return err
 	}
@@ -90,7 +95,7 @@ func (m *Manager) Start(ctx context.Context, spec user.Spec) error {
 }
 
 func (m *Manager) Stop(ctx context.Context, spec user.Spec) error {
-	def, err := m.requireDefinition(spec)
+	def, err := m.requireDefinition(ctx, spec)
 	if err != nil {
 		return err
 	}
@@ -103,11 +108,11 @@ func (m *Manager) Stop(ctx context.Context, spec user.Spec) error {
 }
 
 func (m *Manager) Status(ctx context.Context, spec user.Spec) (user.Status, error) {
-	def, err := user.Render(spec, user.PlatformWindows)
+	def, err := m.definitions.Render(ctx, spec, user.PlatformWindows)
 	if err != nil {
 		return user.Status{}, err
 	}
-	inspection, err := user.Inspect(def, m.directory)
+	inspection, err := m.definitions.Inspect(ctx, def, m.directory)
 	if err != nil {
 		return user.Status{}, err
 	}
@@ -129,12 +134,12 @@ func (m *Manager) Status(ctx context.Context, spec user.Spec) (user.Status, erro
 	return status, nil
 }
 
-func (m *Manager) requireDefinition(spec user.Spec) (user.Definition, error) {
-	def, err := user.Render(spec, user.PlatformWindows)
+func (m *Manager) requireDefinition(ctx context.Context, spec user.Spec) (user.Definition, error) {
+	def, err := m.definitions.Render(ctx, spec, user.PlatformWindows)
 	if err != nil {
 		return def, err
 	}
-	inspection, err := user.CheckDefinition(def, m.directory)
+	inspection, err := user.CheckDefinition(ctx, m.definitions, def, m.directory)
 	if err != nil {
 		return def, err
 	}

@@ -1,6 +1,7 @@
 # ADR: Layers, the rules of `res/`, and language tiers
 
-Status: accepted on 2026-11-10, written against `main` at `71e1b8c0`. It collects decisions that
+Status: accepted on 2026-11-10 and revised for the native-library/resource-guest split on
+2026-11-26. It collects decisions that
 were made one at a time ([hosts in every language](adr-hosts-in-every-language.md),
 [engine selection](adr-engine-selection.md), [web layout](adr-web-layout.md),
 [graph runtime](adr-graph-runtime.md)) into one picture. It adds three things: the rules every
@@ -16,9 +17,9 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 | --- | --- | --- |
 | 1. Contracts | `ext.plugin/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
 | 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
-| 3. OS mechanisms | `res/system`, `res/web`, `res/int` | Go on desktop and server; each OS's own language inside an app |
-| 4. Read model | `res/graph`: the store, the recorder of `ext.system`, the supervisor; moving to `lib/ledger` | Go, then C |
-| 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; `ext-ios` and `ext-android` also bundle the native `res/` code | Every language |
+| 3. OS mechanisms | `lib/system`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
+| 4. Resource guests | `res/system`, `res/web`, `res/int`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
+| 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; `ext-ios` and `ext-android` bundle the native `lib/system` code | Every language |
 | 6. Adapters | `adapters/*`: one product, provider, browser or native tool each, loaded as packages | Mostly Go |
 | 7. Products | `ctx`, `ctn`, `ext`; Cymonkey and Xallet outside this repository | Selection, commands, policy |
 
@@ -27,11 +28,11 @@ The layers rest on three principles:
 - **A contract is data.** What a library means is written down as versioned fixtures, not as the
   behaviour of one implementation. Go is the reference implementation, but where Go and a fixture
   disagree, the fixture decides and the fix lands in Go.
-- **Native code goes where the OS is.** The host side is Go. Code that calls an OS framework, or that
-  lives inside an app, is written in that OS's own language: Swift on Apple platforms, Java or Kotlin
-  on Android, C# on Windows. Go is a poor guest inside another runtime: it brings its whole runtime,
-  only one can live in a process, it takes over signals and it cannot be unloaded. The one component
-  that must embed anywhere, the plugin engine, is C.
+- **Native code goes where the OS is.** Code that talks to OS-provided implementations lives in `lib/system` and uses
+  the language of the native platform API: Swift on Apple platforms, Java or Kotlin on Android,
+  and C# on Windows. C is used for portable libraries with a common ABI. An Ext guest in `res/`
+  calls that library and carries the protocol; native apps can also use the library directly.
+  Existing Go `res/` imports remain available while those callers migrate.
 - **Other languages cross the protocol.** A language reaches what another language implements
   through `ext.plugin/v1`. It does not get a C ABI per library or a second implementation.
 
@@ -67,10 +68,13 @@ design obligation.
    Error text is never part of a contract and never carries a value it was given.
 4. **Bounded and cancellable.** Every operation that reads, waits or buffers has a stated bound on
    size, count and time, and can be cancelled. No package keeps hidden global state.
-5. **Served over the protocol.** Rust, Python, TypeScript and the other SDKs reach `res/` through
-   a Go host serving it over `ext.plugin/v1`, with a thin typed wrapper in the SDK for the calls a
-   consumer needs. The service is designed before the first consumer asks, and built when one
-   does. Until then the `ext-io` names `system`, `web` and `int` stay reserved
+5. **Served over the protocol.** Rust, Python, TypeScript and the other SDKs reach a `res/`
+   guest through `ext.plugin/v1`, with a thin typed wrapper in the SDK for the calls a
+   consumer needs. A desktop guest can be a private Ext package process or a guest library;
+   a mobile app bundles and hosts its native guest. The guest depends on its `lib/system`
+   mechanism and the Ext guest SDK; the mechanism imports neither. The service is designed
+   before the first consumer asks, and built when one does. Until then the `ext-io` names
+   `system`, `web` and `int` stay reserved
    ([module versioning](module-versioning.md#the-ext-io-language-packages)).
 
 ## `res/graph` storage and `lib/ledger`

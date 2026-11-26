@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	ml "github.com/webong/ext/res/int/model"
-	"github.com/webong/ext/res/system/service/host/dirlock"
+	"github.com/webong/ext/res/system/device/dirlock"
 	inferencebridge "github.com/webong/ext/src/ctn/inference"
 	perceptionbridge "github.com/webong/ext/src/ctn/perception"
 )

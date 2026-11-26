@@ -6,16 +6,12 @@ import (
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"io"
 	"net/url"
-	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
 
 	"github.com/webong/ext/adapters/chromium/engine/webextension"
 	browsershare "github.com/webong/ext/res/web/host/contract"
 	"github.com/webong/ext/res/web/host/manage/discovery"
 	kit "github.com/webong/ext/res/web/host/manage/guest"
-	"github.com/webong/ext/res/web/host/manage/policy"
 )
 
 // Config identifies the browser's profile registry. Cookie and NSS handling
@@ -74,7 +70,7 @@ func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer
 			break
 		}
 		if config.Name == "firefox" {
-			return policy.RunPolicyExport(input, stdout, stderr, firefoxPolicySources())
+			return runFirefoxPolicyExport(input, stdout, stderr)
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Firefox share resource or operation")
@@ -114,28 +110,4 @@ func firefoxShareStatus(config Config, profile string) browsershare.Availability
 		operations["certificate.import"] = "blocked"
 	}
 	return browsershare.AvailabilityReport{Version: browsershare.AvailabilityVersion, Operations: operations}
-}
-
-func firefoxPolicySources() policy.PolicySources {
-	switch runtime.GOOS {
-	case "linux":
-		return policy.PolicySources{Files: []policy.PolicyFile{
-			{Path: "/etc/firefox/policies/policies.json", Level: "managed", Format: "json"},
-			{Path: "/usr/lib/firefox/distribution/policies.json", Level: "managed", Format: "json"},
-			{Path: "/usr/lib64/firefox/distribution/policies.json", Level: "managed", Format: "json"},
-		}}
-	case "darwin":
-		sources := policy.PolicySources{Files: []policy.PolicyFile{
-			{Path: filepath.Join("/Library/Managed Preferences", "org.mozilla.firefox.plist"), Level: "managed", Format: "plist"},
-			{Path: filepath.Join("/Library/Managed Preferences", os.Getenv("USER"), "org.mozilla.firefox.plist"), Level: "managed", Format: "plist"},
-		}}
-		for _, path := range []string{"/Applications/Firefox.app/Contents/Resources/distribution/policies.json", filepath.Join(os.Getenv("HOME"), "Applications/Firefox.app/Contents/Resources/distribution/policies.json")} {
-			sources.Files = append(sources.Files, policy.PolicyFile{Path: path, Level: "managed", Format: "json"})
-		}
-		return sources
-	case "windows":
-		return policy.PolicySources{RegistryKey: `Software\Policies\Mozilla\Firefox`}
-	default:
-		return policy.PolicySources{}
-	}
 }

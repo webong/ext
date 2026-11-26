@@ -37,15 +37,16 @@ func serviceCommand(args []string, stdout, stderr io.Writer) int {
 	if options.platform != "" {
 		platform = user.Platform(options.platform)
 	}
-	spec, err := user.ValidateSpec(options.spec, platform)
+	definitions, err := newServiceLedger()
+	if err != nil {
+		return reportError(stderr, err)
+	}
+	spec := options.spec
+	definition, err := definitions.Render(context.Background(), spec, platform)
 	if err != nil {
 		return reportError(stderr, err)
 	}
 	if action == "render" {
-		definition, err := user.Render(spec, platform)
-		if err != nil {
-			return reportError(stderr, err)
-		}
 		if options.json {
 			return writeJSON(stdout, stderr, definition)
 		}
@@ -60,7 +61,7 @@ func serviceCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctx: service lifecycle needs --dir for the definition directory")
 		return 2
 	}
-	manager, err := currentServiceManager(options.directory)
+	manager, err := currentServiceManager(options.directory, definitions)
 	if err != nil {
 		return reportError(stderr, err)
 	}
@@ -226,12 +227,12 @@ func parseServiceOptions(args []string) (serviceOptions, error) {
 // systemd is a selectable native tool delivered as adapters/systemd, which ctx
 // core does not link; render a unit with --platform linux and register it with
 // that library or the system's own tooling.
-func currentServiceManager(directory string) (user.Manager, error) {
+func currentServiceManager(directory string, definitions user.Definitions) (user.Manager, error) {
 	switch runtime.GOOS {
 	case "darwin":
-		return launchd.New(launchd.Config{Directory: directory, UID: os.Getuid()})
+		return launchd.New(launchd.Config{Directory: directory, UID: os.Getuid(), Definitions: definitions})
 	case "windows":
-		return taskscheduler.New(taskscheduler.Config{Directory: directory})
+		return taskscheduler.New(taskscheduler.Config{Directory: directory, Definitions: definitions})
 	default:
 		return nil, fmt.Errorf("service lifecycle on %s requires the adapters/systemd library; use ctx service render --platform linux to generate a unit", runtime.GOOS)
 	}

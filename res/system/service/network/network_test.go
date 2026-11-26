@@ -1,38 +1,33 @@
 package network
 
 import (
-	"context"
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestDiscoverIsBoundedAndDoesNotExposeRemoteActivity(t *testing.T) {
-	if _, err := Discover(context.Background(), Options{MaxInterfaces: 1, MaxAddresses: 1, MaxRoutes: -1, Timeout: time.Second}); err == nil {
-		t.Fatal("negative route limit was accepted")
-	}
-	snapshot, err := Discover(context.Background(), DefaultOptions())
-	if err != nil {
+func TestNetworkContractIsBoundedAndDoesNotExposeRemoteActivity(t *testing.T) {
+	options := DefaultOptions()
+	if err := options.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Platform == "" || snapshot.InterfaceStatus.State == "" || snapshot.RouteStatus.State == "" || snapshot.ResolverStatus.State == "" {
-		t.Fatalf("incomplete network observation: %+v", snapshot)
+	options.MaxRoutes = -1
+	if err := options.Validate(); err == nil {
+		t.Fatal("negative route limit was accepted")
 	}
-	for name, status := range map[string]CollectionStatus{"interface": snapshot.InterfaceStatus, "route": snapshot.RouteStatus, "resolver": snapshot.ResolverStatus} {
+	snapshot := Snapshot{
+		Platform: "fixture", ObservedAt: time.Now().UTC(),
+		Interfaces: []Interface{}, Routes: []Route{},
+		Resolver:        Resolver{Servers: []string{}, Search: []string{}, Options: []string{}},
+		InterfaceStatus: CollectionStatus{State: "complete"},
+		RouteStatus:     CollectionStatus{State: "unsupported", Reason: "unsupported"},
+		ResolverStatus:  CollectionStatus{State: "unavailable", Reason: "no_device"},
+	}
+	for _, status := range []CollectionStatus{snapshot.InterfaceStatus, snapshot.RouteStatus, snapshot.ResolverStatus} {
 		if err := status.Validate(); err != nil {
-			t.Fatalf("%s status: %v", name, err)
+			t.Fatal(err)
 		}
-		if status.State == "unavailable" && status.Reason == "" {
-			t.Fatalf("%s status is unavailable without a reason", name)
-		}
-	}
-	if got := unavailable(os.ErrPermission, "refused"); got.Reason != "permission" || got.Validate() != nil {
-		t.Fatal(got)
-	}
-	if got := unavailable(nil, "absent"); got.Reason != "no_device" || got.Validate() != nil {
-		t.Fatal(got)
 	}
 	data, err := json.Marshal(snapshot)
 	if err != nil {
@@ -40,7 +35,7 @@ func TestDiscoverIsBoundedAndDoesNotExposeRemoteActivity(t *testing.T) {
 	}
 	for _, forbidden := range []string{"request_body", "response_body", "credential", "connection_token"} {
 		if strings.Contains(string(data), forbidden) {
-			t.Fatalf("network observation exposed %q", forbidden)
+			t.Fatalf("network contract exposed %q", forbidden)
 		}
 	}
 }

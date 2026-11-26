@@ -1,14 +1,8 @@
 package surface
 
 import (
-	"context"
 	"fmt"
-	"runtime"
-	"sort"
 	"time"
-
-	proc "github.com/webong/ext/res/system/service/process"
-	"strconv"
 )
 
 // AccessibilityElement is a caller-visible node in the focused application's
@@ -36,7 +30,7 @@ type AccessibilityElement struct {
 type AccessibilitySnapshot struct {
 	Platform   string                 `json:"platform"`
 	ObservedAt time.Time              `json:"observed_at"`
-	Status     proc.CollectionStatus  `json:"status"`
+	Status     CollectionStatus       `json:"status"`
 	Elements   []AccessibilityElement `json:"elements"`
 }
 
@@ -68,36 +62,4 @@ func (o AccessibilityOptions) Validate() error {
 		return fmt.Errorf("%w: accessibility timeout must be positive", ErrInvalid)
 	}
 	return nil
-}
-
-// DiscoverAccessibility observes the focused local application's native UI
-// structure. It does not request permission, mutate attributes, invoke actions,
-// synthesize input, capture pixels, or communicate with another process over a
-// transport.
-func DiscoverAccessibility(ctx context.Context, options AccessibilityOptions) (AccessibilitySnapshot, error) {
-	err := options.Validate()
-	if err != nil {
-		return AccessibilitySnapshot{}, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, options.Timeout)
-	defer cancel()
-	now := time.Now().UTC()
-	result := AccessibilitySnapshot{Platform: runtime.GOOS, ObservedAt: now, Elements: []AccessibilityElement{}}
-	result.Elements, result.Status, err = platformAccessibility(ctx, options)
-	if err != nil {
-		return result, err
-	}
-	if result.Elements == nil {
-		result.Elements = []AccessibilityElement{}
-	}
-	stampSurfaceStatus(&result.Status, now)
-	for index := range result.Elements {
-		sort.Strings(result.Elements[index].Actions)
-	}
-	sort.SliceStable(result.Elements, func(i, j int) bool { return result.Elements[i].ID < result.Elements[j].ID })
-	return result, ctx.Err()
-}
-
-func accessibilityElementID(pid int, startID, path string) string {
-	return surfaceID("accessibility", strconv.Itoa(pid)+"\x00"+startID+"\x00"+path)
 }

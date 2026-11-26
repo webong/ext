@@ -1,6 +1,6 @@
 /* Host resources: logical CPUs
  * and the capacity a cgroup quota leaves (Linux), physical memory and a cgroup
- * limit, container evidence (Linux), storage and power (Linux), and uptime with
+ * limit, container evidence (Linux), storage and power where visible, and uptime with
  * the boot time it implies. Local files and counters only; no command runs. */
 #if defined(__linux__)
 #define _GNU_SOURCE
@@ -30,8 +30,14 @@
 #include <unistd.h>
 #elif defined(__APPLE__)
 #include <sys/sysctl.h>
+#include <sys/statvfs.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <objc/message.h>
+#include <objc/runtime.h>
+#endif
 #elif !defined(_WIN32)
 #include <unistd.h>
 #endif
@@ -263,6 +269,19 @@ static lj_value *linux_container(void) {
 }
 
 static lj_value *linux_storage(void) {
+#if defined(__ANDROID__)
+  struct statvfs st;
+  if (statvfs("/data", &st) != 0) return NULL;
+  lj_value *list = lj_new(LJ_ARRAY), *s = rec_obj();
+  if (!list || !s || set(s, "device", rec_str("local")) ||
+      set(s, "mount_point", rec_str("/data")) ||
+      set(s, "total_bytes", rec_num((double)((uint64_t)st.f_blocks * st.f_frsize))) ||
+      set(s, "available_bytes", rec_num((double)((uint64_t)st.f_bavail * st.f_frsize))) ||
+      lj_array_push(list, s)) {
+    lj_free(s); lj_free(list); return NULL;
+  }
+  return list;
+#else
   FILE *f = fopen("/proc/mounts", "r");
   if (!f) return NULL;
   lj_value *list = lj_new(LJ_ARRAY);
@@ -290,6 +309,7 @@ static lj_value *linux_storage(void) {
     list = NULL;
   }
   return list;
+#endif
 }
 
 static lj_value *linux_power(void) {
@@ -331,6 +351,86 @@ static lj_value *linux_power(void) {
   set(p, "state", rec_str(state));
   set(p, "percentage", rec_num(percentage));
   return p;
+}
+#endif
+
+#if defined(__APPLE__)
+static lj_value *apple_storage(void) {
+#if TARGET_OS_IPHONE
+  const char *path = getenv("HOME");
+  if (!path || !*path) return NULL;
+#else
+  const char *path = "/";
+#endif
+  struct statvfs st;
+  if (statvfs(path, &st) != 0) return NULL;
+  lj_value *list = lj_new(LJ_ARRAY), *s = rec_obj();
+  if (!list || !s || set(s, "device", rec_str("local")) ||
+      set(s, "mount_point", rec_str(path)) ||
+      set(s, "total_bytes", rec_num((double)((uint64_t)st.f_blocks * st.f_frsize))) ||
+      set(s, "available_bytes", rec_num((double)((uint64_t)st.f_bavail * st.f_frsize))) ||
+      set(s, "type", rec_str("apfs")) || lj_array_push(list, s)) {
+    lj_free(s); lj_free(list); return NULL;
+  }
+  return list;
+}
+
+static lj_value *apple_power(void) {
+#if TARGET_OS_IPHONE
+  Class cls = objc_getClass("UIDevice");
+  if (!cls) return NULL;
+  id device = ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("currentDevice"));
+  if (!device) return NULL;
+  ((void (*)(id, SEL, BOOL))objc_msgSend)(device, sel_registerName("setBatteryMonitoringEnabled:"), YES);
+  float level = ((float (*)(id, SEL))objc_msgSend)(device, sel_registerName("batteryLevel"));
+  if (level < 0 || level > 1) return NULL;
+  long state = ((long (*)(id, SEL))objc_msgSend)(device, sel_registerName("batteryState"));
+  const char *name = state == 2 ? "charging" : state == 3 ? "charged" : state == 1 ? "discharging" : "unknown";
+  lj_value *power = rec_obj();
+  if (!power || set(power, "state", rec_str(name)) ||
+      set(power, "percentage", rec_num(roundf(level * 100)))) {
+    lj_free(power); return NULL;
+  }
+  return power;
+#else
+  return NULL;
+#endif
+}
+#endif
+
+#if defined(_WIN32)
+static lj_value *windows_storage(void) {
+  WCHAR system[MAX_PATH], root[MAX_PATH];
+  if (!GetWindowsDirectoryW(system, MAX_PATH) ||
+      !GetVolumePathNameW(system, root, MAX_PATH)) return NULL;
+  ULARGE_INTEGER available, total, free_bytes;
+  if (!GetDiskFreeSpaceExW(root, &available, &total, &free_bytes)) return NULL;
+  char path[MAX_PATH * 4];
+  if (!WideCharToMultiByte(CP_UTF8, 0, root, -1, path, sizeof path, NULL, NULL)) return NULL;
+  lj_value *list = lj_new(LJ_ARRAY), *s = rec_obj();
+  if (!list || !s || set(s, "device", rec_str("local")) ||
+      set(s, "mount_point", rec_str(path)) ||
+      set(s, "total_bytes", rec_num((double)total.QuadPart)) ||
+      set(s, "available_bytes", rec_num((double)available.QuadPart)) ||
+      lj_array_push(list, s)) {
+    lj_free(s); lj_free(list); return NULL;
+  }
+  return list;
+}
+
+static lj_value *windows_power(void) {
+  SYSTEM_POWER_STATUS status;
+  if (!GetSystemPowerStatus(&status) || status.BatteryFlag == 128 ||
+      status.BatteryLifePercent == 255 || status.BatteryLifePercent > 100) return NULL;
+  const char *state = status.BatteryFlag & 8 ? "charging" :
+                      status.BatteryLifePercent == 100 ? "charged" :
+                      status.ACLineStatus == 0 ? "discharging" : "unknown";
+  lj_value *power = rec_obj();
+  if (!power || set(power, "state", rec_str(state)) ||
+      set(power, "percentage", rec_num(status.BatteryLifePercent))) {
+    lj_free(power); return NULL;
+  }
+  return power;
 }
 #endif
 
@@ -456,6 +556,15 @@ int ll_collect_resources(const ext_ledger_context *ctx, lj_value **out) {
   lj_value *container = rec_obj();
   bad |= set(container, "detected", rec_bool(0)) | set(container, "state", rec_str("unsupported")) | set(container, "evidence", lj_new(LJ_ARRAY)) |
          set(r, "container", container);
+#if defined(__APPLE__)
+  lj_value *storage = apple_storage(), *power = apple_power();
+  if (storage) bad |= set(r, "storage", storage);
+  if (power) bad |= set(r, "power", power);
+#elif defined(_WIN32)
+  lj_value *storage = windows_storage(), *power = windows_power();
+  if (storage) bad |= set(r, "storage", storage);
+  if (power) bad |= set(r, "power", power);
+#endif
 #endif
   bad |= set(r, "cpu_capacity", rec_num(capacity)) | set(r, "cpu_status", cpu_status) | set(r, "memory_bytes", rec_num((double)memory)) |
          set(r, "memory_capacity_bytes", rec_num((double)memory_capacity)) | set(r, "memory_status", memory_status);

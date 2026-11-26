@@ -9,8 +9,8 @@ from a project's own README on 2026-10-08) or **unverified**.
 A Swift or Kotlin app that hosts third-party ext plugins cannot load downloaded
 native code: iOS and Google Play forbid it (**unverified**: the exact store rules
 were not read). Interpreted WebAssembly is the usual way around that. The shared C
-engine in `lib/plugin` has no WebAssembly runtime, and `res/web/host/engine/wasm` uses
-wazero, which is Go. What should mobile hosts use?
+engine in `lib/plugin` has no WebAssembly runtime, and the Go implementation
+in `pkg/ext-go/wasm/runtime` uses wazero. What should mobile hosts use?
 
 ## Option 1: a C-callable interpreter in `lib/plugin`
 
@@ -118,7 +118,7 @@ functions (a reactor) needs no blocking input, no Worker and no isolation. The p
 or any interpreter, just calls the exports. The contract, including the allocation
 exports WebAssembly memory needs, is [the reactor ABI](plugin-reactor-abi.md); a
 reactor guest and a Go host (`wasm.OpenReactor` in `pkg/ext-go/wasm`, backed by
-the raw reactor host in `res/web/host/engine/wasm`) pass the
+the raw reactor host in `pkg/ext-go/wasm/runtime`) pass the
 cross-language conformance suite.
 
 ## Decision

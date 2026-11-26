@@ -2,6 +2,8 @@
 
 `cengine/ledger` binds `lib/ledger` through `cengine/library`. `Bind` accepts an
 explicitly loaded library; `BindInterface` accepts an explicit ABI driver.
+`CreatePrivateVolume`, `InspectPrivateVolume` and `RemovePrivateVolume` use the
+ledger's native private-directory operations; there is no Go filesystem fallback.
 `Library.OpenStore` opens a C store, `NewGraph` opens its recorder, and
 `NativeStore.OpenWatch` provides typed change observation.
 

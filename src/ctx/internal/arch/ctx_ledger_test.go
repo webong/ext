@@ -66,3 +66,45 @@ func TestCTXGraphUsesNativeLedger(t *testing.T) {
 		}
 	}
 }
+
+// The ledger owns these native observations; the resource module retains
+// contracts and actions without a second Go collector.
+func TestLedgerCollectorsHaveNoGoFallback(t *testing.T) {
+	root := repoRoot(t)
+	for _, name := range []string{"host", "program", "process"} {
+		dir := filepath.Join(root, "res/system/service", name)
+		entries, err := os.ReadDir(dir)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range entries {
+			if strings.HasSuffix(entry.Name(), ".go") {
+				t.Errorf("%s still has Go collector %s", dir, entry.Name())
+			}
+		}
+	}
+	dir := filepath.Join(root, "res/system/capture/surface")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			fn, ok := declaration.(*ast.FuncDecl)
+			if ok && fn.Recv == nil && strings.HasPrefix(fn.Name.Name, "Discover") {
+				t.Errorf("%s still exposes Go observation %s", path, fn.Name.Name)
+			}
+		}
+	}
+}

@@ -18,11 +18,6 @@ func clipboardCommand(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	action := args[0]
-	backend, available := nativeClipboardBackend()
-	if !available {
-		fmt.Fprintln(stderr, "ctx: no Go clipboard backend is available on this platform; Apple and Android bindings ship in the SDKs")
-		return 2
-	}
 	formatName := ""
 	expected := ""
 	text := ""
@@ -80,6 +75,11 @@ func clipboardCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctx: clipboard generation takes no options")
 			return 2
 		}
+		backend, closeBackend, err := openClipboardBackend(ctx)
+		if err != nil {
+			return reportError(stderr, err)
+		}
+		defer closeBackend()
 		generation, err := backend.Generation(ctx)
 		if err != nil {
 			return reportError(stderr, err)
@@ -91,6 +91,11 @@ func clipboardCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctx: clipboard read needs --format and no write options")
 			return 2
 		}
+		backend, closeBackend, err := openClipboardBackend(ctx)
+		if err != nil {
+			return reportError(stderr, err)
+		}
+		defer closeBackend()
 		policy := clipboard.Policy{MaxBytes: maxBytes, AllowedFormats: []string{formatName}, AllowRead: true}
 		reader, err := clipboard.New(backend, policy)
 		if err != nil {
@@ -122,6 +127,11 @@ func clipboardCommand(args []string, stdout, stderr io.Writer) int {
 			}
 			data = payload
 		}
+		backend, closeBackend, err := openClipboardBackend(ctx)
+		if err != nil {
+			return reportError(stderr, err)
+		}
+		defer closeBackend()
 		policy := clipboard.Policy{MaxBytes: maxBytes, AllowedFormats: []string{formatName}, AllowWrite: true}
 		writer, err := clipboard.New(backend, policy)
 		if err != nil {
@@ -140,6 +150,11 @@ func clipboardCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ctx: clipboard clear needs --generation and no other options")
 			return 2
 		}
+		backend, closeBackend, err := openClipboardBackend(ctx)
+		if err != nil {
+			return reportError(stderr, err)
+		}
+		defer closeBackend()
 		policy := clipboard.Policy{MaxBytes: maxBytes, AllowedFormats: []string{"CF_UNICODETEXT"}, AllowWrite: true}
 		writer, err := clipboard.New(backend, policy)
 		if err != nil {

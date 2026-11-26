@@ -49,7 +49,7 @@ requirement once and have it mean the same thing on every path.
 | Guest runtime | Boundary | Policy today |
 | --- | --- | --- |
 | `process` (`engine/plugin/host/process`) and the C engine's process launch | None beyond the OS user | The environment is scrubbed to `PATH` (plus `SystemRoot` on Windows), retained stderr is capped, and canceling a call kills the child. Filesystem, network and resources are those of the user. |
-| WASI (`res/web/host/engine/wasm`, `pkg/ext-go/wasm`) | Runtime | Linear memory is limited (4096 pages by default). Directories, environment and arguments are explicit grants. The guest closes when its context is done. There is no fuel: CPU is bounded only by deadlines, and a blocking host callback cannot be interrupted. |
+| WASI (`pkg/ext-go/wasm/runtime`, `pkg/ext-go/wasm`) | Runtime | Linear memory is limited (4096 pages by default). Directories, environment and arguments are explicit grants. The guest closes when its context is done. There is no fuel: CPU is bounded only by deadlines, and a blocking host callback cannot be interrupted. |
 | yaegi (`go-source`), native Go, C shared library (`cshared`) | None: the guest runs in the host's process | yaegi checks imports against an allowlist. That is a policy inside the host's own authority, not a boundary. |
 | go-plugin (`pkg/ext-go/hashicorp`) | None beyond the OS user | As for `process`. |
 
@@ -343,8 +343,8 @@ Taken by the user on 2026-11-19.
    consumer needs deterministic limits. Instrumenting modules, or another runtime with
    fuel, can be decided then.
 6. **Xallet's VM and Windows process code moves into workload drivers,** through workload's
-   own issues, not into ext. The process-identity part already exists in
-   `res/system/service/process` and is reused rather than moved.
+   own issues, not into ext. Process identity is collected by `lib/ledger` and
+   is reused through its library interface.
 
 ## Phases
 

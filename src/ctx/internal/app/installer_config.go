@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/res/system/service/program"
+	"github.com/webong/ext/src/ctx/internal/program"
 )
 
 // A configured installer is one the user described in their own home instead of
@@ -147,10 +147,14 @@ func saveInstallerFile(file installerFile) error {
 // configuredInstallerReports scans each installer's directories for the names and
 // returns what each found, the way an installer adapter's report is joined with
 // the PATH scan.
-func configuredInstallerReports(installers []configuredInstaller, names []string, env func(string) string) map[string][]program.Candidate {
+func configuredInstallerReports(installers []configuredInstaller, names []string, env func(string) string) (map[string][]program.Candidate, error) {
 	reports := map[string][]program.Candidate{}
 	for _, item := range installers {
-		reports[item.Name] = program.ScanRoots(names, item.Roots, env)
+		found, err := program.ScanRoots(names, item.Roots, env)
+		if err != nil {
+			return nil, err
+		}
+		reports[item.Name] = found
 	}
-	return reports
+	return reports, nil
 }

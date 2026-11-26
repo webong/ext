@@ -17,6 +17,8 @@ depending on plugin or owning plugin execution.
 | Reader | Done: `ext_ledger_store_open_reader`, which never locks or writes, and the `ext-ledger` command |
 | Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_recorder_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
 | Collectors | Done: `ext_ledger_collect` and `ext_ledger_recorder_scan`, through each kernel's own interface, so the recorder reads the machine itself |
+| Private volumes | POSIX create, inspect and bounded remove use fd-relative, no-follow traversal through the described `volume_*` operations. Go binds them in `pkg/ext-go/cengine/ledger`; the caller selects paths and authorizes removal. |
+| Mobile host resources | The C collector reads app-visible resources. Swift `ExtHost` in `pkg/ext-darwin` and Java `SystemResourcesObserver` in `pkg/ext-android` bind it and decode its wire record. The platform SDKs ship these bindings and the C library. |
 | Supervisor | Done: `ext_ledger_supervisor_*`, checked by the native supervisor suite |
 | Library interface | Done: `ext_ledger_open`, `ext_ledger_call`, `ext_ledger_close` and `ext_ledger_abi_version`, every object behind four functions, described by `interface.json` (`describe`) |
 
@@ -74,6 +76,17 @@ binds these and nothing else (ext-go's purego, cgo and ccgo drivers do): `ext_le
 store, a watch, a recorder or a supervisor from a JSON config and returns a handle, `ext_ledger_call`
 runs an operation by name with a JSON object in and a JSON value out, and `ext_ledger_close` frees it.
 Handle 0 is the library itself (collect, the vocabulary, canonical transactions, code names).
+It also exposes `program_scan` and `program_inspect` for named executable
+discovery and checking a caller-declared path, `host_path` for exact filesystem
+and access checks, `process_start` for rechecking an observed PID's birth token,
+`volume_create`, `volume_inspect` and `volume_remove` for bounded private
+directories,
+`service_render` for launchd, systemd and Task Scheduler definitions, and
+`service_publish`, `service_inspect` and `service_remove` for non-replacing
+publication in a caller-selected directory. The ledger checks the expected
+definition before removal. A selected platform manager or Ext adapter performs
+registration, start, stop and status; no service-manager command runs in the
+ledger.
 
 ```c
 uint64_t store, recorder;

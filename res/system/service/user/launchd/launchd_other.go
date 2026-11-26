@@ -9,9 +9,10 @@ import (
 )
 
 type Config struct {
-	Directory string
-	UID       int
-	Run       user.CommandRunner
+	Directory   string
+	UID         int
+	Run         user.CommandRunner
+	Definitions user.Definitions
 }
 
 // Manager is a placeholder on hosts without launchd so importing the package

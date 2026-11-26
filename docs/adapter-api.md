@@ -315,8 +315,8 @@ with the same limits as `observe`:
 ~~~
 
 CTX keeps only records for names it asked about and only paths that are existing
-executables, joins them with a scan of `PATH` by resolved path
-(`res/system/service/program`), and gives each adapter that declares `computer_commands`
+executables, joins them with a C ledger scan of `PATH` by resolved path
+(through `src/ctx/internal/program`), and gives each adapter that declares `computer_commands`
 the candidates for its commands in `EXT_PROGRAMS`: one line per candidate with
 tab-separated `name`, `path`, `realpath`, `version`, `installers` and `on_path`.
 The adapter decides what each one is and whether it is usable. See
@@ -626,8 +626,14 @@ backend is not concurrency safe and credentials must not be cached globally.
 Host-side query output supports JSON, a single-site HTTP Cookie header, and
 Netscape jars; text formats reject partitioned or adapter-scoped records.
 See [cookie workflows and validation](browser-cookies.md).
-`policy.export` receives only `version` and returns a policy bundle with
-`version` and `entries`. A nonzero exit code reports failure on stderr.
+`policy.export` receives exactly `{"version":2}` and returns one JSON policy
+bundle with `"version":2` and an `entries` array. Each entry has nonempty
+`location`, `level`, and `format` strings plus a `content` string; content with
+format `json` must be valid JSON. An empty array means no policy source was
+found. The host validates the bundle and assigns `source` from the selected
+adapter and profile. A nonzero exit code reports failure on stderr. The
+language-neutral request and response cases live in
+`res/web/testdata/policy/v2/cases.json`; implementing them does not require Go.
 Cookie `id` is a source row ID where available; adapters without row IDs can
 return an opaque `ref`. Adapters must preserve cookie scope and reject fields
 they cannot map. ctx selects one listed cookie before exporting its value,
@@ -642,9 +648,9 @@ executable. The helper receives the same invocation as every adapter,
 and parses it with `plugin.ParseAdapterInvocation` from `pkg/ext-go`; the
 adapter's shell or PowerShell entry point passes its argv through unchanged.
 CTX core has no browser-specific storage code or provider dispatch.
-Maintained adapters use `res/web/host/contract` for versioned request, cookie,
-policy, and generic resource envelope types. External adapters implement the
-documented JSON contract directly. Cookie fields
+Maintained Go adapters use `res/web/host/contract` for versioned request,
+cookie, policy, and generic resource envelope types. Adapters in other
+languages implement the documented JSON contract directly. Cookie fields
 shared across browsers are portable; optional browser-specific fields go in
 `attributes` with namespaced keys such as `firefox.origin_attributes`.
 CTX treats these attributes as opaque and compares the complete map when
@@ -710,7 +716,11 @@ adapter omitted from automatic discovery. Result cookies retain a `source` label
 `source_info` with adapter, profile, and any adapter-reported store path.
 Inline fallback cookies carry `source_info.fallback = true`.
 The library also exposes `browser.ParseCookies` for portable JSON and Netscape
-exports, and `browser.BundleCookie` for a selected single-cookie import. Cookie
+exports, `browser.BundleCookie` for a selected single-cookie import, and
+`browser.ListForSite`, `browser.Select`, `browser.ExportSelected`, `browser.Import`
+and `browser.Copy` for a single-cookie transfer through caller-selected backends.
+`res/web/host/manage/resource` exports and imports opaque browser resource
+bundles through the same kind of caller-selected backend. Cookie
 input validation preserves native scope and rejects fields it cannot interpret.
 Queries retain nonfatal source/row warnings; cancellation and timeout return an
 error. The CLI's `--strict` and `--require-match` flags withhold output on warnings

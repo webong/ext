@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/webong/ext/res/system/service/user"
+	"github.com/webong/ext/res/system/service/user/testdefinitions"
 )
 
 type call struct {
@@ -48,7 +49,7 @@ func (f *fakeRunner) invoked(fragment string) bool {
 func testManager(t *testing.T, run *fakeRunner) (*Manager, string) {
 	t.Helper()
 	directory := t.TempDir()
-	manager, err := New(Config{Directory: directory, Executable: "systemctl", Run: run.run})
+	manager, err := New(Config{Directory: directory, Executable: "systemctl", Run: run.run, Definitions: testdefinitions.Backend{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +179,7 @@ func TestNewRequiresAbsoluteDirectory(t *testing.T) {
 	if _, err := New(Config{Directory: "relative"}); !errors.Is(err, user.ErrInvalid) {
 		t.Fatalf("relative directory = %v", err)
 	}
-	if _, err := New(Config{Directory: t.TempDir(), Executable: "/bin/false"}); err != nil {
+	if _, err := New(Config{Directory: t.TempDir(), Executable: "/bin/false", Definitions: testdefinitions.Backend{}}); err != nil {
 		t.Fatalf("explicit executable = %v", err)
 	}
 }

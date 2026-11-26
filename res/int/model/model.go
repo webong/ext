@@ -5,8 +5,8 @@
 // The package owns manifest and store contracts only. It never downloads a
 // model, chooses a provider, runs inference itself, authorizes access, or
 // exposes a remote protocol. Native model backends ship beside this contract
-// as platform implementations (iOS CoreML in res/int/model/ios, Android NNAPI/TensorFlow
-// Lite in res/int/model/android) or as product adapters.
+// as platform implementations (iOS CoreML in lib/system/int/model/ios, Android NNAPI/TensorFlow
+// Lite in lib/system/int/model/android) or as product adapters.
 package model
 
 import (

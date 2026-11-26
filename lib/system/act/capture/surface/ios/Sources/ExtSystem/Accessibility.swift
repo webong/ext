@@ -1,0 +1,336 @@
+import CryptoKit
+import Foundation
+
+#if os(macOS)
+import AppKit
+import ApplicationServices
+#elseif os(iOS)
+import UIKit
+#endif
+
+public struct AccessibilityElement: Codable, Equatable, Sendable {
+    public let id: String
+    public let parentID: String?
+    public let pid: Int
+    public let processStartID: String
+    public let role: String
+    public let identifier: String?
+    public let label: String?
+    public let value: String?
+    public let bounds: SurfaceBounds?
+    public let actions: [String]
+    public let enabled: Bool?
+    public let focused: Bool?
+
+    public init(id: String, parentID: String? = nil, pid: Int, processStartID: String,
+                role: String, identifier: String? = nil, label: String? = nil,
+                value: String? = nil, bounds: SurfaceBounds? = nil, actions: [String] = [],
+                enabled: Bool? = nil, focused: Bool? = nil) {
+        self.id = id; self.parentID = parentID; self.pid = pid; self.processStartID = processStartID
+        self.role = role; self.identifier = identifier; self.label = label; self.value = value
+        self.bounds = bounds; self.actions = actions; self.enabled = enabled; self.focused = focused
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, pid, role, identifier, label, value, bounds, actions, enabled, focused
+        case parentID = "parent_id"
+        case processStartID = "process_start_id"
+    }
+}
+
+public struct AccessibilitySnapshot: Codable, Equatable, Sendable {
+    public let platform: String
+    public let observedAt: String
+    public let status: SurfaceCollectionStatus
+    public let elements: [AccessibilityElement]
+
+    public init(platform: String, observedAt: String, status: SurfaceCollectionStatus,
+                elements: [AccessibilityElement]) {
+        self.platform = platform; self.observedAt = observedAt; self.status = status; self.elements = elements
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case platform, status, elements
+        case observedAt = "observed_at"
+    }
+}
+
+/// Bounds traversal, as Go's `surface.AccessibilityOptions`: 1024 elements, depth 16 and five
+/// seconds by default. The timeout is above zero and at most an hour.
+public struct AccessibilityOptions: Equatable, Sendable {
+    public let maxElements: Int
+    public let maxDepth: Int
+    public let includeText: Bool
+    public let timeout: TimeInterval
+
+    public init(maxElements: Int = 1024, maxDepth: Int = 16, includeText: Bool = false, timeout: TimeInterval = 5) throws {
+        guard (1...65_536).contains(maxElements), (1...256).contains(maxDepth), ObservationBound.valid(timeout) else {
+            throw AccessibilityObservationError.invalidLimit
+        }
+        self.maxElements = maxElements; self.maxDepth = maxDepth; self.includeText = includeText
+        self.timeout = timeout
+    }
+}
+
+public enum AccessibilityObservationError: Error, Equatable {
+    case invalidLimit
+    /// The observation ran past its timeout.
+    case timeout
+    /// The task running the observation was canceled.
+    case canceled
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidLimit: return "invalid"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw AccessibilityObservationError.timeout
+        case .canceled?: throw AccessibilityObservationError.canceled
+        case nil: return
+        }
+    }
+}
+
+extension AccessibilityElement {
+    /// Reads an element in its wire form: missing `actions` is empty (Go leaves it out when empty).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(String.self, forKey: .id), parentID: try c.decodeIfPresent(String.self, forKey: .parentID),
+                  pid: try c.decode(Int.self, forKey: .pid), processStartID: try c.decode(String.self, forKey: .processStartID),
+                  role: try c.decode(String.self, forKey: .role), identifier: try c.decodeIfPresent(String.self, forKey: .identifier),
+                  label: try c.decodeIfPresent(String.self, forKey: .label), value: try c.decodeIfPresent(String.self, forKey: .value),
+                  bounds: try c.decodeIfPresent(SurfaceBounds.self, forKey: .bounds), actions: try c.decodeIfPresent([String].self, forKey: .actions) ?? [],
+                  enabled: try c.decodeIfPresent(Bool.self, forKey: .enabled), focused: try c.decodeIfPresent(Bool.self, forKey: .focused))
+    }
+}
+
+extension AccessibilitySnapshot {
+    /// Checks a snapshot against the rules of `testdata/surface/v1`: the platform and time are set,
+    /// the status fits the capability rules, element ids are set and unique, a parent is another
+    /// element of the snapshot without a cycle, a process is named, a role is set, bounds are
+    /// positive and action names are not empty.
+    public func validate() throws {
+        guard !platform.isEmpty, SurfaceWire.timestamp(observedAt) else { throw SurfaceObservationError.invalidValue }
+        try status.validate()
+        var parents: [String: String?] = [:]
+        for element in elements {
+            guard !element.id.isEmpty, parents[element.id] == nil, element.pid >= 1, !element.role.isEmpty,
+                  !element.actions.contains(where: \.isEmpty) else { throw SurfaceObservationError.invalidValue }
+            if let bounds = element.bounds { try SurfaceWire.bounds(bounds) }
+            parents[element.id] = (element.parentID?.isEmpty ?? true) ? nil : element.parentID
+        }
+        for (id, first) in parents {
+            var parent = first
+            var steps = 0
+            while let current = parent {
+                guard let next = parents[current], current != id, steps <= parents.count else { throw SurfaceObservationError.invalidValue }
+                parent = next
+                steps += 1
+            }
+        }
+    }
+}
+
+/// Read-only observation of the focused native UI tree on macOS and the
+/// application's own UIKit tree on iOS. It never requests permission or
+/// exposes an invocable native reference.
+///
+/// An observation is bounded by `AccessibilityOptions.timeout` and stops when the task running it
+/// is canceled, throwing `AccessibilityObservationError.timeout` or `.canceled` (rule 4 of
+/// docs/adr-architecture.md).
+@MainActor
+public final class SystemAccessibilityObserver {
+    private let options: AccessibilityOptions
+
+    public init(options: AccessibilityOptions = try! AccessibilityOptions()) {
+        self.options = options
+    }
+
+    public func observe() throws -> AccessibilitySnapshot {
+        let bound = ObservationBound(timeout: options.timeout)
+        try AccessibilityObservationError.check(bound)
+#if os(macOS)
+        return try observeMacOS(bound)
+#elseif os(iOS)
+        return try observeIOS(bound)
+#endif
+    }
+}
+
+func accessibilityID(_ pid: Int, _ generation: String, _ path: String) -> String {
+    let digest = SHA256.hash(data: Data("accessibility\0\(pid)\0\(generation)\0\(path)".utf8)).prefix(12)
+    return "accessibility:" + digest.map { String(format: "%02x", $0) }.joined()
+}
+
+#if os(macOS)
+extension SystemAccessibilityObserver {
+    private struct Node {
+        let element: AXUIElement
+        let parentID: String?
+        let path: String
+        let depth: Int
+    }
+
+    private func observeMacOS(_ bound: ObservationBound) throws -> AccessibilitySnapshot {
+        let now = surfaceTimestamp(Date())
+        guard AXIsProcessTrusted() else {
+            return AccessibilitySnapshot(platform: "darwin", observedAt: now,
+                status: SurfaceCollectionStatus(state: "permission-denied", detail: "macOS Accessibility access is not granted", observedAt: now), elements: [])
+        }
+        let system = AXUIElementCreateSystemWide()
+        var focusedValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(system, kAXFocusedApplicationAttribute as CFString, &focusedValue) == .success,
+              let focusedValue, CFGetTypeID(focusedValue) == AXUIElementGetTypeID() else {
+            return AccessibilitySnapshot(platform: "darwin", observedAt: now,
+                status: SurfaceCollectionStatus(state: "unavailable", detail: "focused application is unavailable", observedAt: now), elements: [])
+        }
+        let root = unsafeBitCast(focusedValue, to: AXUIElement.self)
+        var nativePID: pid_t = 0
+        guard AXUIElementGetPid(root, &nativePID) == .success,
+              let application = NSRunningApplication(processIdentifier: nativePID),
+              let launchDate = application.launchDate else {
+            return AccessibilitySnapshot(platform: "darwin", observedAt: now,
+                status: SurfaceCollectionStatus(state: "unavailable", detail: "focused application generation is unavailable", observedAt: now), elements: [])
+        }
+        let pid = Int(nativePID)
+        let generation = "\(pid):\(String(format: "%.6f", launchDate.timeIntervalSince1970))"
+        var queue = [Node(element: root, parentID: nil, path: "0", depth: 0)]
+        var elements: [AccessibilityElement] = []
+        var truncated = false
+        while !queue.isEmpty {
+            try AccessibilityObservationError.check(bound)
+            let node = queue.removeFirst()
+            guard elements.count < options.maxElements else { truncated = true; continue }
+            // Each attribute read waits at most a quarter second, and never past the deadline, so
+            // an application that does not answer cannot hold the walk beyond its bound.
+            AXUIElementSetMessagingTimeout(node.element, Float(max(min(bound.remaining, 0.25), 0.01)))
+            let id = accessibilityID(pid, generation, node.path)
+            let role = stringAttribute(node.element, kAXRoleAttribute) ?? "unknown"
+            let identifier = stringAttribute(node.element, kAXIdentifierAttribute)
+            let label = options.includeText ? stringAttribute(node.element, kAXTitleAttribute) : nil
+            let value = options.includeText ? stringAttribute(node.element, kAXValueAttribute) : nil
+            let actions = actionNames(node.element).sorted()
+            elements.append(AccessibilityElement(
+                id: id, parentID: node.parentID, pid: pid, processStartID: generation,
+                role: role, identifier: identifier, label: label, value: value,
+                bounds: elementBounds(node.element), actions: actions,
+                enabled: boolAttribute(node.element, kAXEnabledAttribute),
+                focused: boolAttribute(node.element, kAXFocusedAttribute)
+            ))
+            let children = elementChildren(node.element)
+            if node.depth >= options.maxDepth {
+                truncated = truncated || !children.isEmpty
+                continue
+            }
+            for (index, child) in children.enumerated() {
+                queue.append(Node(element: child, parentID: id, path: "\(node.path)/\(index)", depth: node.depth + 1))
+            }
+        }
+        elements.sort { $0.id < $1.id }
+        try AccessibilityObservationError.check(bound)
+        return AccessibilitySnapshot(platform: "darwin", observedAt: now,
+            status: SurfaceCollectionStatus(state: truncated ? "partial" : "complete",
+                detail: truncated ? "accessibility element or depth limit reached" : nil, observedAt: now), elements: elements)
+    }
+}
+
+func stringAttribute(_ element: AXUIElement, _ attribute: String) -> String? {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
+    return value as? String
+}
+
+func boolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool? {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
+    return value as? Bool
+}
+
+func elementChildren(_ element: AXUIElement) -> [AXUIElement] {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value) == .success,
+          let children = value as? [AXUIElement] else { return [] }
+    return children
+}
+
+func actionNames(_ element: AXUIElement) -> [String] {
+    var values: CFArray?
+    guard AXUIElementCopyActionNames(element, &values) == .success else { return [] }
+    return values as? [String] ?? []
+}
+
+func elementBounds(_ element: AXUIElement) -> SurfaceBounds? {
+    var positionValue: CFTypeRef?
+    var sizeValue: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
+          AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
+          let position = positionValue, let size = sizeValue,
+          CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID() else { return nil }
+    var point = CGPoint.zero
+    var dimensions = CGSize.zero
+    guard AXValueGetValue(unsafeBitCast(position, to: AXValue.self), .cgPoint, &point),
+          AXValueGetValue(unsafeBitCast(size, to: AXValue.self), .cgSize, &dimensions),
+          dimensions.width > 0, dimensions.height > 0 else { return nil }
+    return surfaceBounds(CGRect(origin: point, size: dimensions))
+}
+#elseif os(iOS)
+extension SystemAccessibilityObserver {
+    private struct Node {
+        let view: UIView
+        let parentID: String?
+        let path: String
+        let depth: Int
+    }
+
+    private func observeIOS(_ bound: ObservationBound) throws -> AccessibilitySnapshot {
+        let now = surfaceTimestamp(Date())
+        let pid = Int(ProcessInfo.processInfo.processIdentifier)
+        var roots: [UIView] = []
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            roots.append(contentsOf: windowScene.windows.filter { !$0.isHidden && $0.alpha > 0 })
+        }
+        var queue = roots.enumerated().map { Node(view: $0.element, parentID: nil, path: String($0.offset), depth: 0) }
+        var elements: [AccessibilityElement] = []
+        var truncated = false
+        while !queue.isEmpty {
+            try AccessibilityObservationError.check(bound)
+            let node = queue.removeFirst()
+            guard elements.count < options.maxElements else { truncated = true; continue }
+            let id = accessibilityID(pid, iosProcessGeneration, node.path)
+            let frame = node.view.convert(node.view.bounds, to: nil)
+            let bounds = frame.width > 0 && frame.height > 0 ? surfaceBounds(frame) : nil
+            let enabled = (node.view as? UIControl)?.isEnabled ?? node.view.isUserInteractionEnabled
+            var actions: [String] = []
+            if node.view.isUserInteractionEnabled { actions.append("activate") }
+            if node.view.accessibilityTraits.contains(.adjustable) { actions.append(contentsOf: ["decrement", "increment"]) }
+            elements.append(AccessibilityElement(
+                id: id, parentID: node.parentID, pid: pid, processStartID: iosProcessGeneration,
+                role: String(describing: type(of: node.view)), identifier: node.view.accessibilityIdentifier,
+                label: options.includeText ? node.view.accessibilityLabel : nil,
+                value: options.includeText ? node.view.accessibilityValue : nil,
+                bounds: bounds, actions: actions.sorted(), enabled: enabled, focused: node.view.isFirstResponder
+            ))
+            if node.depth >= options.maxDepth {
+                truncated = truncated || !node.view.subviews.isEmpty
+                continue
+            }
+            for (index, child) in node.view.subviews.enumerated() {
+                queue.append(Node(view: child, parentID: id, path: "\(node.path)/\(index)", depth: node.depth + 1))
+            }
+        }
+        elements.sort { $0.id < $1.id }
+        try AccessibilityObservationError.check(bound)
+        return AccessibilitySnapshot(platform: "ios", observedAt: now,
+            status: SurfaceCollectionStatus(state: truncated ? "partial" : "complete",
+                detail: truncated ? "accessibility element or depth limit reached" : nil, observedAt: now), elements: elements)
+    }
+}
+#endif

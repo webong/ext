@@ -20,18 +20,28 @@ if(EXT_LEDGER_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
-set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c
-    src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_accessibility.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_windows.c src/collect_process_none.c
-    src/supervisor.c src/process_posix.c src/process_win32.c src/interface.c)
+set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c src/volume_interface.c
+    src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_programs.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_accessibility.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_windows.c src/collect_process_none.c
+    src/supervisor.c src/process_posix.c src/process_win32.c src/service_definition.c src/service_store.c src/interface.c)
 # This profile is also the source set translated by c2goengine/tools.
-set(ledger_portable_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c
-    src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c src/interface.c src/portable.c)
+set(ledger_portable_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/volume_interface.c
+    src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c src/service_definition.c src/interface.c src/portable.c)
 if(EXT_LEDGER_PORTABLE)
   if(WIN32)
     message(FATAL_ERROR "The portable translation profile currently supports POSIX targets only")
   endif()
   set(ledger_sources ${ledger_portable_sources})
   add_compile_definitions(EXT_LEDGER_PORTABLE)
+endif()
+if(EXT_LEDGER_PORTABLE)
+  list(APPEND ledger_sources src/volume_none.c)
+elseif(WIN32)
+  list(APPEND ledger_sources src/volume_none.c)
+else()
+  list(APPEND ledger_sources src/volume_posix.c)
+endif()
+if(ANDROID AND NOT EXT_LEDGER_PORTABLE)
+  list(APPEND ledger_sources src/android_resources_jni.c)
 endif()
 
 # interface.json is the library interface's description, which describe serves: it is compiled in as
@@ -91,6 +101,9 @@ function(ledger_target name kind)
     target_link_libraries(${name} PRIVATE advapi32 user32 psapi iphlpapi ws2_32) # process, memory and socket inventory
   elseif(APPLE)
     target_link_libraries(${name} PRIVATE "-framework CoreFoundation") # bundle metadata
+    if(LEDGER_APPLE_EMBEDDED)
+      target_link_libraries(${name} PRIVATE "-framework UIKit") # iOS battery state
+    endif()
     if(NOT LEDGER_APPLE_EMBEDDED)
       target_link_libraries(${name} PRIVATE "-framework ApplicationServices") # CoreGraphics and the Accessibility API
     endif()
@@ -154,6 +167,13 @@ if(EXT_LEDGER_TESTS)
   target_link_libraries(ledger_recorder PRIVATE ext_ledger_static Threads::Threads)
   add_test(NAME ledger_recorder COMMAND ledger_recorder "${EXT_LEDGER_RECORDER_FIXTURES}")
   if(NOT EXT_LEDGER_PORTABLE)
+  if(NOT WIN32)
+  add_executable(ledger_volume tests/volume.c)
+  target_include_directories(ledger_volume PRIVATE src)
+  target_compile_options(ledger_volume PRIVATE ${LEDGER_WARN})
+  target_link_libraries(ledger_volume PRIVATE ext_ledger_static Threads::Threads)
+  add_test(NAME ledger_volume COMMAND ledger_volume)
+  endif()
   add_executable(ledger_collect tests/collect.c)
   target_include_directories(ledger_collect PRIVATE src)
   target_compile_options(ledger_collect PRIVATE ${LEDGER_WARN})

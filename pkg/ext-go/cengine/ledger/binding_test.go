@@ -2,8 +2,10 @@ package ledger_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -45,6 +47,266 @@ func open(t *testing.T) *ledger.Graph {
 		}
 	})
 	return g
+}
+
+func TestNativeProgramScan(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	file := "ledger-fixture-tool"
+	if runtime.GOOS == "windows" {
+		file += ".exe"
+	}
+	tool := filepath.Join(dir, file)
+	if err := os.WriteFile(tool, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	programs, err := lib.ScanPrograms(context.Background(), []string{"ledger-fixture-tool"}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	real, err := filepath.EvalSymlinks(tool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(programs) != 1 || programs[0].Name != "ledger-fixture-tool" ||
+		programs[0].Path != tool || programs[0].RealPath != real || !programs[0].OnPath {
+		t.Fatalf("programs = %+v", programs)
+	}
+	inspected, err := lib.InspectProgram(context.Background(), "fixture", tool)
+	if err != nil || inspected.Name != "fixture" || inspected.RealPath != real {
+		t.Fatalf("inspect program: %+v, %v", inspected, err)
+	}
+	if _, err := lib.InspectProgram(context.Background(), "fixture", filepath.Join(dir, "missing")); ledger.Code(err) != "not_found" {
+		t.Fatalf("inspect missing program: %v", err)
+	}
+}
+
+func TestNativeHostPath(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	filesystem, err := lib.FilesystemAt(context.Background(), dir)
+	if err != nil || filesystem.MountPoint == "" {
+		t.Fatalf("filesystem at %s: %+v, %v", dir, filesystem, err)
+	}
+	if err := lib.CheckHostAccess(context.Background(), dir, "directory_writable"); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "tool")
+	if err := os.WriteFile(file, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.CheckHostAccess(context.Background(), file, "executable_access"); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.CheckHostAccess(context.Background(), filepath.Join(dir, "missing"), "executable_access"); ledger.Code(err) != "not_found" {
+		t.Fatalf("missing executable access: %v", err)
+	}
+	if err := os.Chmod(file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.CheckHostAccess(context.Background(), file, "executable_access"); ledger.Code(err) != "denied" {
+		t.Fatalf("non-executable access: %v", err)
+	}
+}
+
+func TestNativeProcessStart(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start, err := lib.ProcessStart(context.Background(), os.Getpid())
+	if err != nil || start == "" {
+		t.Fatalf("current process birth token: %q, %v", start, err)
+	}
+	if _, err := lib.ProcessStart(context.Background(), 0); ledger.Code(err) != "invalid" {
+		t.Fatalf("invalid PID: %v", err)
+	}
+}
+
+func TestNativeServiceRender(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := ledger.ServiceSpec{
+		Name: "com.example.agent", Description: "Example agent",
+		Executable:       "/usr/local/bin/example-agent",
+		Arguments:        []string{"--serve", "with space"},
+		Environment:      map[string]string{"EXAMPLE_ROOT": "/var/lib/example", "EXAMPLE_MODE": "strict"},
+		WorkingDirectory: "/var/lib/example", Restart: "on-failure", RestartSeconds: 3,
+	}
+	for _, platform := range []string{"darwin", "linux"} {
+		definition, err := lib.RenderService(context.Background(), platform, spec)
+		if err != nil {
+			t.Fatalf("%s: %v", platform, err)
+		}
+		if definition.Platform != platform || definition.Content == "" ||
+			definition.Digest != fmt.Sprintf("%x", sha256.Sum256([]byte(definition.Content))) {
+			t.Fatalf("%s: %+v", platform, definition)
+		}
+		if platform == "darwin" && !strings.Contains(definition.Content, "<key>Label</key><string>com.example.agent</string>") {
+			t.Fatalf("darwin content: %s", definition.Content)
+		}
+		if platform == "linux" && !strings.Contains(definition.Content, "ExecStart=\"/usr/local/bin/example-agent\" \"--serve\" \"with space\"") {
+			t.Fatalf("linux content: %s", definition.Content)
+		}
+	}
+	spec.Name = "Example Agent"
+	spec.Executable = `C:\Program Files\agent.exe`
+	spec.WorkingDirectory = `C:\state`
+	spec.Environment = nil
+	spec.UserID = `DOMAIN\user`
+	definition, err := lib.RenderService(context.Background(), "windows", spec)
+	if err != nil || !strings.Contains(definition.Content, `<URI>\Example Agent</URI>`) {
+		t.Fatalf("windows: %+v, %v", definition, err)
+	}
+}
+
+func TestNativeServiceRenderRejectsInvalidAndEscapes(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	spec := ledger.ServiceSpec{Name: "com.example.agent", Executable: "/usr/bin/true",
+		Arguments: []string{"%h", "$HOME", `back\slash`, `quote"d`}}
+	definition, err := lib.RenderService(ctx, "linux", spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, escaped := range []string{"%%h", "$$HOME", `back\\slash`, `\"`} {
+		if !strings.Contains(definition.Content, escaped) {
+			t.Errorf("missing escaped %q in %s", escaped, definition.Content)
+		}
+	}
+	invalid := []ledger.ServiceSpec{
+		{Name: "../escape", Executable: "/usr/bin/true"},
+		{Name: "com.example.agent", Executable: "relative"},
+		{Name: "com.example.agent", Executable: "/usr/bin/true", Arguments: []string{"line\nbreak"}},
+		{Name: "com.example.agent", Executable: "/usr/bin/true", Restart: "sometimes"},
+	}
+	for _, item := range invalid {
+		if _, err := lib.RenderService(ctx, "linux", item); ledger.Code(err) != "invalid" {
+			t.Errorf("spec %+v: %v", item, err)
+		}
+	}
+	if _, err := lib.RenderService(ctx, "windows", ledger.ServiceSpec{
+		Name: "Example Agent", Executable: `C:\agent.exe`, UserID: `DOMAIN\user`,
+		Environment: map[string]string{"TOKEN": "x"},
+	}); ledger.Code(err) != "unsupported" {
+		t.Fatalf("windows environment: %v", err)
+	}
+}
+
+func TestNativeServicePublication(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" {
+		t.Skip("requires EXT_LEDGER_LIBRARY")
+	}
+	native, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib, err := ledger.Bind(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable := "/usr/bin/true"
+	if runtime.GOOS == "windows" {
+		executable = `C:\Windows\System32\cmd.exe`
+	}
+	definition, err := lib.RenderService(context.Background(), runtime.GOOS, ledger.ServiceSpec{
+		Name: "com.example.ledger", Executable: executable,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	ctx := context.Background()
+	initial, err := lib.InspectService(ctx, definition, dir)
+	if err != nil || initial.Installed {
+		t.Fatalf("initial inspection: %+v, %v", initial, err)
+	}
+	published, err := lib.PublishService(ctx, definition, dir)
+	if err != nil || !published.Created || !published.Installed || !published.Matches {
+		t.Fatalf("publication: %+v, %v", published, err)
+	}
+	again, err := lib.PublishService(ctx, definition, dir)
+	if err != nil || !again.Existing || again.Created {
+		t.Fatalf("repeat publication: %+v, %v", again, err)
+	}
+	changed := definition
+	changed.Content += "\n"
+	changed.Digest = fmt.Sprintf("%x", sha256.Sum256([]byte(changed.Content)))
+	inspection, err := lib.InspectService(ctx, changed, dir)
+	if err != nil || !inspection.Installed || inspection.Matches || inspection.Digest != definition.Digest {
+		t.Fatalf("changed inspection: %+v, %v", inspection, err)
+	}
+	if _, err := lib.PublishService(ctx, changed, dir); ledger.Code(err) != "exists" {
+		t.Fatalf("publish changed definition: %v", err)
+	}
+	if _, err := lib.RemoveService(ctx, changed, dir); ledger.Code(err) != "changed" {
+		t.Fatalf("remove changed definition: %v", err)
+	}
+	removed, err := lib.RemoveService(ctx, definition, dir)
+	if err != nil || removed.Installed {
+		t.Fatalf("removal: %+v, %v", removed, err)
+	}
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "link")
+		if err := os.Symlink(dir, link); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := lib.PublishService(ctx, definition, link); ledger.Code(err) != "denied" {
+			t.Fatalf("symlink directory: %v", err)
+		}
+	}
 }
 func TestNativeRecorderAndInventory(t *testing.T) {
 	g := open(t)

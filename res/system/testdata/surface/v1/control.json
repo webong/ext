@@ -1,0 +1,15 @@
+{
+  "doc": "ext.system.surface/v1 control requests with a nonexistent observed window; guests must reject both operations",
+  "capture": {
+    "target": {"id": "window:missing", "pid": 1, "process_start_id": "fixture", "bounds": {"x": 0, "y": 0, "width": 1, "height": 1}, "on_screen": true},
+    "max_pixels": 1,
+    "max_bytes": 1,
+    "timeout_ms": 1000
+  },
+  "input": {
+    "target": {"id": "window:missing", "pid": 1, "process_start_id": "fixture", "bounds": {"x": 0, "y": 0, "width": 1, "height": 1}, "on_screen": true},
+    "input": {"kind": "pointer-move", "point": {"x": 0, "y": 0}},
+    "max_text_runes": 1,
+    "timeout_ms": 1000
+  }
+}

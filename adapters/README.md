@@ -55,9 +55,12 @@ profile discovery, validation, launching, and declared browser share operations.
 versioned JSON protocol in [the adapter API](../docs/adapter-api.md).
 The optional release catalog and explicit source-installer selection provide a
 separate share executable built from each browser adapter's `native` directory.
-Portable request handling lives in `res/web/host/manage/guest`, with shared types and
-validation in `res/web/host/contract`. Shared policy export and executable
-discovery helpers live in `res/web/host/manage/policy` and `res/web/host/manage/discovery`.
+Portable Go request handling lives in `res/web/host/manage/guest`, with shared types and
+validation in `res/web/host/contract` and language-neutral policy fixtures in
+`res/web/testdata/policy`. Chromium-family Go adapters can use the optional
+policy export helper in `adapters/chromium/engine/policy`; Firefox and Safari
+own their policy reads. Executable discovery helpers live in
+`res/web/host/manage/discovery`.
 adapters provide SQLite access via `res/web/host/manage/sqlite`. They are Go libraries used by
 adapters, not installable catalog entries. The browser-specific engines live in
 `adapters/chromium/engine` and `adapters/firefox/engine`; their respective
@@ -91,9 +94,9 @@ Wayland owns `grim`, `wtype`, and optional `ydotool` pointer input. Each adapter
 publishes no device, display, or approval policy.
 
 `ffmpeg` implements `media.Recorder` for macOS and Windows with the `ffmpeg` tool (`avfoundation`, `gdigrab`). It
-is an adapter because `ffmpeg` is an external tool; capture and input on those platforms need none and are
-`surface.NativeDesktop` in `res/system`, which takes this recorder for recording. The caller names the capture
-source.
+is an adapter because `ffmpeg` is an external tool. Selected-window capture and
+input use installed native surface resource guests. The caller names the
+recording source.
 
 `keychain`, `secret_service`, and `credman` are separate, nonselectable
 credential-store adapters for macOS, Linux, and Windows. They register the

@@ -1,16 +1,11 @@
 package surface
 
 import (
-	"context"
 	"fmt"
-	"runtime"
-	"sort"
 	"strconv"
 	"time"
 
-	"github.com/webong/ext/res/system/internal/capability"
 	"github.com/webong/ext/res/system/internal/identity"
-	proc "github.com/webong/ext/res/system/service/process"
 )
 
 // SurfaceBounds is a rectangle in the snapshot's coordinate space. Width and
@@ -47,13 +42,13 @@ type WindowInfo struct {
 // windows. Separate statuses distinguish an empty desktop from unavailable or
 // truncated native data.
 type SurfaceSnapshot struct {
-	Platform        string                `json:"platform"`
-	CoordinateSpace string                `json:"coordinate_space"`
-	ObservedAt      time.Time             `json:"observed_at"`
-	Displays        []DisplayInfo         `json:"displays"`
-	Windows         []WindowInfo          `json:"windows"`
-	DisplayStatus   proc.CollectionStatus `json:"display_status"`
-	WindowStatus    proc.CollectionStatus `json:"window_status"`
+	Platform        string           `json:"platform"`
+	CoordinateSpace string           `json:"coordinate_space"`
+	ObservedAt      time.Time        `json:"observed_at"`
+	Displays        []DisplayInfo    `json:"displays"`
+	Windows         []WindowInfo     `json:"windows"`
+	DisplayStatus   CollectionStatus `json:"display_status"`
+	WindowStatus    CollectionStatus `json:"window_status"`
 }
 
 // SurfaceOptions bounds returned metadata and collection time. Every field is
@@ -81,66 +76,6 @@ func (o SurfaceOptions) Validate() error {
 		return fmt.Errorf("%w: surface timeout must be positive", ErrInvalid)
 	}
 	return nil
-}
-
-// DiscoverSurfaces observes local display geometry and caller-visible windows.
-// It does not request permission, capture pixels, read window titles, expose
-// native handles, synthesize input, or contact a remote service.
-func DiscoverSurfaces(ctx context.Context, options SurfaceOptions) (SurfaceSnapshot, error) {
-	err := options.Validate()
-	if err != nil {
-		return SurfaceSnapshot{}, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, options.Timeout)
-	defer cancel()
-
-	now := time.Now().UTC()
-	result := SurfaceSnapshot{
-		Platform: runtime.GOOS, ObservedAt: now,
-		Displays: []DisplayInfo{}, Windows: []WindowInfo{},
-	}
-	result.Displays, result.DisplayStatus, result.Windows, result.WindowStatus, result.CoordinateSpace, err =
-		platformSurfaces(ctx, options.MaxDisplays, options.MaxWindows)
-	if err != nil {
-		return result, err
-	}
-	if result.Displays == nil {
-		result.Displays = []DisplayInfo{}
-	}
-	if result.Windows == nil {
-		result.Windows = []WindowInfo{}
-	}
-	stampSurfaceStatus(&result.DisplayStatus, now)
-	stampSurfaceStatus(&result.WindowStatus, now)
-	sort.Slice(result.Displays, func(i, j int) bool { return result.Displays[i].ID < result.Displays[j].ID })
-	sort.Slice(result.Windows, func(i, j int) bool { return result.Windows[i].ID < result.Windows[j].ID })
-	return result, ctx.Err()
-}
-
-func stampSurfaceStatus(status *proc.CollectionStatus, observed time.Time) {
-	if status.State == "" {
-		status.State = "complete"
-	}
-	if status.ObservedAt == nil {
-		value := observed
-		status.ObservedAt = &value
-	}
-}
-
-func surfaceStatus(state, detail string) proc.CollectionStatus {
-	return proc.CollectionStatus{State: state, Detail: detail}
-}
-
-// surfaceUnavailable reports something this platform can observe but could not now. The reason
-// comes from err, the failure of the native read: permission, tool_missing, or no_device when the
-// display, session or application to read is absent or did not answer (a nil err).
-func surfaceUnavailable(err error, detail string) proc.CollectionStatus {
-	return proc.CollectionStatus{State: "unavailable", Reason: capability.Unavailable(err), Detail: detail}
-}
-
-// surfaceUnsupported reports a platform or build that cannot observe something at all.
-func surfaceUnsupported(detail string) proc.CollectionStatus {
-	return proc.CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 }
 
 func surfaceID(kind, native string) string {

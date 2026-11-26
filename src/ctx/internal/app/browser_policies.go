@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/webong/ext/src/ctx/internal/config"
 	browsershare "github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 type browserPolicyBundle = browsershare.PolicyBundle
@@ -54,11 +54,11 @@ func shareBrowserPolicyCommand(resolver *config.Resolver, args []string, stdout,
 		return reportError(stderr, err)
 	}
 	var bundle browserPolicyBundle
-	if err := browserAdapterShare(resolver, source, "policy", "export", browserShareRequest{}, &bundle, stderr); err != nil {
+	if err := invokeBrowserShareJSON(resolver, source, "policy", "export", browsershare.PolicyRequest{Version: browsershare.Version}, &bundle, stderr); err != nil {
 		return reportError(stderr, err)
 	}
-	if bundle.Version != browsershare.Version {
-		return reportError(stderr, errors.New("adapter returned an unsupported policy bundle version"))
+	if err := bundle.Validate(); err != nil {
+		return reportError(stderr, fmt.Errorf("adapter returned invalid policy bundle: %w", err))
 	}
 	bundle.Source = source.Adapter.Manifest.Name + ":" + source.Profile
 	if *toStdout {

@@ -2,8 +2,8 @@
 // on-device models through a caller-selected provider. The package owns the
 // contracts only: it never loads a model, chooses a provider, allocates a
 // tensor, or runs inference itself. Native providers ship beside these
-// contracts as platform implementations (iOS CoreML in res/int/model/ios, Android
-// NNAPI/TensorFlow Lite in res/int/model/android) or as product adapters.
+// contracts as platform implementations (iOS CoreML in lib/system/int/model/ios, Android
+// NNAPI/TensorFlow Lite in lib/system/int/model/android) or as product adapters.
 package model
 
 import (

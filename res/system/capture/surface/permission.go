@@ -1,8 +1,6 @@
 package surface
 
 import (
-	"context"
-	"runtime"
 	"time"
 )
 
@@ -25,20 +23,4 @@ type PermissionSnapshot struct {
 	ObservedAt      time.Time      `json:"observed_at"`
 	Accessibility   PermissionInfo `json:"accessibility"`
 	ScreenRecording PermissionInfo `json:"screen_recording"`
-}
-
-// DiscoverPermissions reads current local permission state without requesting
-// access or changing OS settings.
-func DiscoverPermissions(ctx context.Context) (PermissionSnapshot, error) {
-	if err := ctx.Err(); err != nil {
-		return PermissionSnapshot{}, err
-	}
-	accessibility, recording, err := platformPermissions(ctx)
-	if err != nil {
-		return PermissionSnapshot{}, err
-	}
-	return PermissionSnapshot{
-		Platform: runtime.GOOS, ObservedAt: time.Now().UTC(),
-		Accessibility: accessibility, ScreenRecording: recording,
-	}, ctx.Err()
 }

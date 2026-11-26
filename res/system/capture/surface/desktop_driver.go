@@ -16,8 +16,8 @@ var ErrDesktopUnavailable = errors.New("desktop operation unavailable")
 
 // DesktopDriver is a caller-selected native desktop mechanism, such as the X11
 // or Wayland tool adapters. Operations are desktop-scoped because those tools
-// cannot address an observed window; window-scoped capture and input remain in
-// CaptureWindow and SendWindowInput.
+// cannot address an observed window; window-scoped capture and input use the
+// ext.system.surface/v1 resource guest contract.
 //
 // It is an interface rather than a registry: the shared library never selects a
 // driver by name or falls back to another one.
@@ -29,7 +29,7 @@ type DesktopDriver interface {
 }
 
 // CaptureDesktop captures the caller's desktop through an explicitly selected
-// driver. Bounds and result validation are the same as CaptureWindow.
+// driver. Bounds and result validation follow the same surface contract.
 func CaptureDesktop(ctx context.Context, driver DesktopDriver, options CaptureOptions) (SurfaceCapture, error) {
 	if err := checkDesktopDriver(driver); err != nil {
 		return SurfaceCapture{}, err

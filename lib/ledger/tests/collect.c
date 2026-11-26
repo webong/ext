@@ -213,6 +213,20 @@ int main(void) {
   printf("host: %zu shells, %zu filesystems\n", shells ? shells->u.array.len : 0, filesystems ? filesystems->u.array.len : 0);
   lj_free(host);
 
+  /* Resource capacity and the current app-visible storage volume come from C. */
+  rc = ext_ledger_collect(NULL, "resources", &out, &len);
+  CHECK(rc == 0, "collect resources: %s", ext_ledger_code_name(rc));
+  lj_value *machine = rc ? NULL : lj_parse(out, len, NULL);
+  if (!rc) ext_ledger_free(out);
+  CHECK(machine && number(machine, "logical_cpus") >= 1, "resources include logical CPU capacity");
+  CHECK(machine && number(machine, "memory_bytes") > 0, "resources include physical memory");
+#if defined(__APPLE__) || defined(_WIN32) || defined(__ANDROID__)
+  const lj_value *volumes = machine ? lj_get(machine, "storage") : NULL;
+  CHECK(volumes && volumes->type == LJ_ARRAY && volumes->u.array.len > 0,
+        "resources include an app-visible storage volume");
+#endif
+  lj_free(machine);
+
   /* A machine recorder records the scan. */
   ext_ledger_store *store;
   ext_ledger_store_open_memory(NULL, &store);

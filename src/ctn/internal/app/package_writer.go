@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
-	"github.com/webong/ext/res/system/service/host/dirlock"
+	"github.com/webong/ext/res/system/device/dirlock"
 )
 
 // The trust ledger always belongs to EXT_HOME, including when an older caller

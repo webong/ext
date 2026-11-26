@@ -45,15 +45,27 @@ done
 )
 ci_import_env
 
-# Validate isolated native processes
+# Native ledger collection and process projection are exercised by package-acceptance.sh.
+
+# Exercise the ledger-owned native private-volume boundary on POSIX runners.
+if [ "$RUNNER_OS" != Windows ]; then
 (
-export EXT_GRAPH_PROCESS_NATIVE_TESTS="1"
-cd res/system
-go test -race -v ./service/process -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
+cmake -S lib/ledger -B "$RUNNER_TEMP/ext-ledger-volume" -DEXT_LEDGER_COMMAND=OFF
+cmake --build "$RUNNER_TEMP/ext-ledger-volume" --target ledger_volume
+ctest --test-dir "$RUNNER_TEMP/ext-ledger-volume" -R '^ledger_volume$' --output-on-failure
 )
 ci_import_env
-
-# Native ledger collection and process projection are required by package-acceptance.sh.
+fi
+if [ "$RUNNER_OS" = Linux ]; then
+(
+cmake -S lib/system/net/linux -B "$RUNNER_TEMP/ext-system-net"
+cmake --build "$RUNNER_TEMP/ext-system-net"
+ctest --test-dir "$RUNNER_TEMP/ext-system-net" --output-on-failure
+(cd res/system/service/network/linux/guest && go build -o "$RUNNER_TEMP/network-linux" .)
+EXT_NETWORK_GUEST_BINARY="$RUNNER_TEMP/network-linux" go test ./tests/crosslang -run '^TestNetworkResourceGuest$' -count=1
+)
+ci_import_env
+fi
 
 # Validate native ONNX guest through CTN
 if [ "$RUNNER_OS" = Windows ]; then
@@ -62,6 +74,12 @@ ci_pwsh <<'PWSH'
 dotnet publish res/int/model/windows/Guest/Ext.ML.Windows.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/onnx-guest"
 $env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
 go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
+dotnet publish res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/clipboard-guest"
+$env:EXT_CLIPBOARD_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'clipboard-guest/Ext.System.Clipboard.Guest.exe'
+go test ./src/ctx/internal/app -run '^TestWindowsClipboardGuestHandshake$' -count=1
+dotnet publish res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/network-guest"
+$env:EXT_NETWORK_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'network-guest/Ext.System.Network.Guest.exe'
+go test ./tests/crosslang -run '^TestNetworkResourceGuest$' -count=1
 PWSH
 )
 ci_import_env
@@ -70,7 +88,7 @@ fi
 # Validate Linux ONNX guest through CTN
 if [ "$RUNNER_OS" = Linux ]; then
 (
-dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
 dotnet publish res/int/model/linux/Guest/Ext.ML.Linux.Guest.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$RUNNER_TEMP/onnx-guest"
 EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
 )

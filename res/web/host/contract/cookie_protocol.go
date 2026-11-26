@@ -76,20 +76,3 @@ type ResourceRequest struct {
 	Bundle  *ResourceBundle `json:"bundle,omitempty"`
 	Replace bool            `json:"replace,omitempty"`
 }
-
-type PolicyEntry struct {
-	Location string `json:"location"`
-	Level    string `json:"level"`
-	Format   string `json:"format"`
-	Content  string `json:"content"`
-}
-
-type PolicyRequest struct {
-	Version int `json:"version"`
-}
-
-type PolicyBundle struct {
-	Version int           `json:"version"`
-	Source  string        `json:"source"`
-	Entries []PolicyEntry `json:"entries"`
-}

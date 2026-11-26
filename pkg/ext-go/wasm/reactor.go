@@ -7,6 +7,7 @@ import (
 	"time"
 
 	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
+	"github.com/webong/ext/pkg/ext-go/wasm/runtime"
 	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
@@ -34,11 +35,11 @@ var reactorABI = webwasm.ReactorABI{
 }
 
 type ReactorBackend struct {
-	reactor *webwasm.Reactor
+	reactor *runtime.Reactor
 }
 
 func OpenReactor(ctx context.Context, module []byte, opts ReactorOptions) (*ReactorBackend, error) {
-	reactor, err := webwasm.OpenReactor(ctx, module, reactorABI, opts)
+	reactor, err := runtime.OpenReactor(ctx, module, reactorABI, opts)
 	if err != nil {
 		return nil, engineError(err)
 	}

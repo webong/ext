@@ -1,0 +1,18 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {"id": "system.network.linux", "revision": "", "version": "1.0.0"},
+    "contracts": [
+      {
+        "name": "ext.system.network",
+        "version": "v1",
+        "operations": [{"name": "observe", "surface": "observation"}]
+      }
+    ]
+  },
+  "artifacts": [{"name": "main", "path": "network-linux", "sha256": ""}],
+  "entrypoints": [
+    {"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.system.network/v1"]}
+  ]
+}

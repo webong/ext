@@ -89,6 +89,16 @@ int main(void) {
   }
   expect(0, "canonical_transaction", "{\"transaction\":{\"vertices\":[],\"namespace\":\"demo\"}}", "\"fingerprint\"");
   expect(0, "collect_environment", NULL, "\"hostname\"");
+  expect(0, "program_scan", "{\"names\":[],\"search_path\":\"\"}", "[");
+  ext_ledger_free(call(0, "program_scan", "{\"names\":[\"bad/name\"],\"search_path\":\"\"}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "program_scan", "{\"names\":[\"tool\"]}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "program_inspect", "{\"name\":\"tool\",\"path\":\"relative/tool\"}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "host_path", "{\"path\":\"/\",\"what\":\"unknown\"}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(0, "process_start", "{\"pid\":0}", EXT_LEDGER_INVALID));
+  expect(0, "service_render", "{\"platform\":\"darwin\",\"spec\":{\"name\":\"com.example.agent\",\"executable\":\"/usr/bin/true\"}}", ".plist");
+  expect(0, "service_render", "{\"platform\":\"linux\",\"spec\":{\"name\":\"com.example.agent\",\"executable\":\"/usr/bin/true\"}}", ".service");
+  expect(0, "service_render", "{\"platform\":\"windows\",\"spec\":{\"name\":\"Example Agent\",\"executable\":\"C:\\\\Windows\\\\agent.exe\"}}", ".xml");
+  ext_ledger_free(call(0, "service_render", "{\"platform\":\"linux\",\"spec\":{\"name\":\"../escape\",\"executable\":\"/usr/bin/true\"}}", EXT_LEDGER_INVALID));
   ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"limit\":0}", EXT_LEDGER_INVALID));
   ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"limit\":65537}", EXT_LEDGER_INVALID));
   ext_ledger_free(call(0, "collect", "{\"what\":\"processes\",\"limit\":1.5}", EXT_LEDGER_INVALID));

@@ -26,7 +26,7 @@ ci_import_env
 
 # Create checksums
 (
-(cd dist && sha256sum ext-* > checksums.txt)
+(cd dist && sha256sum ext-* system.network.*.zip > checksums.txt)
 )
 ci_import_env
 

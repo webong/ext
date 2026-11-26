@@ -38,10 +38,10 @@ cleanup() {
 trap cleanup EXIT
 if [[ -z "$build_only" ]]; then "$adb" get-state >/dev/null; fi
 mkdir -p "$work/classes" "$work/dex"
-sources=(res/web/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java
-  res/web/android/src/androidTest/java/io/github/webong/ext/web/android/*.java
-  res/web/android/src/test/java/io/github/webong/ext/web/CookieQueryChecks.java
-  res/web/android/src/test/java/io/github/webong/ext/web/ExtensionArtifactChecks.java)
+sources=(lib/system/web/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java
+  lib/system/web/android/src/androidTest/java/io/github/webong/ext/web/android/*.java
+  lib/system/web/android/src/test/java/io/github/webong/ext/web/CookieQueryChecks.java
+  lib/system/web/android/src/test/java/io/github/webong/ext/web/ExtensionArtifactChecks.java)
 classpath="$platform"
 inputs=()
 if [[ -n "$aar" ]]; then
@@ -50,8 +50,8 @@ if [[ -n "$aar" ]]; then
   classpath="$classpath:$work/sdk.jar"
   inputs+=("$work/sdk.jar")
 else
-  sources+=(res/web/android/src/main/java/io/github/webong/ext/web/*.java
-    res/web/android/src/android/java/io/github/webong/ext/web/android/*.java)
+  sources+=(lib/system/web/android/src/main/java/io/github/webong/ext/web/*.java
+    lib/system/web/android/src/android/java/io/github/webong/ext/web/android/*.java)
 fi
 javac --release 11 -Xlint:all -Werror -classpath "$classpath" -d "$work/classes" "${sources[@]}"
 inputs+=($(find "$work/classes" -name '*.class'))
@@ -85,7 +85,7 @@ else
   "$build_tools/d8" --lib "$platform" --min-api 24 --output "$work/dex" "${inputs[@]}"
 fi
 "$build_tools/aapt2" link -o "$work/base.apk" -I "$platform" \
-  -A res/web/testdata/extension --manifest res/web/android/src/androidTest/AndroidManifest.xml --min-sdk-version 24 --target-sdk-version 34
+  -A res/web/testdata/extension --manifest lib/system/web/android/src/androidTest/AndroidManifest.xml --min-sdk-version 24 --target-sdk-version 34
 (cd "$work/dex" && zip -q "$work/base.apk" classes*.dex)
 "$build_tools/zipalign" -f -p 4 "$work/base.apk" "$work/aligned.apk"
 keytool -genkeypair -keystore "$work/key" -storepass android -keypass android -alias debug \

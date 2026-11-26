@@ -87,10 +87,24 @@ lifecycle mechanisms.
 | Use Go engines and runtime backends | [`pkg/ext-go`](pkg/ext-go), [engine selection and library loading](docs/adr-library-opener.md) |
 | Use another language or a mobile platform | [SDKs and bindings](pkg/README.md#plugin-language-sdks-and-bindings) |
 | Store a graph, record observations or supervise processes | [`lib/ledger`](lib/ledger/README.md) |
-| Work with the local OS | [`res/system`](res/system/README.md) |
-| Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) |
+| Use native OS mechanisms | [`lib/system`](lib/system/README.md); host-resource collection and private volumes in [`lib/ledger`](lib/ledger/README.md) |
+| Expose or consume system capabilities through Ext | [`res/system`](res/system/README.md) |
+| Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) for contracts and guests; [`lib/system/web`](lib/system/web) for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
 | Build code that runs inside a browser extension | [`pkg/ext-web`](pkg/ext-web/README.md) |
-| Use intelligence contracts and mechanisms | [`res/int`](res/int/README.md) |
+| Use intelligence capabilities | [`res/int`](res/int/README.md) for contracts and guests; [`lib/system/int`](lib/system/int) for native mechanisms |
+
+Native mechanisms live in `lib/`, and language SDKs and bindings live in `pkg/`.
+`lib/system` owns OS-provided implementations for web, intelligence, actions
+such as clipboard and capture, and networking. `lib/ledger` owns host-resource
+collection and private-volume lifecycle alongside its graph, recorder and
+supervisor.
+
+`res/` exposes resource capabilities through versioned contracts, fixtures and
+guest entrypoints. Those guests use the native libraries and language SDKs;
+the native libraries do not depend on the guests. Published Go APIs under
+`res/` remain available while their callers migrate. Integrations with
+selectable products and providers belong in `adapters/`, and consuming
+applications choose policy.
 
 Plugin implementations can use supported process, in-process, WebAssembly,
 HashiCorp or C ABI backends. Shared transport does not make unrelated APIs
@@ -114,9 +128,10 @@ engine and archive support.
 
 | Directory | Responsibility | Main components |
 | --- | --- | --- |
-| [`lib/`](lib) | Native C libraries shared by language bindings | `plugin`: plugin engine; `ledger`: graph store, recorder and supervisor |
+| [`lib/`](lib) | Reusable native libraries | `plugin`: C plugin engine; `ledger`: C graph, recorder, supervisor and host-resource mechanics; `system`: native OS implementations |
+| [`lib/system/`](lib/system/README.md) | OS-provided mechanisms, independent of Ext guests | `web`: native web libraries; `int`: intelligence; `act`: clipboard, share, capture and input; `net`: networking |
 | [`pkg/`](pkg) | Public language SDKs, bindings and platform packages | Go, Rust, Zig, TypeScript, Python, Ruby, PHP, Lua, .NET; Web, Darwin and Android SDKs |
-| [`res/`](res) | Reusable domain contracts and platform mechanisms | `system`: local OS; `web`: web content and runtimes; `int`: intelligence |
+| [`res/`](res) | Ext resource contracts, fixtures and guests; published Go APIs during migration | `system`: local OS capabilities; `web`: web capabilities; `int`: intelligence capabilities |
 | [`src/`](src) | First-class plugins built on Ext, also available as Go libraries | `ctx`: contexts; `ctn`: content; `cto`: containment |
 | [`cmd/ext/`](cmd/ext) | The public CLI | Package discovery, installation and command dispatch |
 | [`adapters/`](adapters/README.md) | Integrations with specific products, providers, browsers and native tools | Native discovery, installation, activation and capability implementations |

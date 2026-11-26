@@ -1,7 +1,7 @@
 # Windows ML
 
 `lib/system/int/model/windows/SystemMl.cs` contains a bounded Windows/Linux ONNX inference backend
-owned by `res/int/model`. `Ext.ML.Windows.csproj` supplies the optional
+exposed through the `onnxruntime` adapter. `Ext.ML.Windows.csproj` supplies the optional
 `Microsoft.ML.OnnxRuntime` runtime. The initial backend uses CPU execution.
 
 `SystemMl` accepts an explicit model file path and policy. It validates float32
@@ -10,15 +10,10 @@ session resources. Output shapes must be fixed so their size can be checked
 before native execution. It does not download models, select devices, authorize
 access, or expose a remote protocol.
 
-`res/int/model/windows/Guest/Ext.ML.Windows.Guest.csproj` builds a self-contained Windows executable
-that serves `model.tensor/v1` over Ext JSON lines. Publish with
-`dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true`.
-Package the resulting executable as `onnxruntime` version `1.0.0`, then install
-and trust that exact package. The guest verifies the model manifest and artifact
-hashes on each call. The Linux guest in `res/int/model/linux/Guest` uses the same backend.
-The Windows host must provide `%TEMP%` or `DOTNET_BUNDLE_EXTRACT_BASE_DIR`
-for the self-contained .NET executable to extract its native libraries; CTN
-forwards the caller's environment to this guest.
+The provider guests live in [`adapters/onnxruntime`](../../../../../adapters/onnxruntime).
+They consume the published library, serve `model.tensor/v1` over Ext JSON lines,
+and verify model manifests and artifact hashes before inference. See the adapter
+README for standalone builds and installation.
 
 ```csharp
 using Webong.Ext.ML.Windows;

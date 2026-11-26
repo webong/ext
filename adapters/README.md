@@ -8,8 +8,12 @@ contract. It consumes `ExtML` from the published `ext-macos` Swift package;
 the native implementation remains in `lib/system/int/model/ios`. CTN selects
 the installed provider package.
 
+[`onnxruntime`](onnxruntime/README.md) owns the Windows and Linux .NET guests
+for the same contract. Its standalone build consumes the pinned published
+`Ext.ML.Windows` package.
+
 Adapters can be written in any language that implements their declared Ext
-contract. Tool adapters use `ext.adapter/2.0`; the Core ML provider uses
+contract. Tool adapters use `ext.adapter/2.0`; the Core ML and ONNX Runtime providers use
 `model.tensor/v1`. Go tool adapter authors can use `ParseAdapterInvocation`
 from `github.com/webong/ext/pkg/ext-go/engine/plugin` and ship a
 platform-specific `.ctxadapter` archive with its executable and runtime assets.

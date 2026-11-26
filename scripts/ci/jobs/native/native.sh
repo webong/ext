@@ -71,7 +71,9 @@ fi
 if [ "$RUNNER_OS" = Windows ]; then
 (
 ci_pwsh <<'PWSH'
-dotnet publish res/int/model/windows/Guest/Ext.ML.Windows.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/onnx-guest"
+Copy-Item -Recurse adapters/onnxruntime "$env:RUNNER_TEMP/onnx-source"
+python "$env:RUNNER_TEMP/onnx-source/build.py" win-x64 --output "$env:RUNNER_TEMP/onnx-guest"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
 go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
 dotnet publish res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/clipboard-guest"
@@ -89,7 +91,8 @@ fi
 if [ "$RUNNER_OS" = Linux ]; then
 (
 dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
-dotnet publish res/int/model/linux/Guest/Ext.ML.Linux.Guest.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$RUNNER_TEMP/onnx-guest"
+cp -R adapters/onnxruntime "$RUNNER_TEMP/onnx-source"
+python3 "$RUNNER_TEMP/onnx-source/build.py" linux-x64 --output "$RUNNER_TEMP/onnx-guest"
 EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
 )
 ci_import_env

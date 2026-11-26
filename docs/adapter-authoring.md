@@ -1,9 +1,11 @@
 # Build an ext adapter
 
-An ext adapter is a separate process that implements the shared adapter contract. It
-can be written in Go, a shell language, or another language. A ready-to-run
+An ext adapter is a separate process that implements its declared Ext contract.
+It can be written in Go, a shell language, or another language. A ready-to-run
 adapter needs a manifest, an executable for the target OS, and any runtime
-assets or dependencies that executable uses.
+assets or dependencies that executable uses. This guide's command examples use
+the `ext.adapter/2.0` tool contract; a provider such as `adapters/coreml` uses
+`model.tensor/v1` and is still a sealed Ext package.
 
 Use `ext` as the main installation entry point. The commands below use
 `ext package`. CTX provides project-aware management through `ext ctx adapter`.
@@ -24,10 +26,12 @@ adapter can serve both products. See [adapter management](adr-adapter-management
 | Runtime dependencies | A native tool, script interpreter, or runtime assets where required. Document these requirements and diagnose missing dependencies; installation does not provision them. |
 | Distribution package | A ready directory or one `.ctxadapter` archive per OS/architecture. A platform index is optional. |
 
-For Go source builds, also supply a Go `main` package and a module context:
-either your own `go.mod`, or an enclosing module such as this repository. Go
-1.23 or newer is needed when using the current public Ext SDK. Users installing
-prebuilt packages do not need Go.
+For Go source builds, also supply a Go `main` package and its own `go.mod`.
+Depend on published module versions and verify with `GOWORK=off`; a workspace
+build can hide missing or unpublished dependencies. Other languages likewise
+use published, pinned dependencies instead of relative paths into this
+repository. Users installing prebuilt packages do not need the adapter's
+build toolchain.
 
 Product-specific behavior belongs in the adapter. Ext libraries handle generic
 contracts, validation, package trust, and invocation; a product handles its own

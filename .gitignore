@@ -26,7 +26,9 @@
 .DS_Store
 __pycache__/
 /lib/system/int/model/ios/.build/
-/res/int/model/coreml-guest/.build/
+/adapters/coreml/.build/
+/adapters/coreml/.swiftpm/
+/adapters/coreml/out/
 /res/system/capture/surface/ios/Guest/.build/
 /res/system/capture/surface/ios/Guest/.swiftpm/
 /res/system/capture/surface/windows/Guest/bin/

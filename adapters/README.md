@@ -3,10 +3,16 @@
 This directory contains every tool-specific integration maintained in the ext
 repository.
 
-Adapters can be written in any language that implements `ext.adapter/2.0`.
-Go authors can use `ParseAdapterInvocation` from
-`github.com/webong/ext/pkg/ext-go/engine/plugin`. Ship a platform-specific `.ctxadapter`
-archive with its executable and runtime assets.
+`coreml` is a Swift Ext package guest for the `model.tensor/v1` provider
+contract. It consumes `ExtML` from the published `ext-macos` Swift package;
+the native implementation remains in `lib/system/int/model/ios`. CTN selects
+the installed provider package.
+
+Adapters can be written in any language that implements their declared Ext
+contract. Tool adapters use `ext.adapter/2.0`; the Core ML provider uses
+`model.tensor/v1`. Go tool adapter authors can use `ParseAdapterInvocation`
+from `github.com/webong/ext/pkg/ext-go/engine/plugin` and ship a
+platform-specific `.ctxadapter` archive with its executable and runtime assets.
 
 Adapters ship through the Ext package registry. Register a package index with
 `ext source add` and install it with `ext package install --source <name>`.

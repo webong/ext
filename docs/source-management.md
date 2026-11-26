@@ -109,6 +109,9 @@ on a prepared runtime directory. Other Ext contracts use the same sealed
 republished with a renamed manifest need a new revision. The manifest must declare
 the target OS and architecture on its platform-specific artifacts. See
 [adapter authoring](adapter-authoring.md).
+Build from an isolated copy of the adapter source using published dependencies;
+do not let the repository's workspace resolve sibling modules or packages for
+the release build.
 
 Run the release script with the registry directory, a release version, and the
 finished archives for one adapter. `ext package index` verifies the archives

@@ -1,7 +1,8 @@
 # Intelligence resources
 
-`res/int` retains its published Go intelligence contracts and Ext guest
-entrypoints. Native model libraries live in `lib/system/int/model`.
+`res/int` retains its published Go intelligence contracts. Native model
+libraries live in `lib/system/int/model`; the Core ML provider guest lives in
+`adapters/coreml`.
 Applications choose providers, models,
 credentials, roots, and authorization policy.
 

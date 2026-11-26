@@ -42,12 +42,12 @@ CTN operates on installed and explicitly trusted provider packages:
 
 ```sh
 ext ctn model provider package onnxruntime 1.0.0 /path/to/provider /path/to/package
-ext ctn model provider install /path/to/package
+ext install /path/to/package
 ext ctn model provider list
-ext ctn model provider trust onnxruntime
+ext package trust onnxruntime
 ext ctn model run --provider onnxruntime /absolute/model-store \
   onnxruntime/model@v1 /path/to/tensors.json
-ext ctn model provider untrust onnxruntime
+ext package untrust onnxruntime
 ```
 
 `tensors.json` contains a `tensors` array with the shape, format, and base64

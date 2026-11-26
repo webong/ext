@@ -4,7 +4,8 @@ Status: proposed, 2026-11-24. This records the requested command direction;
 the responsibilities and example syntax below are for review, not implemented
 commands except the first increment below.
 
-Implemented first increment: `ext package` installs and trusts packages without
+Implemented first increment: `ext install` is the shared installation entry point;
+`ext package` installs and trusts packages without
 command declarations. `ext bundle fetch` and `ext bundle bind` replace the
 former top-level library command directly. Command and adapter packages now share
 `EXT_HOME/packages`; old stores are no longer imported. Named source index registration, refresh and pinned installation are implemented
@@ -15,6 +16,15 @@ host with host approval and bounded calls. Explicit `ext resource call` inspects
 and invokes a declared operation in one host session, passes a `{resource,input}`
 envelope and checks input/output schemas. Provider-side domain authorization
 remains mandatory; real consumer integration remains unfinished.
+
+The installer reads `ext.json` and records the package in the shared registry.
+Its descriptor's provided contracts are the capability hooks; `requires` names
+the graph edges the package needs. `ext install` reports provided capabilities,
+and `ext package list` shows them for every installed package. A host selects a
+compatible contract from this registry when constructing an execution graph.
+Installation does not start the guest or authorize calls. `ext package trust`
+records approval of the reviewed package digest under each declared contract
+scope; product hosts still decide which provider to select and authorize calls.
 
 ## Context
 

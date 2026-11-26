@@ -56,6 +56,12 @@ func RunWith(o Options, args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return o.Package(args[1:], stdout, stderr)
+	case "install":
+		if o.Package == nil {
+			fmt.Fprintln(stderr, "ext: package management is not available")
+			return 2
+		}
+		return o.Package(append([]string{"install"}, args[1:]...), stdout, stderr)
 	case "commands":
 		w := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
 		fmt.Fprintln(w, "COMMAND\tSOURCE\tVERSION\tRUNS")
@@ -127,6 +133,7 @@ func failed(reg *registry.Registry, name string, err error, stderr io.Writer) in
 
 func usage(reg *registry.Registry, w io.Writer) {
 	fmt.Fprintln(w, "usage: ext [--source=builtin|package] <command> [args]")
+	fmt.Fprintln(w, "       ext install <package-dir-or-archive> | install --source <name>")
 	fmt.Fprintln(w, "       ext commands | which <command> | package ... | version | help")
 	fmt.Fprintln(w, "       ext bridge --config <path> (plugin transport bridge)")
 	fmt.Fprintln(w, "\ncommands:")

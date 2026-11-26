@@ -82,6 +82,25 @@ func TestNoArgumentsPrintsUsageAndFails(t *testing.T) {
 	}
 }
 
+func TestInstallUsesTheSharedPackageManager(t *testing.T) {
+	var got []string
+	var out, errOut bytes.Buffer
+	code := RunWith(Options{Registry: testRegistry(t), Package: func(args []string, stdout, stderr io.Writer) int {
+		got = append([]string(nil), args...)
+		return 7
+	}}, []string{"install", "./coreml"}, &out, &errOut)
+	if code != 7 || strings.Join(got, " ") != "install ./coreml" {
+		t.Fatalf("install = %d, args %v, stderr %q", code, got, errOut.String())
+	}
+	code = RunWith(Options{Registry: testRegistry(t), Package: func(args []string, stdout, stderr io.Writer) int {
+		got = append([]string(nil), args...)
+		return 0
+	}}, []string{"install", "--source", "coreml"}, &out, &errOut)
+	if code != 0 || strings.Join(got, " ") != "install --source coreml" {
+		t.Fatalf("source install = %d, args %v", code, got)
+	}
+}
+
 func TestSourceFlagChoosesAPackageOverTheBuiltin(t *testing.T) {
 	if code, out, _ := exec(t, "ctx", "x"); code != 7 || out != "x\n" {
 		t.Fatalf("default ctx = %d %q", code, out)

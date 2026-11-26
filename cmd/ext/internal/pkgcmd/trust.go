@@ -62,34 +62,42 @@ func (t *Trust) Trust(installed store.Installed) error {
 	if err != nil {
 		return err
 	}
-	// Explicit package approval records the host scope; adapters additionally
-	// need their existing consumer scope. Each scope is recorded explicitly.
+	// The user approved this package's reviewed bytes. Record that approval for
+	// each capability the manifest declares; consumers still choose policy and
+	// authorize individual calls.
 	if err := t.file.Record(scope, installed.Name(), digest); err != nil {
 		return err
 	}
 	if err := t.file.Record(packageScope(installed), installed.Name(), digest); err != nil {
 		return err
 	}
+	for _, contract := range installed.Manifest.Descriptor.Contracts {
+		if err := t.file.Record(contract.Name+"/"+contract.Version, installed.Name(), digest); err != nil {
+			return err
+		}
+	}
 	t.Packages[installed.Name()] = digest
 	return nil
 }
 func (t *Trust) Revoke(id string) error {
-	if err := t.file.Revoke(scope, id); err != nil {
-		return err
-	}
-	if err := t.file.Revoke("ctx.adapter/v2", id); err != nil {
+	if err := t.file.RevokeAll(id); err != nil {
 		return err
 	}
 	delete(t.Packages, id)
 	return nil
 }
 
-// Keep adapter and command approvals scoped separately.
+// Package status uses the relevant declared capability scope. The approval
+// ledger itself keeps each scope separate.
 func packageScope(p store.Installed) string {
 	for _, c := range p.Manifest.Descriptor.Contracts {
 		if c.Name == plugin.AdapterContractName {
 			return "ctx.adapter/v2"
 		}
+	}
+	if len(p.Manifest.Descriptor.Contracts) == 1 {
+		c := p.Manifest.Descriptor.Contracts[0]
+		return c.Name + "/" + c.Version
 	}
 	return scope
 }

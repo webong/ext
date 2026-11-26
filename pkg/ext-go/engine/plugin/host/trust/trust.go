@@ -193,6 +193,31 @@ func (f *File) Revoke(scope, id string) error {
 	return f.save(doc)
 }
 
+// RevokeAll removes every approval for one package, including scopes owned by
+// consumers unknown to the installer. The caller serializes package writers.
+func (f *File) RevokeAll(id string) error {
+	if !validKey(id) {
+		return plugin.ErrInvalid
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	doc, err := f.load()
+	if err != nil {
+		return err
+	}
+	kept := doc.Records[:0]
+	for _, record := range doc.Records {
+		if record.ID != id {
+			kept = append(kept, record)
+		}
+	}
+	if len(kept) == len(doc.Records) {
+		return nil
+	}
+	doc.Records = kept
+	return f.save(doc)
+}
+
 func (f *File) save(doc document) error {
 	sort.Slice(doc.Records, func(i, j int) bool {
 		a, b := doc.Records[i], doc.Records[j]

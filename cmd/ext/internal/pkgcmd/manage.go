@@ -100,7 +100,7 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "ext: package source:", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "installed %s from source %s; review it, then run: ext package trust %s\n", p.Name(), rest[1], p.Name())
+		fmt.Fprintf(stdout, "installed %s from source %s (not trusted)\ncapabilities: %s\nreview it, then run: ext package trust %s\n", p.Name(), rest[1], contractNames(p), p.Name())
 		return 0
 	}
 	if (sub == "install" || sub == "upgrade") && len(rest) == 3 && rest[1] == "--sha256" {
@@ -111,7 +111,7 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "ext: package %s: %v\n", sub, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "installed %s (untrusted); review it, then run: ext package trust %s\n", p.Name(), p.Name())
+		fmt.Fprintf(stdout, "installed %s (not trusted)\ncapabilities: %s\nreview it, then run: ext package trust %s\n", p.Name(), contractNames(p), p.Name())
 		return 0
 	}
 	if sub == "remove" && len(rest) > 0 {
@@ -214,6 +214,7 @@ func (m Manager) install(upgrade bool, dir string, stdout io.Writer) error {
 	} else if len(declared) > 0 {
 		fmt.Fprintf(stdout, "commands: %s\n", names(declared))
 	}
+	fmt.Fprintf(stdout, "capabilities: %s\n", contractNames(p))
 	fmt.Fprintf(stdout, "to trust this package: ext package trust %s\n", p.Name())
 	return nil
 }
@@ -283,7 +284,7 @@ func (m Manager) list(stdout, stderr io.Writer) int {
 		return 1
 	}
 	w := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "PACKAGE\tVERSION\tTRUST\tCOMMANDS")
+	fmt.Fprintln(w, "PACKAGE\tVERSION\tTRUST\tCAPABILITIES\tCOMMANDS")
 	for _, p := range installed {
 		declared, derr := Declare(p)
 		state := "untrusted"
@@ -299,7 +300,7 @@ func (m Manager) list(stdout, stderr io.Writer) int {
 		if derr != nil {
 			list = "invalid: " + derr.Error()
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Name(), p.Version(), state, list)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", p.Name(), p.Version(), state, contractNames(p), list)
 	}
 	w.Flush()
 	for _, c := range problems {
@@ -314,6 +315,14 @@ func names(declared []Declared) string {
 	out := make([]string, len(declared))
 	for i, d := range declared {
 		out[i] = d.Name
+	}
+	return strings.Join(out, ", ")
+}
+
+func contractNames(p store.Installed) string {
+	out := make([]string, len(p.Manifest.Descriptor.Contracts))
+	for i, c := range p.Manifest.Descriptor.Contracts {
+		out[i] = c.Name + "/" + c.Version
 	}
 	return strings.Join(out, ", ")
 }

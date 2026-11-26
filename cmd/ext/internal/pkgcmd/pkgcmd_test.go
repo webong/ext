@@ -18,6 +18,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cengine/plugin/host"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )
@@ -333,7 +334,7 @@ func TestManageInstallTrustListRemove(t *testing.T) {
 	src := source(t, "1.0.0", declares)
 
 	code, out, errOut := manage(t, m, "install", src)
-	if code != 0 || !strings.Contains(out, "not trusted") || !strings.Contains(out, "ext package trust example/tools") {
+	if code != 0 || !strings.Contains(out, "not trusted") || !strings.Contains(out, "capabilities: ext.command/v1") || !strings.Contains(out, "ext package trust example/tools") {
 		t.Fatalf("install = %d %q %q", code, out, errOut)
 	}
 	if _, _, err := discover(t, home).Resolve("echo", ""); err == nil {
@@ -342,7 +343,7 @@ func TestManageInstallTrustListRemove(t *testing.T) {
 	if code, _, errOut := manage(t, m, "install", src); code != 1 || !strings.Contains(errOut, "already installed") {
 		t.Fatalf("second install = %d %q", code, errOut)
 	}
-	if _, out, _ := manage(t, m, "list"); !strings.Contains(out, "untrusted") || !strings.Contains(out, "echo, fail, flood, where") {
+	if _, out, _ := manage(t, m, "list"); !strings.Contains(out, "untrusted") || !strings.Contains(out, "ext.command/v1") || !strings.Contains(out, "echo, fail, flood, where") {
 		t.Fatalf("list = %q", out)
 	}
 
@@ -372,6 +373,50 @@ func TestManageInstallTrustListRemove(t *testing.T) {
 	if again, _ := LoadTrust(home); len(again.Packages) != 0 {
 		t.Fatalf("remove left a trust record: %v", again.Packages)
 	}
+}
+
+func TestPackageTrustFollowsDeclaredCapabilities(t *testing.T) {
+	m, _ := manager(t)
+	src := source(t, "1.0.0", "")
+	contents, err := os.ReadFile(filepath.Join(src, "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest packagekit.Manifest
+	if err := json.Unmarshal(contents, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest.Descriptor.Contracts = []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "model.tensor", Version: "v1"}, Operations: []plugin.Operation{{Name: "infer"}}}}
+	if err := store.WriteManifest(src, manifest); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := manage(t, m, "install", src); code != 0 || !strings.Contains(out, "capabilities: model.tensor/v1") {
+		t.Fatalf("install = %d %q %q", code, out, errOut)
+	}
+	installed, err := m.Store.Load("example/tools")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := installed.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := func(want bool) {
+		t.Helper()
+		state, err := m.Trust.file.StateOf("model.tensor/v1", installed.Name(), digest)
+		if err != nil || (state == hosttrust.Trusted) != want {
+			t.Fatalf("model trust state = %v, %v; want trusted=%t", state, err, want)
+		}
+	}
+	check(false)
+	if code, out, errOut := manage(t, m, "trust", installed.Name()); code != 0 {
+		t.Fatalf("trust = %d %q %q", code, out, errOut)
+	}
+	check(true)
+	if code, _, errOut := manage(t, m, "untrust", installed.Name()); code != 0 {
+		t.Fatalf("untrust = %d %q", code, errOut)
+	}
+	check(false)
 }
 
 func TestManageRefusesWhatCannotBeTrustedOrUsed(t *testing.T) {

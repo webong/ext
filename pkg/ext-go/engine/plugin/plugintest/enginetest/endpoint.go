@@ -335,7 +335,7 @@ func EndpointTimeSpellingsAreStricterInTheEngine(t *testing.T, e Engine) {
 // Go's zero time is no time at all, in whatever zone it is written.
 func ZeroTimeInAnyZoneMatchesGo(t *testing.T, e Engine) {
 	for _, text := range []string{"0001-01-01T00:00:00Z", "0001-01-01T00:00:00.000000000Z", "0001-01-01T01:00:00+01:00", "0001-01-01T00:30:00+00:30", "0000-12-31T23:00:00-01:00"} {
-		frame := mustMarshal(t, map[string]any{"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
+		frame := mustMarshal(t, map[string]any{"frame": "reverse_request", "apiVersion": "ext.io.pc/v1", "id": "g1", "parent": "1",
 			"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": text})
 		want, got := goFrameValidates(frame), error(nil)
 		_, got = e.Call("frame.validate", frame)

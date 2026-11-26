@@ -37,7 +37,7 @@ final class ArchiveTests {
     }
 
     static String revision(byte[] manifest) {
-        Map<String, Object> identity = Json.object(Json.object(Json.object(Json.parse(manifest)).get("descriptor")).get("identity"));
+        Map<String, Object> identity = Json.object(Json.object(Json.parse(manifest)).get("identity"));
         return Json.string(identity.get("revision"));
     }
 
@@ -122,7 +122,7 @@ final class ArchiveTests {
     }
 
     static String idOf(byte[] manifest) {
-        Map<String, Object> identity = Json.object(Json.object(Json.object(Json.parse(manifest)).get("descriptor")).get("identity"));
+        Map<String, Object> identity = Json.object(Json.object(Json.parse(manifest)).get("identity"));
         return Json.string(identity.get("id"));
     }
 

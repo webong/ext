@@ -1,8 +1,8 @@
 import Foundation
 
-/// The ext.plugin/v1 wire types an author needs. The engine validates every
+/// The ext.io.pc/v1 wire types an author needs. The engine validates every
 /// request against the descriptor, so a handler sees only well-formed calls.
-public let apiVersion = "ext.plugin/v1"
+public let apiVersion = "ext.io.pc/v1"
 
 public struct Identity: Codable, Equatable, Sendable {
     public var id: String

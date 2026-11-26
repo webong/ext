@@ -105,7 +105,7 @@ test('a store downloads, installs and skips with the receipt',{skip:(!openssl&&'
     try{
       await assert.rejects(store.installArchiveFrom(url,'0'.repeat(64),{ca:s.ca,temporaryDirectory}),e=>e.status===status.MISMATCH);
       const manifest=await store.installArchiveFrom(url,step.sha256.toUpperCase(),{ca:s.ca,temporaryDirectory,id:'example/archive'});
-      assert.equal(JSON.parse(manifest).descriptor.identity.revision,step.revision);
+      assert.equal(JSON.parse(manifest).identity.revision,step.revision);
       assert.deepEqual(await store.receipt('example/archive'),{id:'example/archive',revision:step.revision,artifact_sha256:step.sha256});
       await assert.rejects(store.installArchiveFrom(s.fill('https://{origin}/missing'),step.sha256,{ca:s.ca,temporaryDirectory}),e=>e.status===undefined);
     }finally{store.close();}

@@ -55,7 +55,7 @@ both engines):
 
 ```json
 "artifacts": [{"name": "guest", "path": "guest", "kind": "tree", "sha256": "<TreeDigest>"}],
-"entrypoints": [{"name": "main", "runtime": "go-source", "artifact": "guest", "protocols": ["ext.plugin/v1"]}]
+"entrypoints": [{"name": "main", "runtime": "go-source", "artifact": "guest", "protocols": ["ext.io.pc/v1"]}]
 ```
 
 ## The host

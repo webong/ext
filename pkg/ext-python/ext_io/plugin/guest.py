@@ -98,7 +98,7 @@ def current_call():
 
 
 def validate_descriptor(d):
-    """Raise ValueError unless d is a valid ext.plugin/v1 descriptor."""
+    """Raise ValueError unless d is a valid ext.io.pc/v1 descriptor."""
     if not isinstance(d, dict) or set(d) - {"apiVersion", "identity", "contracts", "reverse"}:
         raise ValueError("descriptor must be an object with apiVersion, identity, contracts")
     if d.get("apiVersion") != API_VERSION:
@@ -143,7 +143,7 @@ def _validate_contracts(contracts, reverse):
             surface = "" if surface is None else surface
             if (
                 not _match(_IDENTIFIER, name)
-                or name == "plugin.hello"
+                or name == "session.hello"
                 or name in names
                 or not isinstance(surface, str)
                 or (surface != "" and not _match(_IDENTIFIER, surface))
@@ -159,7 +159,7 @@ def _match(pattern, value):
 
 
 def load_descriptor(path):
-    """Read a descriptor from a plugin.json (ext.package/v1) or a bare descriptor file."""
+    """Read a descriptor from a plugin.json (ext.io/v1) or a bare descriptor file."""
     with open(os.fspath(path), "rb") as f:
         raw = f.read((16 << 20) + 1)
     if len(raw) > 16 << 20:
@@ -168,10 +168,10 @@ def load_descriptor(path):
         data = decode_frame(raw)
     except ProtocolError as exc:
         raise ValueError(str(exc))
-    if isinstance(data, dict) and "descriptor" in data:
-        if data.get("apiVersion") != "ext.package/v1":
-            raise ValueError("unsupported package apiVersion")
-        data = data["descriptor"]
+    if isinstance(data, dict) and data.get("apiVersion") == "ext.io/v1":
+        if data.get("kind") != "package" or "descriptor" in data:
+            raise ValueError("invalid ext.io/v1 package")
+        data = {"apiVersion": "ext.io.pc/v1", **{k: data[k] for k in ("identity", "contracts", "reverse") if k in data}}
     validate_descriptor(data)
     return data
 
@@ -380,7 +380,7 @@ def _answer_hello(guest, request):
     if (
         request.get("apiVersion") != API_VERSION
         or request.get("id") != "hello"
-        or request.get("operation") != "plugin.hello"
+        or request.get("operation") != "session.hello"
         or any(plugin.values())
         or any(contract.values())
         or request.get("surface", "") != ""

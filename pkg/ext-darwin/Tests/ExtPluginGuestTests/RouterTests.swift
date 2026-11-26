@@ -169,7 +169,7 @@ final class RouterTests: XCTestCase {
         }
 
         static func hello(_ extra: String? = nil) -> String {
-            "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\""
+            "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"operation\":\"session.hello\",\"deadline\":\""
                 + Frames.format(milliseconds: Connection.now() + 30_000) + "\"" + (extra.map { "," + $0 } ?? "") + "}"
         }
 
@@ -205,7 +205,7 @@ final class RouterTests: XCTestCase {
             next += 1
             let id = String(next)
             send(
-                "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"\(id)\",\"plugin\":{\"id\":\"swift/frames\",\"revision\":\"r1\"},"
+                "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"\(id)\",\"plugin\":{\"id\":\"swift/frames\",\"revision\":\"r1\"},"
                     + "\"contract\":{\"name\":\"test.frames\",\"version\":\"v1\"},\"operation\":\"\(operation)\","
                     + "\"payload\":\(payload),\"deadline\":\"" + Frames.format(milliseconds: Connection.now() + 30_000) + "\""
                     + (progress ? ",\"progress\":{\"eventsPerSecond\":5}" : "") + "}")
@@ -254,7 +254,7 @@ final class RouterTests: XCTestCase {
     }
 
     static func answer(_ id: String, _ body: String) -> String {
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"\(id)\"" + (body.isEmpty ? "" : "," + body) + "}"
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"\(id)\"" + (body.isEmpty ? "" : "," + body) + "}"
     }
 
     private func payload(_ response: [String: Any]) -> [String: Any] { response["payload"] as? [String: Any] ?? [:] }
@@ -414,7 +414,7 @@ final class RouterTests: XCTestCase {
             ("a second request during a call", nil),
             ("an unknown frame", #"{"frame":"mystery"}"#),
             ("an answer to a request never issued", Self.answer("g99", "\"payload\":1")),
-            ("a progress frame from the host", #"{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log"}"#),
+            ("a progress frame from the host", #"{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log"}"#),
             ("a malformed answer to the request waiting", Self.answer("g1", "\"payload\":1,\"extra\":1")),
             ("an answer with both payload and error", Self.answer("g1", #""payload":1,"error":{"code":"x","message":"m"}"#)),
             ("an answer with neither payload nor error", Self.answer("g1", "")),
@@ -461,7 +461,7 @@ final class RouterTests: XCTestCase {
         let guest = try Guest(descriptor: Self.descriptor, handler: { try Self.handle($0) })
         func request(_ operation: String, progress: Bool) -> Data {
             Data(
-                ("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"swift/frames\",\"revision\":\"r1\"},"
+                ("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"swift/frames\",\"revision\":\"r1\"},"
                     + "\"contract\":{\"name\":\"test.frames\",\"version\":\"v1\"},\"operation\":\"\(operation)\","
                     + "\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":{}" + (progress ? ",\"progress\":{}" : "") + "}").utf8)
         }

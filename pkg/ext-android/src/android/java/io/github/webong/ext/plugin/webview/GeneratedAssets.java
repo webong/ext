@@ -227,7 +227,7 @@ final class GeneratedAssets {
             + "  });\n"
             + "\n"
             + "  // host is the two-way channel between the page and the program showing it.\n"
-            + "  // Messages are strings; ext.plugin/v1 frames pass through unchanged.\n"
+            + "  // Messages are strings; ext.io.pc/v1 frames pass through unchanged.\n"
             + "  var handler = null, polling = false;\n"
             + "  var host = {\n"
             + "    transport: kind,\n"

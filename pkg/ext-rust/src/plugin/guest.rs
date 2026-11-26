@@ -292,7 +292,7 @@ pub(crate) fn validate_hello(v: &Value) -> Result<()> {
         .contains(&k.as_str())
     }) || v["apiVersion"] != VERSION
         || v["id"] != "hello"
-        || v["operation"] != "plugin.hello"
+        || v["operation"] != "session.hello"
     {
         return Err(Error::Invalid);
     }

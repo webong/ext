@@ -20,7 +20,7 @@ import (
 )
 
 // PackageStore is the C engine's package store: it installs, upgrades, replaces, removes and loads
-// reviewed ext.package/v1 packages under a root the caller supplies, the way pkg/ext-go/engine/plugin/host/store
+// reviewed ext.io/v1 packages under a root the caller supplies, the way pkg/ext-go/engine/plugin/host/store
 // does. A missing root is an empty store, made by the first install. Calls on one store are
 // serialized; several processes mutating one root are the caller's to serialize. In a build without
 // linked cgo, the same type is served by the shared C library.

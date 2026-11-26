@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Guest SDK for ext.plugin/v1 over bounded JSON lines (standard library only).
+# Guest SDK for ext.io.pc/v1 over bounded JSON lines (standard library only).
 #
 #   require "ext_io/plugin"
 #
@@ -10,7 +10,7 @@
 #     payload
 #   end
 #
-# The module answers +plugin.hello+ with the descriptor, validates every request the way the Go
+# The module answers +session.hello+ with the descriptor, validates every request the way the Go
 # +plugin.ValidateRequest+ does, and calls the handler sequentially. It never writes to standard
 # output except protocol frames.
 

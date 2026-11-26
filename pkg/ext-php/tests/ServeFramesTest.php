@@ -42,7 +42,7 @@ final class FramesHost
         $this->next++;
         $id = (string) $this->next;
         $r = [
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'id' => $id,
             'plugin' => ['id' => 'php/frames', 'revision' => 'r1'],
             'contract' => ['name' => 'test.frames', 'version' => 'v1'],
@@ -89,12 +89,12 @@ final class ServeFramesTest extends TestCase
 {
     public static function hello(array $kw = []): array
     {
-        return array_merge(['apiVersion' => 'ext.plugin/v1', 'id' => 'hello', 'operation' => 'plugin.hello', 'deadline' => GuestTest::FUTURE], $kw);
+        return array_merge(['apiVersion' => 'ext.io.pc/v1', 'id' => 'hello', 'operation' => 'session.hello', 'deadline' => GuestTest::FUTURE], $kw);
     }
 
     private static function answer(string $id, array $body): array
     {
-        return ['frame' => 'reverse_response', 'apiVersion' => 'ext.plugin/v1', 'id' => $id] + $body;
+        return ['frame' => 'reverse_response', 'apiVersion' => 'ext.io.pc/v1', 'id' => $id] + $body;
     }
 
     private static function started(): FramesHost
@@ -228,7 +228,7 @@ final class ServeFramesTest extends TestCase
             'a second request during a call' => null,
             'an unknown frame' => ['frame' => 'mystery'],
             'an answer to a request never issued' => self::answer('g99', ['payload' => 1]),
-            'a progress frame from the host' => ['frame' => 'progress', 'apiVersion' => 'ext.plugin/v1', 'parent' => '1', 'kind' => 'log'],
+            'a progress frame from the host' => ['frame' => 'progress', 'apiVersion' => 'ext.io.pc/v1', 'parent' => '1', 'kind' => 'log'],
             'a malformed answer to the request waiting' => self::answer('g1', ['payload' => 1, 'extra' => 1]),
             'an answer with both payload and error' => self::answer('g1', ['payload' => 1, 'error' => ['code' => 'x', 'message' => 'm']]),
             'an answer with neither payload nor error' => self::answer('g1', []),
@@ -268,7 +268,7 @@ final class ServeFramesTest extends TestCase
     {
         $guest = new Guest(\ServeFramesGuest::descriptor(), \ServeFramesGuest::handle(...), redactErrors: true);
         $request = static fn (string $operation) => self::obj([
-            'apiVersion' => 'ext.plugin/v1', 'id' => '1', 'plugin' => ['id' => 'php/frames', 'revision' => 'r1'],
+            'apiVersion' => 'ext.io.pc/v1', 'id' => '1', 'plugin' => ['id' => 'php/frames', 'revision' => 'r1'],
             'contract' => ['name' => 'test.frames', 'version' => 'v1'], 'operation' => $operation,
             'payload' => new \stdClass(), 'deadline' => GuestTest::FUTURE, 'progress' => new \stdClass(),
         ]);

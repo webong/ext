@@ -1,8 +1,8 @@
 import CExtEngine
 import Foundation
 
-/// The ext.plugin/v1 JSON-line transport for a guest process: one JSON frame per line, a
-/// `plugin.hello` frame first, then one response per request. Standard output belongs to the
+/// The ext.io.pc/v1 JSON-line transport for a guest process: one JSON frame per line, a
+/// `session.hello` frame first, then one response per request. Standard output belongs to the
 /// protocol; log to standard error.
 ///
 /// The input is read on a thread of its own, so a handler can report progress (`Call.progress`)
@@ -36,7 +36,7 @@ public enum JSONLine {
             if !hello {
                 try checkHello(frame)
                 hello = true
-                response = Array(#"{"apiVersion":"ext.plugin/v1","id":"hello","payload":"#.utf8)
+                response = Array(#"{"apiVersion":"ext.io.pc/v1","id":"hello","payload":"#.utf8)
                 response += Array(try guest.descriptorJSON())
                 response.append(UInt8(ascii: "}"))
             } else {
@@ -54,7 +54,7 @@ public enum JSONLine {
         let bad = JSONLineError.io("invalid hello")
         guard (try? Frames.decode(frame)) != nil, let hello = (try? Frames.decode(frame))?.object,
             Set(hello.keys).isSubset(of: helloFields), hello["apiVersion"]?.string == apiVersion, hello["id"]?.string == "hello",
-            hello["operation"]?.string == "plugin.hello", let deadline = hello["deadline"]?.string,
+            hello["operation"]?.string == "session.hello", let deadline = hello["deadline"]?.string,
             emptyObject(hello["plugin"]), emptyObject(hello["contract"]),
             hello["surface"] == nil || hello["surface"]?.isNull == true || hello["surface"]?.string == ""
         else { throw bad }

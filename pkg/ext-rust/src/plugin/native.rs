@@ -72,7 +72,7 @@ impl Worker {
                 let request = if op == 1 {
                     let v = wire::decode(&data)?;
                     wire::encode(
-                        &serde_json::json!({"apiVersion":VERSION,"id":"hello","operation":"plugin.hello","deadline":v["deadline"]}),
+                        &serde_json::json!({"apiVersion":VERSION,"id":"hello","operation":"session.hello","deadline":v["deadline"]}),
                     )?
                 } else {
                     data

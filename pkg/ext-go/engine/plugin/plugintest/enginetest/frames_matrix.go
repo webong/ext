@@ -64,7 +64,7 @@ func FramesDescriptorDifferential(t *testing.T, e Engine) {
 
 func FramesRequestDifferential(t *testing.T, e Engine) {
 	data, base, d := e.framesFixture(t)
-	request := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "long", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z", "progress": map[string]any{"eventsPerSecond": 10, "bytesPerSecond": 4096}, "parent": "p1"}
+	request := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "long", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z", "progress": map[string]any{"eventsPerSecond": 10, "bytesPerSecond": 4096}, "parent": "p1"}
 	var accepted, total, diverged int
 	for _, raw := range mutations(request) {
 		total++

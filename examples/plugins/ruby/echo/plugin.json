@@ -1,37 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "example/ruby-echo",
-      "revision": "fixture-1"
-    },
-    "contracts": [
-      {
-        "name": "example.echo",
-        "version": "v1",
-        "operations": [
-          {
-            "name": "echo"
-          },
-          {
-            "name": "count",
-            "progress": true
-          }
-        ]
-      },
-      {
-        "name": "ext.health",
-        "version": "v1",
-        "operations": [
-          {
-            "name": "check",
-            "surface": "observation"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "main",
@@ -45,7 +13,7 @@
       "runtime": "jsonline",
       "artifact": "main",
       "protocols": [
-        "ext.plugin/v1"
+        "ext.io.pc/v1"
       ]
     }
   ],
@@ -53,6 +21,36 @@
     {
       "artifact": "main",
       "kind": "source"
+    }
+  ],
+  "kind": "package",
+  "identity": {
+    "id": "example/ruby-echo",
+    "revision": "fixture-1"
+  },
+  "contracts": [
+    {
+      "name": "example.echo",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "echo"
+        },
+        {
+          "name": "count",
+          "progress": true
+        }
+      ]
+    },
+    {
+      "name": "ext.health",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "check",
+          "surface": "observation"
+        }
+      ]
     }
   ]
 }

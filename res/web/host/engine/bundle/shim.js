@@ -69,7 +69,7 @@
   });
 
   // host is the two-way channel between the page and the program showing it.
-  // Messages are strings; ext.plugin/v1 frames pass through unchanged.
+  // Messages are strings; ext.io.pc/v1 frames pass through unchanged.
   var handler = null, polling = false;
   var host = {
     transport: kind,

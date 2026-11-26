@@ -21,7 +21,7 @@ let package = Package(
         // load the plugin. Needs one ext_plugin_guest_factory definition.
         .library(name: "ExtPluginExports", targets: ["ExtPluginExports"]),
         // The engine's package store: install, upgrade, replace, remove and load reviewed
-        // ext.package/v1 packages under a root the app supplies, and read several roots as one.
+        // ext.io/v1 packages under a root the app supplies, and read several roots as one.
         // Host side, but it spawns nothing, so it ships in CExtEngine.
         .library(name: "ExtPluginStore", targets: ["ExtPluginStore"]),
         // Host a WebAssembly reactor in a hidden web view (docs/plugin-reactor-abi.md).

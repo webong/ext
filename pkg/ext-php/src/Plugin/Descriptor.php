@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ExtIO\Plugin;
 
-/** @internal Loading and validating ext.plugin/v1 descriptors. */
+/** @internal Loading and validating ext.io.pc/v1 descriptors. */
 final class Descriptor
 {
     private const MAX_FILE_BYTES = 16 << 20;
@@ -57,11 +57,13 @@ final class Descriptor
         } catch (ProtocolError $e) {
             throw new \InvalidArgumentException($e->getMessage(), 0, $e);
         }
-        if ($data instanceof \stdClass && Json::has($data, 'descriptor')) {
-            if (Json::get($data, 'apiVersion') !== 'ext.package/v1') {
-                self::invalid('unsupported package apiVersion');
+        if ($data instanceof \stdClass && Json::get($data, 'apiVersion') === 'ext.io/v1') {
+            if (Json::get($data, 'kind') !== 'package' || Json::has($data, 'descriptor')) self::invalid('invalid ext.io/v1 package');
+            $descriptor = (object)['apiVersion' => 'ext.io.pc/v1'];
+            foreach (['identity', 'contracts', 'reverse'] as $key) {
+                if (Json::has($data, $key)) $descriptor->$key = $data->$key;
             }
-            $data = $data->descriptor;
+            $data = $descriptor;
         }
         self::validate($data);
         return $data;
@@ -93,7 +95,7 @@ final class Descriptor
                 $surface = Json::get($op, 'surface') ?? '';
                 $progress = Json::get($op, 'progress');
                 if (!Pattern::identifier($name)
-                    || $name === 'plugin.hello'
+                    || $name === 'session.hello'
                     || isset($names[$name])
                     || !\is_string($surface)
                     || ($surface !== '' && !Pattern::identifier($surface))

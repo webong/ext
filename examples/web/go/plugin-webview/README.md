@@ -1,7 +1,7 @@
 # Hosting a WebAssembly plugin in the system web engine
 
 A proof of concept: a plugin guest compiled to WASI runs inside a browser or
-webview, and a page speaks `ext.plugin/v1` to it. It exists to answer whether the
+webview, and a page speaks `ext.io.pc/v1` to it. It exists to answer whether the
 web engine every phone already has can host ext plugins. See
 [the decision record](../../../../docs/adr-mobile-wasm.md) for what it showed.
 

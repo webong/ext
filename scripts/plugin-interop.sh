@@ -30,7 +30,7 @@ import datetime,hashlib,json,pathlib,shlex,sys
 p=pathlib.Path(sys.argv[1]); fixtures=pathlib.Path(sys.argv[2]); descriptor=json.loads((fixtures/'descriptor.json').read_text())
 (p/'descriptor.json').write_text(json.dumps(descriptor))
 for operation in ('echo','public-error'):
- request=dict(apiVersion='ext.plugin/v1',id='1',plugin=descriptor['identity'],contract=dict(name='ext.conformance',version='v1'),operation=operation,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
+ request=dict(apiVersion='ext.io.pc/v1',id='1',plugin=descriptor['identity'],contract=dict(name='ext.conformance',version='v1'),operation=operation,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(operation+'.json')).write_text(json.dumps(request))
 guest=p/'hashicorp-guest'
 for protocol in ('grpc','netrpc'):

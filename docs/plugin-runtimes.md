@@ -3,7 +3,7 @@
 The Ext plugin library supports all four runtime families in the comparison:
 native Go plugins, HashiCorp RPC subprocesses, WASM/WASI, and C shared libraries.
 It also provides in-process endpoints and JSON-line connections. All use the
-same descriptors, typed methods, host admission and `ext.plugin/v1` envelopes.
+same descriptors, typed methods, host admission and `ext.io.pc/v1` envelopes.
 These are runtime implementations in the library; applications and adapters
 provide their own domain contracts and trust decisions.
 
@@ -154,7 +154,7 @@ documents linear memory limits and execution cancellation.
 ## C ABI guests and foreign hosts
 
 The portable contract is [ext_plugin_guest.h](../lib/plugin/include/ext_plugin_guest.h).
-ABI version `1` is independent of `ext.plugin/v1` and domain contract versions.
+ABI version `1` is independent of `ext.io.pc/v1` and domain contract versions.
 Every library must export these C calling-convention symbols:
 
 | Export | Purpose |
@@ -219,7 +219,7 @@ Declare the runtime from the backend profile:
 - `cshared`
 - Existing `inprocess`, `jsonline`, `hashicorp/grpc`, `hashicorp/netrpc`
 
-All currently advertise `ext.plugin/v1`. Add supported profiles explicitly to
+All currently advertise `ext.io.pc/v1`. Add supported profiles explicitly to
 `packagekit.Environment.Runtimes`; `SelectEntrypoint` preflights a named entry
 point before launching it. Register native profiles only when `Supported()` is
 true. Native artifacts should declare host `os` and `arch`. A portable WASI

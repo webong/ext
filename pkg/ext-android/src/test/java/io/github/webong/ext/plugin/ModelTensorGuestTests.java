@@ -29,7 +29,7 @@ public final class ModelTensorGuestTests {
                     List.of(), List.of(new MlArtifact("model", "model.tflite", MlDigest.sha256(model))));
             store.installFromBytes(manifest, Map.of("model.tflite", model));
             byte[] inputs = new byte[]{0, 0, 0, 64, 0, 0, 64, 64};
-            StringBuilder request = new StringBuilder("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":")
+            StringBuilder request = new StringBuilder("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":")
                     .append("{\"id\":\"tflite\",\"revision\":\"r1\",\"version\":\"1.0.0\"},")
                     .append("\"contract\":{\"name\":\"model.tensor\",\"version\":\"v1\"},")
                     .append("\"operation\":\"infer\",\"surface\":\"action\",\"deadline\":\"2099-01-01T00:00:00Z\",")

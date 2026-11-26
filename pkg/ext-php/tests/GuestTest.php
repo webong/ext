@@ -19,7 +19,7 @@ final class GuestTest extends TestCase
     public static function desc(): array
     {
         return [
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'identity' => self::IDENT,
             'contracts' => [[
                 'name' => 'example.echo',
@@ -32,7 +32,7 @@ final class GuestTest extends TestCase
     public static function req(string $op = 'echo', array $kw = []): array
     {
         return array_merge([
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'id' => 'c1',
             'plugin' => self::IDENT,
             'contract' => ['name' => 'example.echo', 'version' => 'v1'],
@@ -45,11 +45,11 @@ final class GuestTest extends TestCase
     public static function hello(array $kw = []): array
     {
         return array_merge([
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'id' => 'hello',
             'plugin' => ['id' => '', 'revision' => ''],
             'contract' => ['name' => '', 'version' => ''],
-            'operation' => 'plugin.hello',
+            'operation' => 'session.hello',
             'deadline' => self::FUTURE,
         ], $kw);
     }
@@ -110,7 +110,7 @@ final class GuestTest extends TestCase
         [$out, $err] = self::run(self::frames(self::hello(), self::req()));
         self::assertNull($err);
         self::assertJson(self::desc(), $out[0]->payload);
-        self::assertJson(['apiVersion' => 'ext.plugin/v1', 'id' => 'c1', 'payload' => ['v' => 1]], $out[1]);
+        self::assertJson(['apiVersion' => 'ext.io.pc/v1', 'id' => 'c1', 'payload' => ['v' => 1]], $out[1]);
     }
 
     public function testHelloMustBeFirstAndStrict(): void
@@ -128,7 +128,7 @@ final class GuestTest extends TestCase
         $resp = self::invoke($guest, self::req());
         self::assertTrue(\array_key_exists('payload', $resp));
         self::assertNull($resp['payload']);
-        self::assertSame('{"apiVersion":"ext.plugin/v1","id":"c1","payload":null}', Json::encode($resp));
+        self::assertSame('{"apiVersion":"ext.io.pc/v1","id":"c1","payload":null}', Json::encode($resp));
     }
 
     public function testEmptyObjectsAndArraysStayApart(): void
@@ -150,7 +150,7 @@ final class GuestTest extends TestCase
             self::req('missing'),
             self::req('seen'), // declared surface missing
             self::req('echo', ['deadline' => '0001-01-01T00:00:00Z']),
-            self::req('plugin.hello'),
+            self::req('session.hello'),
         ];
         $guest = new Guest(self::desc(), self::handler(...));
         foreach ($cases as $r) {
@@ -239,8 +239,8 @@ final class GuestTest extends TestCase
     public function testStrictJsonEndsStream(): void
     {
         $bad = [
-            '{"apiVersion":"ext.plugin/v1","id":"hello","id":"hello"}' . "\n",
-            '{"apiVersion":"ext.plugin/v1","unknown":1}' . "\n",
+            '{"apiVersion":"ext.io.pc/v1","id":"hello","id":"hello"}' . "\n",
+            '{"apiVersion":"ext.io.pc/v1","unknown":1}' . "\n",
             '[1,2]' . "\n",
             '{"a":NaN}' . "\n",
             '{"a":"\\ud800"}' . "\n",
@@ -269,17 +269,17 @@ final class GuestTest extends TestCase
 
     public function testPayloadStrictnessAfterHello(): void
     {
-        [$out, $err] = self::run(self::frames(self::hello()) . '{"apiVersion":"ext.plugin/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}' . "\n");
+        [$out, $err] = self::run(self::frames(self::hello()) . '{"apiVersion":"ext.io.pc/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}' . "\n");
         self::assertNotNull($err);
         self::assertSame(1, \count($out));
         // Keys that differ only in their escapes are the same key.
-        [, $err] = self::run(self::frames(self::hello()) . '{"apiVersion":"ext.plugin/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"\\u0061":2}}' . "\n");
+        [, $err] = self::run(self::frames(self::hello()) . '{"apiVersion":"ext.io.pc/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"\\u0061":2}}' . "\n");
         self::assertNotNull($err);
     }
 
     public function testAstralPairAllowed(): void
     {
-        [$out, $err] = self::run(self::frames(self::hello()) . '{"apiVersion":"ext.plugin/v1","id":"c1","plugin":{"id":"example/p","revision":"r1"},"contract":{"name":"example.echo","version":"v1"},"operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":"\\ud83d\\ude00"}' . "\n");
+        [$out, $err] = self::run(self::frames(self::hello()) . '{"apiVersion":"ext.io.pc/v1","id":"c1","plugin":{"id":"example/p","revision":"r1"},"contract":{"name":"example.echo","version":"v1"},"operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":"\\ud83d\\ude00"}' . "\n");
         self::assertNull($err);
         self::assertSame("\u{1F600}", $out[1]->payload);
     }
@@ -322,7 +322,7 @@ final class GuestTest extends TestCase
             $bare = "$dir/descriptor.json";
             $pkg = "$dir/plugin.json";
             file_put_contents($bare, Json::encode(self::desc()));
-            file_put_contents($pkg, Json::encode(['apiVersion' => 'ext.package/v1', 'descriptor' => self::desc(), 'artifacts' => []]));
+            file_put_contents($pkg, Json::encode(array_merge((array)self::desc(), ['apiVersion' => 'ext.io/v1', 'kind' => 'package', 'artifacts' => []])));
             self::assertJson(self::desc(), Plugin\loadDescriptor($bare));
             self::assertJson(self::desc(), Plugin\loadDescriptor($pkg));
             self::assertTrue(new Guest($pkg, self::handler(...)) instanceof Guest);
@@ -347,7 +347,7 @@ final class GuestTest extends TestCase
             $mutate(static function (&$d) { $d['identity']['id'] = 'Bad'; }),
             $mutate(static function (&$d) { $d['contracts'] = []; }),
             $mutate(static function (&$d) { $d['contracts'][0]['operations'] = []; }),
-            $mutate(static function (&$d) { $d['contracts'][0]['operations'][] = ['name' => 'plugin.hello']; }),
+            $mutate(static function (&$d) { $d['contracts'][0]['operations'][] = ['name' => 'session.hello']; }),
             $mutate(static function (&$d) { $d['contracts'][0]['operations'][] = ['name' => 'echo']; }),
             $mutate(static function (&$d) { $d['contracts'][] = $d['contracts'][0]; }),
             $mutate(static function (&$d) { $d['extra'] = 1; }),

@@ -216,11 +216,11 @@ Test("progress text splits on character boundaries", () =>
     Check(pieces[0].Length == 2047, "the emoji was cut");
 });
 
-string Hello() => "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\"2099-01-01T00:00:00Z\"}\n";
+string Hello() => "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"operation\":\"session.hello\",\"deadline\":\"2099-01-01T00:00:00Z\"}\n";
 string Request(string id, string op, string payload) =>
-    "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"}," +
+    "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"}," +
     "\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":\"" + op + "\",\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":" + payload + "}\n";
-var descriptor = (JsonObject)JsonNode.Parse("{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},\"contracts\":[{\"name\":\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},{\"name\":\"fail\"},{\"name\":\"busy\"}]}]}")!;
+var descriptor = (JsonObject)JsonNode.Parse("{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},\"contracts\":[{\"name\":\"ext.conformance\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},{\"name\":\"fail\"},{\"name\":\"busy\"}]}]}")!;
 
 List<JsonNode> Serve(Guest guest, string input)
 {
@@ -254,20 +254,20 @@ Test("a session without hello first is a protocol error", () =>
 {
     var guest = new Guest(descriptor, (_, _, p) => p);
     Check(!Accepts(() => Serve(guest, Request("1", "echo", "1"))), "served a request before hello");
-    Check(!Accepts(() => Serve(guest, Hello() + "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"bogus\":1}\n")), "served an unknown field");
+    Check(!Accepts(() => Serve(guest, Hello() + "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"bogus\":1}\n")), "served an unknown field");
     Check(!Accepts(() => Serve(guest, Hello() + "{\"id\":\"1\"")), "served a cut frame");
 });
 
 Test("the capability router checks payloads and results", () =>
 {
-    var d = (JsonObject)JsonNode.Parse("{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"p\",\"revision\":\"1\"},\"contracts\":[{\"name\":\"ext.health\",\"version\":\"v1\",\"operations\":[{\"name\":\"check\"}]},{\"name\":\"ext.stream\",\"version\":\"v1\",\"operations\":[{\"name\":\"open\"},{\"name\":\"read\"},{\"name\":\"close\"}]}]}")!;
+    var d = (JsonObject)JsonNode.Parse("{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"p\",\"revision\":\"1\"},\"contracts\":[{\"name\":\"ext.health\",\"version\":\"v1\",\"operations\":[{\"name\":\"check\"}]},{\"name\":\"ext.stream\",\"version\":\"v1\",\"operations\":[{\"name\":\"open\"},{\"name\":\"read\"},{\"name\":\"close\"}]}]}")!;
     var healthy = "healthy";
     var router = new Capability.Router()
         .Health(() => new JsonObject { ["status"] = healthy, ["ready"] = true })
         .Stream(_ => "s1", (id, seq, limit) => new JsonObject { ["items"] = new JsonArray(id, seq, limit), ["done"] = true }, _ => { });
     var guest = new Guest(d, router.Handle);
     string Call(string contract, string op, string payload) =>
-        "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"p\",\"revision\":\"1\"},\"contract\":{\"name\":\"" + contract +
+        "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"p\",\"revision\":\"1\"},\"contract\":{\"name\":\"" + contract +
         "\",\"version\":\"v1\"},\"operation\":\"" + op + "\",\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":" + payload + "}\n";
     var answers = Serve(guest, Hello() + Call("ext.health", "check", "{}") + Call("ext.stream", "read", "{\"id\":\"s1\",\"sequence\":1,\"limit\":2}") +
         Call("ext.stream", "read", "{\"id\":\"s1\",\"sequence\":0,\"limit\":2}") + Call("ext.stream", "open", "{\"parameters\":null}"));

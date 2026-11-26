@@ -2,7 +2,7 @@
 
 > **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
-Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
+Standard-library-only guest for `ext.io.pc/v1` over JSON lines (Python 3.8+).
 Any ext host runs it, including the Go `pkg/ext-go/engine/plugin/host/process` backend and the Python host
 below, or any JSON-line client.
 
@@ -17,15 +17,14 @@ def handler(contract, operation, payload):
 plugin.serve_stdio("plugin.json", handler)   # or a descriptor dict
 ```
 
-The manifest file is `plugin.json` (it was `package.json` before ext v0.4.0, which freed that name for
-npm and Node tooling). `serve_stdio` accepts the manifest or a bare descriptor file by structure, so only the
+The example uses `plugin.json`; callers choose the manifest filename. `serve_stdio` accepts the manifest or a bare descriptor file by structure, so only the
 file name in your code changes.
 
 Import `ext_io.plugin` from this directory (add it to `PYTHONPATH`, or `pip install` it).
 
 - `serve_stdio(descriptor, handler, max_call_seconds=30, redact_errors=False)`:
-  serves until EOF. `descriptor` is a dict or the path of an `ext.package/v1`
-  `plugin.json` (its `descriptor` is used) or a bare descriptor file.
+  serves until EOF. `descriptor` is a dict or the path of an `ext.io/v1`
+  `plugin.json` (its runtime descriptor is derived from identity and contracts) or a bare descriptor file.
 - `Guest(descriptor, handler, ...)`, `serve(guest, stdin, stdout)`: the same
   with caller-supplied binary streams, for tests.
 - `RemoteError(code, message, retry_after_ms=None)`: sent as the structured
@@ -77,7 +76,7 @@ Go contract) with no exceptions, `tests/test_serve_frames.py` covers the router,
 `scripts/plugin-crosslang.sh` runs through the Go session and the C engine (it answers the
 operations that need a reader of its own with the public error `unsupported`).
 
-Behavior matches the Go `jsonline` server: `plugin.hello` is required first and
+Behavior matches the Go `jsonline` server: `session.hello` is required first and
 answered with the descriptor; frames are at most 24 MiB and read with a bound;
 envelopes with unknown fields, duplicate keys, trailing values, non-finite
 numbers, unpaired surrogates or nesting beyond 64 levels end the stream; each

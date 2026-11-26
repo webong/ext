@@ -145,9 +145,9 @@ final class StoreTests {
             artifacts.append(",\n\t\t{\"name\":\"data\",\"path\":\"data\",\"sha256\":\"")
                     .append(treeDigest(dir.resolve("data"))).append("\",\"kind\":\"tree\"}");
         }
-        String manifest = "{\"apiVersion\":\"ext.package/v1\",\n\t\"descriptor\":{\"apiVersion\":\"ext.plugin/v1\","
+        String manifest = "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\",\n\t"
                 + "\"identity\":{\"id\":\"" + id + "\",\"revision\":\"" + revision + "\"},"
-                + "\"contracts\":[{\"name\":\"" + contract + "\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]},\n"
+                + "\"contracts\":[{\"name\":\"" + contract + "\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}],\n"
                 + "\t\"artifacts\":[" + artifacts + "]}\r\n\r\n";
         write(dir, "plugin.json", manifest, false);
         return dir.toString();
@@ -591,9 +591,9 @@ final class StoreTests {
             entries.append("{\"name\":\"").append(e[0]).append("\",\"runtime\":\"").append(e[1])
                     .append("\",\"artifact\":\"").append(e[2]).append("\",\"protocols\":[\"").append(e[3]).append("\"]}");
         }
-        String manifest = "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{\"apiVersion\":\"ext.plugin/v1\","
+        String manifest = "{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\","
                 + "\"identity\":{\"id\":\"" + id + "\",\"revision\":\"r1\"},"
-                + "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]},"
+                + "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}],"
                 + "\"artifacts\":[" + listed + "],\"entrypoints\":[" + entries + "]}";
         write(dir, "plugin.json", manifest, false);
         return dir.toString();

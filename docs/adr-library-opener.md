@@ -30,7 +30,7 @@ engine. Its `cguest/backend` and `cguest/guest` packages import `core/plugin`;
 
 Running a plugin guest built as a C shared library is not loading a library of `lib/`: the guest is a
 plugin, so what crosses to it is the plugin protocol. That is a plugin backend, `pkg/ext-go/cengine/cguest/backend`, beside
-`yaegi`, `hashicorp` and `wasm`; it speaks `ext.plugin/v1` over the raw loader `cengine/cguest` and requires
+`yaegi`, `hashicorp` and `wasm`; it speaks `ext.io.pc/v1` over the raw loader `cengine/cguest` and requires
 `core/plugin` and the local loader. The plugin contract plays no part in how the drivers reach `lib/plugin` or
 `lib/ledger`, which go through each library's own C API.
 

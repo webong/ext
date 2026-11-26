@@ -107,7 +107,7 @@ pub const JSONLine = struct {
         const self: *JSONLine = @ptrCast(@alignCast(ctx));
         const req = if (op == 1) blk: {
             const hello = try w.decode(a, input);
-            break :blk try w.encode(a, .{ .apiVersion = w.version, .id = "hello", .operation = "plugin.hello", .deadline = try w.string(try w.field(hello, "deadline")) });
+            break :blk try w.encode(a, .{ .apiVersion = w.version, .id = "hello", .operation = "session.hello", .deadline = try w.string(try w.field(hello, "deadline")) });
         } else input;
         try self.connection.writeFrame(req, deadline);
         const bytes = (try self.connection.readFrame(a, deadline)) orelse return error.Transport;

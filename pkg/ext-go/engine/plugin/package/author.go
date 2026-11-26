@@ -161,7 +161,7 @@ func cloneContracts(contracts []plugin.Contract) []plugin.Contract {
 	return plugin.Descriptor{Contracts: contracts}.Clone().Contracts
 }
 
-// LoadDescriptor reads a descriptor from a package manifest (ext.package/v1) or
+// LoadDescriptor reads a descriptor from a package manifest (ext.io/v1) or
 // from a file holding just a descriptor, bounded by plugin.MaxFrameBytes.
 func LoadDescriptor(path string) (plugin.Descriptor, error) {
 	data, err := readBounded(path)

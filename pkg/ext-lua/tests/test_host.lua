@@ -248,7 +248,7 @@ case("invoke takes envelopes", function()
   local h = engine:process(descriptor, GUEST)
   h:start()
   local request = json.object({
-    apiVersion = "ext.plugin/v1", id = "r1", plugin = descriptor.identity,
+    apiVersion = "ext.io.pc/v1", id = "r1", plugin = descriptor.identity,
     contract = json.object({ name = echo.name, version = echo.version }, { "name", "version" }),
     operation = "echo", deadline = "2099-01-01T00:00:00Z", payload = { value = 3 },
   }, { "apiVersion", "id", "plugin", "contract", "operation", "deadline", "payload" })

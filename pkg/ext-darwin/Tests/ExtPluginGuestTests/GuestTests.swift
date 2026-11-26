@@ -8,7 +8,7 @@ final class GuestTests: XCTestCase {
         contracts: [Contract(name: "test", version: "v1", operations: [Operation(name: "echo"), Operation(name: "boom"), Operation(name: "busy"), Operation(name: "wait")])])
 
     private func request(_ operation: String, payload: String? = nil, deadline: String = "2099-01-01T00:00:00Z") -> Data {
-        var body = #"{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"swift/test","revision":"r1"},"contract":{"name":"test","version":"v1"},"operation":"\#(operation)","deadline":"\#(deadline)""#
+        var body = #"{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"swift/test","revision":"r1"},"contract":{"name":"test","version":"v1"},"operation":"\#(operation)","deadline":"\#(deadline)""#
         if let payload { body += #","payload":\#(payload)"# }
         return Data((body + "}").utf8)
     }
@@ -29,7 +29,7 @@ final class GuestTests: XCTestCase {
 
     func testDescriptorIsServedByTheEngine() throws {
         let json = try text(guest().descriptorJSON())
-        XCTAssertTrue(json.contains(#""apiVersion":"ext.plugin/v1""#), json)
+        XCTAssertTrue(json.contains(#""apiVersion":"ext.io.pc/v1""#), json)
         XCTAssertTrue(json.contains(#""id":"swift/test""#), json)
         XCTAssertTrue(json.contains(#""name":"echo""#), json)
     }

@@ -14,7 +14,7 @@ pub use serve::{serve, serve_stdio, serve_with, Mode, Reverse};
 pub use wire::{
     ContractRef, Descriptor, Identity, Operation, ProgressLimits, RemoteError, Request,
 };
-pub const VERSION: &str = "ext.plugin/v1";
+pub const VERSION: &str = "ext.io.pc/v1";
 pub const MAX_FRAME: usize = 24 << 20;
 pub const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 #[derive(Debug)]

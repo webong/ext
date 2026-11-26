@@ -15,7 +15,7 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 
 | Layer | What it is | Language |
 | --- | --- | --- |
-| 1. Contracts | `ext.plugin/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
+| 1. Contracts | `ext.io.pc/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
 | 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
 | 3. OS mechanisms | `lib/system`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
 | 4. Resource guests | `res/system`, `res/web`, `res/int`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
@@ -34,7 +34,7 @@ The layers rest on three principles:
   calls that library and carries the protocol; native apps can also use the library directly.
   Existing Go `res/` imports remain available while those callers migrate.
 - **Other languages cross the protocol.** A language reaches what another language implements
-  through `ext.plugin/v1`. It does not get a C ABI per library or a second implementation.
+  through `ext.io.pc/v1`. It does not get a C ABI per library or a second implementation.
 
 ## The rules of `res/`
 
@@ -69,7 +69,7 @@ design obligation.
 4. **Bounded and cancellable.** Every operation that reads, waits or buffers has a stated bound on
    size, count and time, and can be cancelled. No package keeps hidden global state.
 5. **Served over the protocol.** Rust, Python, TypeScript and the other SDKs reach a `res/`
-   guest through `ext.plugin/v1`, with a thin typed wrapper in the SDK for the calls a
+   guest through `ext.io.pc/v1`, with a thin typed wrapper in the SDK for the calls a
    consumer needs. A desktop guest can be a private Ext package process or a guest library;
    a mobile app bundles and hosts its native guest. The guest depends on its `lib/system`
    mechanism and the Ext guest SDK; the mechanism imports neither. The service is designed

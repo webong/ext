@@ -9,7 +9,7 @@ from ext_io.plugin import capability as cap  # noqa: E402
 
 IDENT = {"id": "example/p", "revision": "r1"}
 DESC = {
-    "apiVersion": "ext.plugin/v1",
+    "apiVersion": "ext.io.pc/v1",
     "identity": IDENT,
     "contracts": [
         {"name": "ext.health", "version": "v1", "operations": [{"name": "check", "surface": "observation"}]},
@@ -21,7 +21,7 @@ DESC = {
 
 def request(contract, operation, payload, surface=""):
     r = {
-        "apiVersion": "ext.plugin/v1",
+        "apiVersion": "ext.io.pc/v1",
         "id": "c1",
         "plugin": IDENT,
         "contract": {"name": contract, "version": "v1"},

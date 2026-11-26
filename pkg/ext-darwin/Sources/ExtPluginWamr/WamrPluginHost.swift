@@ -1,7 +1,7 @@
 import CExtWamr
 import Foundation
 
-/// Hosts an ext.plugin/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in this process, on
+/// Hosts an ext.io.pc/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in this process, on
 /// the WAMR interpreter, through the shared engine's host. This is the fallback route of
 /// docs/adr-mobile-wasm.md, for hosts where a web view is unsuitable: it needs no GUI, gives the
 /// guest only the ABI's WASI imports, and enforces a deadline, a memory cap and an optional
@@ -184,7 +184,7 @@ public final class WamrPluginHost: @unchecked Sendable {
         if status != ext_plugin_status(EXT_PLUGIN_OK) { throw Self.failure(status) }
     }
 
-    /// Sends one complete ext.plugin/v1 request and returns the complete response, including
+    /// Sends one complete ext.io.pc/v1 request and returns the complete response, including
     /// public errors. A call that fails after dispatch ends the session.
     public func invoke(_ request: Data, timeout: TimeInterval = 30) throws -> Data {
         var out = ext_plugin_buffer(data: nil, len: 0)

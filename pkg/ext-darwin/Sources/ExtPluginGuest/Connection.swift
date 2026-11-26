@@ -294,7 +294,7 @@ final class Connection: @unchecked Sendable {
     private static func reverseRequest(
         id: String, parent: String, contract: ContractRef, operation: String, payload: Data?, deadline: Int64
     ) throws -> [UInt8] {
-        var head = "{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\",\"id\":" + JSONValue.quote(id)
+        var head = "{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":" + JSONValue.quote(id)
         if !parent.isEmpty { head += ",\"parent\":" + JSONValue.quote(parent) }
         head += ",\"contract\":{\"name\":" + JSONValue.quote(contract.name) + ",\"version\":" + JSONValue.quote(contract.version)
         head += "},\"operation\":" + JSONValue.quote(operation) + ",\"deadline\":" + JSONValue.quote(Frames.format(milliseconds: deadline))
@@ -466,7 +466,7 @@ final class Reporter: @unchecked Sendable {
     }
 
     private func write(_ event: Frames.Event) throws {
-        var frame = "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\",\"parent\":" + JSONValue.quote(parent)
+        var frame = "{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\",\"parent\":" + JSONValue.quote(parent)
         frame += ",\"kind\":" + JSONValue.quote(event.kind)
         if !event.stream.isEmpty { frame += ",\"stream\":" + JSONValue.quote(event.stream) }
         if !event.text.isEmpty { frame += ",\"text\":" + JSONValue.quote(event.text) }

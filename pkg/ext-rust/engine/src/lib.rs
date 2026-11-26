@@ -798,7 +798,7 @@ mod tests {
         .unwrap();
         let request = |id: &str, operation: &str, deadline: &str| {
             format!(
-                "{{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"{id}\",\"plugin\":{{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"}},\"contract\":{{\"name\":\"ext.conformance\",\"version\":\"v1\"}},\"operation\":\"{operation}\"{deadline}}}"
+                "{{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"{id}\",\"plugin\":{{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"}},\"contract\":{{\"name\":\"ext.conformance\",\"version\":\"v1\"}},\"operation\":\"{operation}\"{deadline}}}"
             )
         };
         let deadline = ",\"deadline\":\"2099-01-01T00:00:00Z\"";
@@ -812,7 +812,7 @@ mod tests {
         for bad in [
             request("1", "nope", deadline),
             request("1", "echo", ""),
-            request("1", "echo", deadline).replace("ext.plugin/v1", "ext.plugin/v2"),
+            request("1", "echo", deadline).replace("ext.io.pc/v1", "ext.plugin/v2"),
         ] {
             called.store(0, Ordering::SeqCst);
             let reply = g.invoke(bad.as_bytes(), CallOptions::default()).unwrap();

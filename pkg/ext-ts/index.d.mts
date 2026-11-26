@@ -1,4 +1,4 @@
-export const API_VERSION: 'ext.plugin/v1';
+export const API_VERSION: 'ext.io.pc/v1';
 export const MAX_FRAME_BYTES: number;
 export const MAX_PROGRESS_TEXT: number;
 export const MAX_RETRY_AFTER_MS: number;

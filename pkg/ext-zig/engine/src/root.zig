@@ -302,7 +302,7 @@ pub const PackageWriter = struct {
 };
 
 /// The engine's package store: install, upgrade, replace, remove and load
-/// reviewed `ext.package/v1` packages under a root the caller supplies, as the Go
+/// reviewed `ext.io/v1` packages under a root the caller supplies, as the Go
 /// store does. A missing root is an empty store, made by the first install. The
 /// engine serializes calls on one store; several processes mutating one root are
 /// coordinated by PackageWriter. Failures are statuses: `error.Invalid` for a
@@ -315,9 +315,13 @@ pub const Store = struct {
     raw: ?*ffi.ext_plugin_store,
     max_archive_bytes: u64 = 0,
     pub fn init(root: [:0]const u8, limits: StoreLimits) Error!Store {
+        return initWithManifest(root, limits, "plugin.json");
+    }
+    pub fn initWithManifest(root: [:0]const u8, limits: StoreLimits, manifest: [:0]const u8) Error!Store {
+        const layout: ffi.ext_plugin_store_layout = .{ .manifest_path = manifest.ptr, .fallback_path = null };
         var raw: ?*ffi.ext_plugin_store = null;
         const c_limits: ffi.ext_plugin_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
-        try check(ffi.ext_plugin_store_open(root.ptr, &c_limits, &raw));
+        try check(ffi.ext_plugin_store_open_with_layout(root.ptr, &c_limits, &layout, &raw));
         return .{ .raw = raw, .max_archive_bytes = limits.max_archive_bytes };
     }
     pub fn deinit(self: *Store) void {
@@ -469,9 +473,13 @@ pub const Served = struct { manifest: Buffer, layer: usize };
 pub const Layered = struct {
     raw: ?*ffi.ext_plugin_layered,
     pub fn init(roots: []const [*:0]const u8, limits: StoreLimits) Error!Layered {
+        return initWithManifest(roots, limits, "plugin.json");
+    }
+    pub fn initWithManifest(roots: []const [*:0]const u8, limits: StoreLimits, manifest: [:0]const u8) Error!Layered {
+        const layout: ffi.ext_plugin_store_layout = .{ .manifest_path = manifest.ptr, .fallback_path = null };
         var raw: ?*ffi.ext_plugin_layered = null;
         const c_limits: ffi.ext_plugin_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
-        try check(ffi.ext_plugin_layered_open(@ptrCast(roots.ptr), roots.len, &c_limits, &raw));
+        try check(ffi.ext_plugin_layered_open_with_layout(@ptrCast(roots.ptr), roots.len, &c_limits, &layout, &raw));
         return .{ .raw = raw };
     }
     pub fn deinit(self: *Layered) void {
@@ -563,9 +571,9 @@ test "shared services and cancellation" {
     try std.testing.expect(!cancel.isSignaled());
     cancel.signal();
     try std.testing.expect(cancel.isSignaled());
-    var result = try service("protocol.negotiate", "{\"preferred\":[\"ext.plugin/v1\"],\"offered\":[\"ext.plugin/v1\"]}");
+    var result = try service("protocol.negotiate", "{\"preferred\":[\"ext.io.pc/v1\"],\"offered\":[\"ext.io.pc/v1\"]}");
     defer result.deinit();
-    try std.testing.expectEqualStrings("\"ext.plugin/v1\"", result.bytes());
+    try std.testing.expectEqualStrings("\"ext.io.pc/v1\"", result.bytes());
     try std.testing.expectEqualSlices(u8, &.{ 0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad }, &sha256("abc"));
 }
 fn denied(_: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
@@ -574,7 +582,7 @@ fn denied(_: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
 fn echo(_: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ext_plugin_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
     return emit.?(sink, ffi.EXT_PLUGIN_GUEST_PAYLOAD, "7", 1);
 }
-const fixture = "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
+const fixture = "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
 test "host and guest binding ownership" {
     var host = try Host.init(.{ .executable = "/not-launched" }, fixture, .{ .verify = denied, .authorize = denied });
     defer host.deinit();
@@ -589,7 +597,7 @@ test "host and guest binding ownership" {
     var desc = try guest.descriptor();
     defer desc.deinit();
     try std.testing.expectEqualStrings(fixture, desc.bytes());
-    var response = try guest.invoke("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2050-01-01T00:00:00Z\"}", 1000, null);
+    var response = try guest.invoke("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2050-01-01T00:00:00Z\"}", 1000, null);
     defer response.deinit();
     try std.testing.expect(std.mem.indexOf(u8, response.bytes(), "\"payload\":7") != null);
 }
@@ -613,14 +621,14 @@ test "malformed requests" {
     var third: [320]u8 = undefined;
     var fourth: [320]u8 = undefined;
     const deadline = ",\"deadline\":\"2099-01-01T00:00:00Z\"";
-    var ok = try guest.invoke(try conformanceRequest(&first, "1", "ext.plugin/v1", "echo", deadline), 1000, null);
+    var ok = try guest.invoke(try conformanceRequest(&first, "1", "ext.io.pc/v1", "echo", deadline), 1000, null);
     defer ok.deinit();
     try std.testing.expect(std.mem.indexOf(u8, ok.bytes(), "\"payload\":7") != null);
     try std.testing.expectEqual(@as(usize, 1), calls);
     calls = 0;
     const mismatched = [_][]const u8{
-        try conformanceRequest(&second, "1", "ext.plugin/v1", "nope", deadline),
-        try conformanceRequest(&third, "1", "ext.plugin/v1", "echo", ""),
+        try conformanceRequest(&second, "1", "ext.io.pc/v1", "nope", deadline),
+        try conformanceRequest(&third, "1", "ext.io.pc/v1", "echo", ""),
         try conformanceRequest(&fourth, "1", "ext.plugin/v2", "echo", deadline),
     };
     for (mismatched) |bad| {
@@ -1077,7 +1085,7 @@ fn writePackage(a: std.mem.Allocator, dir: [:0]const u8, id: []const u8, revisio
         hex[2 * i] = digits[byte >> 4];
         hex[2 * i + 1] = digits[byte & 15];
     }
-    const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"{s}\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}]}},\"artifacts\":[{{\"name\":\"main\",\"path\":\"src/main.py\",\"sha256\":\"{s}\"}}]}}", .{ id, revision, contract, hex });
+    const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"{s}\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}],\"artifacts\":[{{\"name\":\"main\",\"path\":\"src/main.py\",\"sha256\":\"{s}\"}}]}}", .{ id, revision, contract, hex });
     try writeFile(try printZ(a, "{s}/plugin.json", .{dir}), manifest);
 }
 test "package writers coordinate mutations and preserve replacement ownership" {
@@ -1283,7 +1291,7 @@ fn writeRunnable(a: std.mem.Allocator, dir: [:0]const u8, id: []const u8) !void 
         "{\"name\":\"main.darwin\",\"runtime\":\"argv\",\"artifact\":\"mac\",\"protocols\":[\"example/v1\"]}," ++
         "{\"name\":\"wasm\",\"runtime\":\"wasm\",\"artifact\":\"generic\",\"protocols\":[\"example/v1\"]}," ++
         "{\"name\":\"other\",\"runtime\":\"argv\",\"artifact\":\"generic\",\"protocols\":[\"other/v1\"]}";
-    const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"r1\"}},\"contracts\":[{{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}]}},\"artifacts\":[{s}],\"entrypoints\":[{s}]}}", .{ id, artifacts, entrypoints });
+    const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.io/v1\",\"kind\":\"package\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"r1\"}},\"contracts\":[{{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}],\"artifacts\":[{s}],\"entrypoints\":[{s}]}}", .{ id, artifacts, entrypoints });
     try writeFile(try printZ(a, "{s}/plugin.json", .{dir}), manifest);
 }
 /// Resolves `request` and expects the entrypoint `name` with its artifact under `dir`/bin.
@@ -1484,7 +1492,7 @@ fn relayDescriptor(a: std.mem.Allocator, cases: std.json.Value, name: []const u8
     for (reverse.get("operations").?.array.items, 0..) |op, i| {
         try ops.appendSlice(a, try std.fmt.allocPrint(a, "{s}{{\"name\":\"{s}\"}}", .{ if (i == 0) "" else ",", op.string }));
     }
-    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"registry/{s}\",\"revision\":\"r1\",\"version\":\"1.0.0\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"echo\"}},{{\"name\":\"fail\"}},{{\"name\":\"slow\"}},{{\"name\":\"relay\"}}]}}],\"reverse\":[{{\"name\":\"{s}\",\"version\":\"{s}\",\"operations\":[{s}]}}]}}", .{ name, cases.object.get("guests").?.object.get(name).?.string, reverse.get("name").?.string, reverse.get("version").?.string, ops.items });
+    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{{\"id\":\"registry/{s}\",\"revision\":\"r1\",\"version\":\"1.0.0\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"echo\"}},{{\"name\":\"fail\"}},{{\"name\":\"slow\"}},{{\"name\":\"relay\"}}]}}],\"reverse\":[{{\"name\":\"{s}\",\"version\":\"{s}\",\"operations\":[{s}]}}]}}", .{ name, cases.object.get("guests").?.object.get(name).?.string, reverse.get("name").?.string, reverse.get("version").?.string, ops.items });
 }
 fn jsonText(a: std.mem.Allocator, v: std.json.Value) ![]const u8 {
     var out: std.Io.Writer.Allocating = .init(a);

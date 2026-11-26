@@ -314,7 +314,7 @@ Test("invoke takes envelopes", () =>
     h.Start();
     var request = new JsonObject
     {
-        ["apiVersion"] = "ext.plugin/v1", ["id"] = "r1", ["plugin"] = conformance["identity"]!.DeepClone(),
+        ["apiVersion"] = "ext.io.pc/v1", ["id"] = "r1", ["plugin"] = conformance["identity"]!.DeepClone(),
         ["contract"] = new JsonObject { ["name"] = echoName, ["version"] = echoVersion },
         ["operation"] = "echo", ["deadline"] = "2099-01-01T00:00:00Z", ["payload"] = Value(3),
     };

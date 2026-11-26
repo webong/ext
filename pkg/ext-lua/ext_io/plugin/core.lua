@@ -8,7 +8,7 @@ local byte, sub, find, format = string.byte, string.sub, string.find, string.for
 local floor = math.floor
 local mtype = math.type
 
-core.API_VERSION = "ext.plugin/v1"
+core.API_VERSION = "ext.io.pc/v1"
 core.MAX_FRAME_BYTES = 24 * 1024 * 1024
 core.MAX_RETRY_AFTER_MS = 365 * 24 * 60 * 60 * 1000
 core.MAX_MESSAGE_BYTES = 4096

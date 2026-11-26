@@ -49,7 +49,7 @@ final class NativeEngine {
     static final int REPORT_VERIFY = 2;
     static final int REPORT_UNVERIFIED = 3;
 
-    static native long storeOpen(byte[] root, long maxArtifactBytes, int maxTreeFiles, long maxTreeBytes)
+    static native long storeOpen(byte[] root, long maxArtifactBytes, int maxTreeFiles, long maxTreeBytes, byte[] manifestPath)
             throws GuestException;
 
     static native void storeClose(long handle);
@@ -74,7 +74,7 @@ final class NativeEngine {
     static native byte[] storeResolve(long handle, byte[] id, byte[] contract, byte[] version, byte[] protocol,
             byte[] reviewedDigest, byte[] os, byte[] arch) throws GuestException;
 
-    static native long layeredOpen(byte[][] roots, long maxArtifactBytes, int maxTreeFiles, long maxTreeBytes)
+    static native long layeredOpen(byte[][] roots, long maxArtifactBytes, int maxTreeFiles, long maxTreeBytes, byte[] manifestPath)
             throws GuestException;
 
     static native void layeredClose(long handle);

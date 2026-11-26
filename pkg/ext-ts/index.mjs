@@ -1,6 +1,6 @@
-// Portable ext.plugin/v1 host/guest SDK. No process discovery, ambient permissions,
+// Portable ext.io.pc/v1 host/guest SDK. No process discovery, ambient permissions,
 // global registry, dependency loader, or implicit retry is installed.
-export const API_VERSION = 'ext.plugin/v1';
+export const API_VERSION = 'ext.io.pc/v1';
 export const MAX_FRAME_BYTES = 24 << 20;
 /** The most text one progress event may carry, in bytes of UTF-8. */
 export const MAX_PROGRESS_TEXT = 2048;
@@ -62,7 +62,7 @@ function validateContracts(list, reverse) {
         for (const op of c.operations) {
             object(op, ['name', 'surface', 'progress']);
             const surface = optionalString(op.surface);
-            if (!matches(identifier, op.name) || op.name === 'plugin.hello' || names.has(op.name) || (surface !== '' && !matches(identifier, surface)))
+            if (!matches(identifier, op.name) || op.name === 'session.hello' || names.has(op.name) || (surface !== '' && !matches(identifier, surface)))
                 invalid();
             if (flag(op.progress) && reverse)
                 invalid();
@@ -1050,7 +1050,7 @@ export class JSONLineBackend {
                 id: '', revision: ''
             }, contract: {
                 name: '', version: ''
-            }, operation: 'plugin.hello', deadline: new Date(Date.now() + 30000).toISOString()
+            }, operation: 'session.hello', deadline: new Date(Date.now() + 30000).toISOString()
         }, signal);
         if (r.error)
             throw new RemoteError(r.error.code, r.error.message);
@@ -1130,7 +1130,7 @@ function validateHello(request) {
         if (Object.values(request[member]).some(v => v !== ''))
             invalid();
     }
-    if (request.apiVersion !== API_VERSION || request.id !== 'hello' || request.operation !== 'plugin.hello' || (request.surface !== undefined && request.surface !== '') || !Number.isFinite(Date.parse(request.deadline)) || Date.parse(request.deadline) <= Date.now())
+    if (request.apiVersion !== API_VERSION || request.id !== 'hello' || request.operation !== 'session.hello' || (request.surface !== undefined && request.surface !== '') || !Number.isFinite(Date.parse(request.deadline)) || Date.parse(request.deadline) <= Date.now())
         invalid();
 }
 // Compile the portable ext.schema/v1 vocabulary into a runtime codec.

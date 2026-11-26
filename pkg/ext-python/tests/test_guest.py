@@ -13,7 +13,7 @@ from ext_io.plugin import guest as g  # noqa: E402
 
 IDENT = {"id": "example/p", "revision": "r1"}
 DESC = {
-    "apiVersion": "ext.plugin/v1",
+    "apiVersion": "ext.io.pc/v1",
     "identity": IDENT,
     "contracts": [
         {
@@ -28,7 +28,7 @@ FUTURE = "2999-01-01T00:00:00Z"
 
 def req(op="echo", **kw):
     r = {
-        "apiVersion": "ext.plugin/v1",
+        "apiVersion": "ext.io.pc/v1",
         "id": "c1",
         "plugin": IDENT,
         "contract": {"name": "example.echo", "version": "v1"},
@@ -61,7 +61,7 @@ def frames(*objs):
 
 
 def hello(**kw):
-    r = {"apiVersion": "ext.plugin/v1", "id": "hello", "plugin": {"id": "", "revision": ""}, "contract": {"name": "", "version": ""}, "operation": "plugin.hello", "deadline": FUTURE}
+    r = {"apiVersion": "ext.io.pc/v1", "id": "hello", "plugin": {"id": "", "revision": ""}, "contract": {"name": "", "version": ""}, "operation": "session.hello", "deadline": FUTURE}
     r.update(kw)
     return r
 
@@ -82,7 +82,7 @@ class GuestTest(unittest.TestCase):
         out, err = run(frames(hello(), req()))
         self.assertIsNone(err)
         self.assertEqual(out[0]["payload"], DESC)
-        self.assertEqual(out[1], {"apiVersion": "ext.plugin/v1", "id": "c1", "payload": {"v": 1}})
+        self.assertEqual(out[1], {"apiVersion": "ext.io.pc/v1", "id": "c1", "payload": {"v": 1}})
 
     def test_hello_must_be_first_and_strict(self):
         for bad in (req(), hello(id="x"), hello(operation="echo"), hello(payload=None), hello(plugin=IDENT), hello(surface="s")):
@@ -104,7 +104,7 @@ class GuestTest(unittest.TestCase):
             req(op="missing"),
             req(op="seen"),  # declared surface missing
             req(deadline="0001-01-01T00:00:00Z"),
-            req(op="plugin.hello"),
+            req(op="session.hello"),
         ]
         guest = plugin.Guest(DESC, handler)
         for r in cases:
@@ -165,8 +165,8 @@ class GuestTest(unittest.TestCase):
 
     def test_strict_json_ends_stream(self):
         bad = [
-            b'{"apiVersion":"ext.plugin/v1","id":"hello","id":"hello"}\n',
-            b'{"apiVersion":"ext.plugin/v1","unknown":1}\n',
+            b'{"apiVersion":"ext.io.pc/v1","id":"hello","id":"hello"}\n',
+            b'{"apiVersion":"ext.io.pc/v1","unknown":1}\n',
             b'[1,2]\n',
             b'{"a":NaN}\n',
             b'{"a":"\\ud800"}\n',
@@ -180,7 +180,7 @@ class GuestTest(unittest.TestCase):
             self.assertEqual(out, [])
 
     def test_payload_strictness_after_hello(self):
-        out, err = run(frames(hello()) + b'{"apiVersion":"ext.plugin/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}\n')
+        out, err = run(frames(hello()) + b'{"apiVersion":"ext.io.pc/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}\n')
         self.assertIsNotNone(err)
         self.assertEqual(len(out), 1)
 
@@ -213,7 +213,7 @@ class GuestTest(unittest.TestCase):
             bare = os.path.join(d, "descriptor.json")
             pkg = os.path.join(d, "plugin.json")
             dump(bare, DESC)
-            dump(pkg, {"apiVersion": "ext.package/v1", "descriptor": DESC, "artifacts": []})
+            dump(pkg, {**DESC, "apiVersion": "ext.io/v1", "kind": "package", "artifacts": []})
             self.assertEqual(plugin.load_descriptor(bare), DESC)
             self.assertEqual(plugin.load_descriptor(pkg), DESC)
             self.assertIsInstance(plugin.Guest(pkg, handler), plugin.Guest)
@@ -232,7 +232,7 @@ class GuestTest(unittest.TestCase):
             mutate(lambda d: d["identity"].update(id="Bad")),
             mutate(lambda d: d.update(contracts=[])),
             mutate(lambda d: d["contracts"][0].update(operations=[])),
-            mutate(lambda d: d["contracts"][0]["operations"].append({"name": "plugin.hello"})),
+            mutate(lambda d: d["contracts"][0]["operations"].append({"name": "session.hello"})),
             mutate(lambda d: d["contracts"][0]["operations"].append({"name": "echo"})),
             mutate(lambda d: d["contracts"].append(dict(d["contracts"][0]))),
             mutate(lambda d: d.update(extra=1)),

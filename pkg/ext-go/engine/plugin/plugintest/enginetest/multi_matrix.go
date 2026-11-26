@@ -90,12 +90,12 @@ func MultiFieldMutationDifferential(t *testing.T, e Engine) {
 	if err := plugin.Decode(framesData, &fd); err != nil || fd.Validate() != nil {
 		t.Fatalf("frames fixture invalid: %v", err)
 	}
-	request := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "echo", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z"}
-	framesRequest := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "plugin": framesBase["identity"], "contract": map[string]any{"name": "ext.frames", "version": "v1"}, "operation": "stream", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z", "progress": map[string]any{"eventsPerSecond": 7, "bytesPerSecond": 900}, "parent": "p1"}
-	response := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "payload": map[string]any{"value": 7}}
-	failure := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "error": map[string]any{"code": "busy", "message": "m", "retryAfterMilliseconds": 10}}
-	progress := map[string]any{"frame": "progress", "apiVersion": "ext.plugin/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2}
-	reverseRequest := map[string]any{"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
+	request := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "echo", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z"}
+	framesRequest := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "plugin": framesBase["identity"], "contract": map[string]any{"name": "ext.frames", "version": "v1"}, "operation": "stream", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z", "progress": map[string]any{"eventsPerSecond": 7, "bytesPerSecond": 900}, "parent": "p1"}
+	response := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "payload": map[string]any{"value": 7}}
+	failure := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "error": map[string]any{"code": "busy", "message": "m", "retryAfterMilliseconds": 10}}
+	progress := map[string]any{"frame": "progress", "apiVersion": "ext.io.pc/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2}
+	reverseRequest := map[string]any{"frame": "reverse_request", "apiVersion": "ext.io.pc/v1", "id": "g1", "parent": "1",
 		"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": "2099-01-01T00:00:00Z", "payload": map[string]any{"n": 1}}
 	manifest, _ := manifestDocument(t)
 

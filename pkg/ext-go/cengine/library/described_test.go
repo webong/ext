@@ -172,11 +172,11 @@ func TestEveryDescribedOperationIsAnswered(t *testing.T) {
 	}
 }
 
-const conformance = `{"apiVersion":"ext.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},` +
+const conformance = `{"apiVersion":"ext.io.pc/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},` +
 	`"contracts":[{"name":"ext.conformance","version":"v1","operations":[{"name":"echo"},{"name":"wait"},` +
 	`{"name":"private-error"},{"name":"public-error"}]}]}`
 
-const reverseDescriptor = `{"apiVersion":"ext.plugin/v1","identity":{"id":"reverse/guest","revision":"r1"},` +
+const reverseDescriptor = `{"apiVersion":"ext.io.pc/v1","identity":{"id":"reverse/guest","revision":"r1"},` +
 	`"contracts":[{"name":"reverse.test","version":"v1","operations":[{"name":"run","progress":true}]}],` +
 	`"reverse":[{"name":"host.svc","version":"v1","operations":[{"name":"sign","surface":"signing"},{"name":"secret"},` +
 	`{"name":"empty"},{"name":"fail"},{"name":"twice"},{"name":"none"},{"name":"errok"},{"name":"errcode"},{"name":"errmsg"},` +

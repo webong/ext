@@ -91,11 +91,11 @@ func TestCancellationClosesConnection(t *testing.T) {
 
 func TestMalformedResponsesCloseClient(t *testing.T) {
 	for _, response := range []string{
-		`{"apiVersion":"ext.plugin/v1","id":"hello","payload":null}`,
-		`{"apiVersion":"ext.plugin/v1","id":"wrong","payload":null}`,
-		`{"apiVersion":"ext.plugin/v1","id":"hello","id":"hello","payload":null}`,
-		`{"apiVersion":"ext.plugin/v1","id":"hello","payload":null,"error":{"code":"failure","message":"x"}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"hello","payload":null,"extra":true}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"hello","payload":null}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"wrong","payload":null}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"hello","id":"hello","payload":null}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"hello","payload":null,"error":{"code":"failure","message":"x"}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"hello","payload":null,"extra":true}`,
 	} {
 		t.Run(response, func(t *testing.T) {
 			host, server := net.Pipe()
@@ -164,7 +164,7 @@ func TestServerRejectsExpiredCalls(t *testing.T) {
 	}()
 	// Raw frames throughout: a Client would read the same pipe concurrently.
 	reader := bufio.NewReader(host)
-	hello, err := json.Marshal(plugin.Request{APIVersion: plugin.APIVersion, ID: "hello", Operation: "plugin.hello", Deadline: time.Now().Add(time.Minute)})
+	hello, err := json.Marshal(plugin.Request{APIVersion: plugin.APIVersion, ID: "hello", Operation: "session.hello", Deadline: time.Now().Add(time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}

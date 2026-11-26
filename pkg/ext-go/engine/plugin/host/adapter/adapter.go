@@ -98,7 +98,7 @@ type Manifest struct {
 type Adapter struct {
 	Directory string
 	Manifest  Manifest
-	// Package is the ext.package/v1 document the Manifest was derived from: a
+	// Package is the ext.io/v1 document the Manifest was derived from: a
 	// template in a source directory, sealed in an installed or packaged one.
 	Package packagekit.Manifest
 }

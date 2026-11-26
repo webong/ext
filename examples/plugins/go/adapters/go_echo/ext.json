@@ -1,32 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "go_echo",
-      "revision": ""
-    },
-    "contracts": [
-      {
-        "name": "ext.adapter",
-        "version": "2.0",
-        "operations": [
-          {
-            "name": "list"
-          },
-          {
-            "name": "validate"
-          },
-          {
-            "name": "run"
-          },
-          {
-            "name": "doctor"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "main",
@@ -67,5 +40,30 @@
         "shell"
       ]
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "go_echo",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "list"
+        },
+        {
+          "name": "validate"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "doctor"
+        }
+      ]
+    }
+  ]
 }

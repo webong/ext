@@ -1,5 +1,5 @@
 {
-  "apiVersion": "ext.plugin/v1",
+  "apiVersion": "ext.io.pc/v1",
   "identity": {
     "id": "coreml",
     "version": "1.0.0"

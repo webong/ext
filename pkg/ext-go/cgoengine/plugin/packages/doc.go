@@ -1,4 +1,4 @@
-// Package packages validates, resolves and verifies ext.package/v1 manifests
+// Package packages validates, resolves and verifies ext.io/v1 manifests
 // (packagekit) with the plugin engine: on the shared C engine when built with
 // the ext_cengine tag and cgo, otherwise in pure Go. It is separate from the
 // root cgoengine package so a program that only needs sessions and guests does

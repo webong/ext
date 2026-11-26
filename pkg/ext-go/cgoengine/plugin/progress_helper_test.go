@@ -106,12 +106,12 @@ func runRawGuest(mode string) int {
 	}
 	descriptor, _ := json.Marshal(progressDescriptor())
 	frame := func(parent, fields string) string {
-		return fmt.Sprintf(`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":%q,%s}`+"\n", parent, fields)
+		return fmt.Sprintf(`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":%q,%s}`+"\n", parent, fields)
 	}
 	if mode == "hellofirst" {
 		fmt.Print(frame("hello", `"kind":"log","text":"early"`))
 	}
-	fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":"hello","payload":%s}`+"\n", descriptor)
+	fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":"hello","payload":%s}`+"\n", descriptor)
 	for {
 		if line, err = in.ReadString('\n'); err != nil {
 			return 0
@@ -123,7 +123,7 @@ func runRawGuest(mode string) int {
 			return 1
 		}
 		id := request.ID
-		response := fmt.Sprintf(`{"apiVersion":"ext.plugin/v1","id":%q,"payload":{"done":true}}`+"\n", id)
+		response := fmt.Sprintf(`{"apiVersion":"ext.io.pc/v1","id":%q,"payload":{"done":true}}`+"\n", id)
 		switch mode {
 		case "undeclared", "ok":
 			fmt.Print(frame(id, `"kind":"log","text":"x"`) + response)
@@ -150,15 +150,15 @@ func runRawGuest(mode string) int {
 		case "notobject":
 			fmt.Print("[1,2]\n" + response)
 		case "reverseresponse":
-			fmt.Print(`{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":null}` + "\n" + response)
+			fmt.Print(`{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":null}` + "\n" + response)
 		case "wrongversion":
 			fmt.Printf(`{"apiVersion":"ext.plugin/v2","id":%q,"payload":null}`+"\n", id)
 		case "extrafield":
-			fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":%q,"payload":null,"extra":1}`+"\n", id)
+			fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":%q,"payload":null,"extra":1}`+"\n", id)
 		case "dupresponse":
-			fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":%q,"id":%q,"payload":null}`+"\n", id, id)
+			fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":%q,"id":%q,"payload":null}`+"\n", id, id)
 		case "wrongid":
-			fmt.Print(`{"apiVersion":"ext.plugin/v1","id":"other","payload":null}` + "\n")
+			fmt.Print(`{"apiVersion":"ext.io.pc/v1","id":"other","payload":null}` + "\n")
 		case "nullroot":
 			fmt.Print("null\n")
 		case "garbage":

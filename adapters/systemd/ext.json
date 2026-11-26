@@ -1,29 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "systemd",
-      "revision": ""
-    },
-    "contracts": [
-      {
-        "name": "ext.adapter",
-        "version": "2.0",
-        "operations": [
-          {
-            "name": "validate"
-          },
-          {
-            "name": "run"
-          },
-          {
-            "name": "doctor"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "main",
@@ -68,5 +44,27 @@
         "shell"
       ]
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "systemd",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "validate"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "doctor"
+        }
+      ]
+    }
+  ]
 }

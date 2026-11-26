@@ -33,7 +33,7 @@ test('archive install reproduces every case of the shared fixture',async t=>{
           if(step.install!==undefined){
             const got=await outcome(store.installArchive(join(fixtures,step.install),step.sha256??'',step.id===undefined?{}:{id:step.id}));
             assert.equal(got.status,want,where);
-            if(got.status==='ok'&&step.revision!==undefined)assert.equal(JSON.parse(got.value).descriptor.identity.revision,step.revision,where);
+            if(got.status==='ok'&&step.revision!==undefined)assert.equal(JSON.parse(got.value).identity.revision,step.revision,where);
           }else if(step.receipt!==undefined){
             const got=await outcome(store.receipt(step.receipt));
             assert.equal(got.status,want,where);

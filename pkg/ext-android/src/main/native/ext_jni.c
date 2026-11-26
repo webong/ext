@@ -1,5 +1,5 @@
 /* JNI binding for the guest half of the shared C engine. The engine validates the
- * ext.plugin/v1 envelope and serves the descriptor; Java supplies the handler. */
+ * ext.io.pc/v1 envelope and serves the descriptor; Java supplies the handler. */
 #include <jni.h>
 #include <stdlib.h>
 #include <string.h>

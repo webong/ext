@@ -18,7 +18,7 @@ import (
 )
 
 // An adapter is an ext package. Its manifest is ext.json, the same
-// ext.package/v1 document every package has, and nothing else: this file turns
+// ext.io/v1 document every package has, and nothing else: this file turns
 // that document into the fields hosts use (Manifest) and back.
 //
 //   - The adapter name is the package identity id.
@@ -141,7 +141,7 @@ func sealed(pm packagekit.Manifest) bool {
 	return len(pm.Artifacts) > 0 && pm.Artifacts[0].SHA256 != ""
 }
 
-// validateTemplate applies the full ext.package/v1 validation to a manifest whose
+// validateTemplate applies the full ext.io/v1 validation to a manifest whose
 // digests may still be empty, by validating it with placeholders. A manifest
 // is either wholly a template or wholly sealed.
 func validateTemplate(pm packagekit.Manifest) error {

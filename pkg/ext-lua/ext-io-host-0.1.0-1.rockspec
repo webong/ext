@@ -11,7 +11,7 @@ source = {
   dir = "ext/pkg/ext-lua",
 }
 description = {
-  summary = "ext for Lua: the host SDK for ext.plugin/v1 on the ext C engine",
+  summary = "ext for Lua: the host SDK for ext.io.pc/v1 on the ext C engine",
   detailed = [[
     Runs ext plugins (JSON-line processes and C ABI libraries) from Lua through the ext C engine,
     which does admission, handshake checks, validation, deadlines and the session lifecycle. Needs

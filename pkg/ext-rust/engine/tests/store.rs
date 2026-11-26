@@ -76,7 +76,7 @@ fn package(dir: &Path, id: &str, revision: &str, contract: &str, body: &str, tre
         ));
     }
     let manifest = format!(
-        r#"{{"apiVersion":"ext.package/v1","descriptor":{{"apiVersion":"ext.plugin/v1","identity":{{"id":"{id}","revision":"{revision}"}},"contracts":[{{"name":"{contract}","version":"v1","operations":[{{"name":"read"}}]}}]}},"artifacts":[{artifacts}]}}"#
+        r#"{{"apiVersion":"ext.io/v1","kind":"package","identity":{{"id":"{id}","revision":"{revision}"}},"contracts":[{{"name":"{contract}","version":"v1","operations":[{{"name":"read"}}]}}],"artifacts":[{artifacts}]}}"#
     );
     write(dir, "plugin.json", &manifest, false);
     dir.to_str().unwrap().to_owned()
@@ -570,7 +570,7 @@ fn runnable(
         ));
     }
     let manifest = format!(
-        r#"{{"apiVersion":"ext.package/v1","descriptor":{{"apiVersion":"ext.plugin/v1","identity":{{"id":"{id}","revision":"r1"}},"contracts":[{{"name":"example","version":"v1","operations":[{{"name":"read"}}]}}]}},"artifacts":[{}],"entrypoints":[{}]}}"#,
+        r#"{{"apiVersion":"ext.io/v1","kind":"package","identity":{{"id":"{id}","revision":"r1"}},"contracts":[{{"name":"example","version":"v1","operations":[{{"name":"read"}}]}}],"artifacts":[{}],"entrypoints":[{}]}}"#,
         listed.join(","),
         entries.join(",")
     );

@@ -71,7 +71,7 @@ module ExtIO
 
     # --- descriptor -------------------------------------------------------------
 
-    # Raises ArgumentError unless +d+ is a valid ext.plugin/v1 descriptor (string keys, as
+    # Raises ArgumentError unless +d+ is a valid ext.io.pc/v1 descriptor (string keys, as
     # decoded from JSON).
     def validate_descriptor(d)
       unless d.is_a?(Hash) && d.each_key.all? { |k| %w[apiVersion identity contracts reverse].include?(k) }
@@ -127,7 +127,7 @@ module ExtIO
           # Go leaves a member that is null alone, as if absent.
           surface = "" if surface.nil?
           if !match?(IDENTIFIER, name) ||
-             name == "plugin.hello" ||
+             name == "session.hello" ||
              names.key?(name) ||
              !surface.is_a?(String) ||
              (surface != "" && !match?(IDENTIFIER, surface)) ||
@@ -142,7 +142,7 @@ module ExtIO
     end
     private_class_method :validate_contracts
 
-    # Reads a descriptor from a plugin.json (ext.package/v1) or a bare descriptor file.
+    # Reads a descriptor from a plugin.json (ext.io/v1) or a bare descriptor file.
     def load_descriptor(path)
       raw = File.open(path, "rb") { |f| f.read((16 << 20) + 1) } || +""
       raise ArgumentError, "descriptor file exceeds 16 MiB" if raw.bytesize > 16 << 20
@@ -152,10 +152,9 @@ module ExtIO
       rescue ProtocolError => e
         raise ArgumentError, e.message
       end
-      if data.is_a?(Hash) && data.key?("descriptor")
-        raise ArgumentError, "unsupported package apiVersion" if data["apiVersion"] != "ext.package/v1"
-
-        data = data["descriptor"]
+      if data.is_a?(Hash) && data["apiVersion"] == "ext.io/v1"
+        raise ArgumentError, "invalid ext.io/v1 package" unless data["kind"] == "package" && !data.key?("descriptor")
+        data = data.select { |key, _| %w[identity contracts reverse].include?(key) }.merge("apiVersion" => "ext.io.pc/v1")
       end
       validate_descriptor(data)
       data
@@ -380,7 +379,7 @@ module ExtIO
       deadline = parse_deadline(request["deadline"])
       if request["apiVersion"] != API_VERSION ||
          request["id"] != "hello" ||
-         request["operation"] != "plugin.hello" ||
+         request["operation"] != "session.hello" ||
          plugin.values.any? { |v| !v.empty? } ||
          contract.values.any? { |v| !v.empty? } ||
          request.fetch("surface", "") != "" ||

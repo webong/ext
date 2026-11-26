@@ -2,7 +2,7 @@
 
 An adapter used to have its own manifest, `adapter.toml`: flat `key = "value"`
 lines with no schema, parsed by hand, beside a package manifest, `plugin.json`
-(`ext.package/v1`), that every other ext package has. Two manifests meant two
+(`ext.io/v1`), that every other ext package has. Two manifests meant two
 parsers, two trust anchors, two archive formats and a file name (`adapter.toml`,
 later `plugin.toml` in a draft of this change) that suggested a different kind of
 thing. The migration put adapters in the same package format as every other
@@ -11,7 +11,7 @@ Ext package. Ext now names that document `ext.json` and accepts the historical
 
 ## Decisions
 
-**One manifest format.** Both filenames carry the same `ext.package/v1`
+**One manifest format.** Both filenames carry the same `ext.io/v1`
 document. The loader selects the filename before parsing it. The retired
 `adapter.toml` format requires repackaging and explicit trust.
 
@@ -29,7 +29,7 @@ artifacts and `argv` entrypoints named `main` and `main.windows`. Everything ctx
 interprets (runtime, surfaces, selection keys, share spaces, dependencies per
 operating system, hook setup, browser query preferences, `go_entry`) is one
 metadata object, `ctx.adapter/v1`, whose schema belongs to ctx and is closed.
-ext.package/v1 did not need to grow: per-OS dependencies, the one thing it cannot
+ext.io/v1 did not need to grow: per-OS dependencies, the one thing it cannot
 express, live in the metadata.
 
 **Template and seal.** An adapter's executable is built, so its digest does not
@@ -66,7 +66,7 @@ executable to exist yet.
 Keeping `adapter.toml` and adding `plugin.toml` would have made two schemas with
 one stem. Reading both for a release would have kept installed adapters working,
 at the cost of a second parser and a second trust anchor, for a project with no
-installed users. Putting the ctx fields into new ext.package/v1 fields would have
+installed users. Putting the ctx fields into new ext.io/v1 fields would have
 made ext interpret product vocabulary, which the ownership rules forbid.
 
 ## Checks

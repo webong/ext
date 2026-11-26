@@ -34,7 +34,7 @@ read `EXT_REVERSE_TEST_GUEST`, `EXT_REVERSE_TEST_DESCRIPTOR` and
 `EXT_ENDPOINT_CASES` (see `scripts/plugin-cengine.sh`) and are skipped without them.
 
 `Store` is the engine's package store (`ext_store_*`): `install`, `upgrade`, `replace`,
-`remove`, `load` and `ids` over reviewed `ext.package/v1` packages under a root you
+`remove`, `load` and `ids` over reviewed `ext.io/v1` packages under a root you
 supply, as the Go store does. Failures are `error.Invalid` (not a valid package, id or
 directory, or an artifact over a `StoreLimits` bound), `error.Mismatch` (a digest that
 differs, or an upgrade that changes the id or contracts), `error.Exists` (an install over

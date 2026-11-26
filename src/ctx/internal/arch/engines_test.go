@@ -20,21 +20,19 @@ func manifestValues(t *testing.T, path string) map[string]string {
 		t.Fatal(err)
 	}
 	var document struct {
-		Descriptor struct {
-			Identity  struct{ ID string } `json:"identity"`
-			Contracts []struct {
-				Name       string
-				Operations []struct{ Name string }
-			} `json:"contracts"`
-		} `json:"descriptor"`
+		Identity  struct{ ID string } `json:"identity"`
+		Contracts []struct {
+			Name       string
+			Operations []struct{ Name string }
+		} `json:"contracts"`
 		Metadata map[string]map[string]any `json:"metadata"`
 	}
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatalf("%s: %v", path, err)
 	}
-	values := map[string]string{"name": document.Descriptor.Identity.ID}
+	values := map[string]string{"name": document.Identity.ID}
 	operations := map[string]string{"ext.adapter": "capabilities", "ext.adapter.browser.share": "browser_share", "ext.adapter.browser.management": "browser_management"}
-	for _, contract := range document.Descriptor.Contracts {
+	for _, contract := range document.Contracts {
 		key, known := operations[contract.Name]
 		if !known {
 			continue

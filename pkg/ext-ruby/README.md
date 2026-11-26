@@ -2,7 +2,7 @@
 
 > **Why `ext-io`:** the bare name `ext` is taken on RubyGems (and on crates.io, PyPI and npm), so `ext-io` is the one gem for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
-Standard-library-only guest for `ext.plugin/v1` over JSON lines (Ruby 3.1+). It needs no C and no
+Standard-library-only guest for `ext.io.pc/v1` over JSON lines (Ruby 3.1+). It needs no C and no
 native build. Hosts use the Go `pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it.
 A Ruby program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
 
@@ -16,7 +16,7 @@ ExtIO::Plugin.serve_stdio("plugin.json") do |contract, operation, payload|   # o
 end
 ```
 
-The manifest file is `plugin.json` (an `ext.package/v1` manifest). `serve_stdio` accepts the
+The example uses `plugin.json` for an `ext.io/v1` manifest; callers choose the filename. `serve_stdio` accepts the
 manifest or a bare descriptor file by structure. [`examples/echo`](../../examples/plugins/ruby/echo) is a complete
 plugin: a manifest whose artifact is `main.rb`, served through `Capability::Router`.
 
@@ -24,8 +24,8 @@ Add `lib` to the load path (`ruby -I pkg/ext-ruby/lib`), or build and install th
 (`gem build ext-io.gemspec`). Requiring `"ext_io"` alone loads no area.
 
 - `ExtIO::Plugin.serve_stdio(descriptor, handler = nil, max_call_seconds: 30, redact_errors: false, &block)`:
-  serves until EOF. `descriptor` is a Hash or the path of an `ext.package/v1` `plugin.json` (its
-  `descriptor` is used) or a bare descriptor file. The handler is the second argument or the
+  serves until EOF. `descriptor` is a Hash or the path of an `ext.io/v1` `plugin.json` (its
+  runtime descriptor is derived from identity and contracts) or a bare descriptor file. The handler is the second argument or the
   block: anything that responds to `call(contract, operation, payload)`.
 - `Guest.new(descriptor, handler = nil, ...)`, `serve(guest, input, output)`: the same with
   caller-supplied binary streams (a `StringIO` works), for tests. `Guest#invoke(request)` answers
@@ -78,7 +78,7 @@ session with `ProtocolError` and the call in flight is not answered; when the in
 call, the call is answered and the session ends. `Guest#invoke(request)` on its own has no frames:
 `call.reverse` is `nil`.
 
-Behavior matches the Go `jsonline` server and the Python SDK (`pkg/ext-python`): `plugin.hello`
+Behavior matches the Go `jsonline` server and the Python SDK (`pkg/ext-python`): `session.hello`
 is required first and answered with the descriptor; frames are at most 24 MiB and read with a
 bound; envelopes with unknown fields, duplicate keys, trailing values, non-finite numbers,
 unpaired surrogates or nesting beyond 64 levels end the stream; each request is checked for API

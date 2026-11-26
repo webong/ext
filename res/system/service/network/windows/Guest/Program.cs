@@ -14,7 +14,7 @@ using (var executable = File.OpenRead(binary))
 
 var descriptor = new JsonObject
 {
-    ["apiVersion"] = "ext.plugin/v1",
+    ["apiVersion"] = "ext.io.pc/v1",
     ["identity"] = new JsonObject { ["id"] = "system.network.windows", ["revision"] = revision, ["version"] = "1.0.0" },
     ["contracts"] = new JsonArray
     {

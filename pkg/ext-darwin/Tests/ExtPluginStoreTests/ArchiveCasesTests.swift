@@ -35,7 +35,7 @@ final class ArchiveCasesTests: XCTestCase {
 
     private func revision(_ manifest: Data) -> String? {
         let object = try? JSONSerialization.jsonObject(with: manifest) as? [String: Any]
-        let identity = (object?["descriptor"] as? [String: Any])?["identity"] as? [String: Any]
+        let identity = object?["identity"] as? [String: Any]
         return identity?["revision"] as? String
     }
 
@@ -115,7 +115,7 @@ final class ArchiveCasesTests: XCTestCase {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent("ext-archive-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: base) }
         let store = try PackageStore(root: base.appendingPathComponent("store").path)
-        let digest = "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480"
+        let digest = "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020"
         XCTAssertThrowsError(try store.receipt("example/archive")) { XCTAssertEqual($0 as? PackageStoreError, .notFound) }
         try store.installArchive(fixtures.appendingPathComponent("tar-gz-top.bin").path, sha256: digest.uppercased())
         XCTAssertEqual(try store.receipt("example/archive"),

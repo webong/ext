@@ -350,7 +350,7 @@ fn install_downloads_then_installs() {
         .install(&store, &url, &sha256, Some("example/archive"), false)
         .unwrap();
     let manifest: Value = serde_json::from_slice(&manifest).unwrap();
-    assert_eq!(manifest["descriptor"]["identity"]["revision"], "r1");
+    assert_eq!(manifest["identity"]["revision"], "r1");
     let receipt: Value =
         serde_json::from_slice(&store.receipt("example/archive").unwrap()).unwrap();
     assert_eq!(receipt["artifact_sha256"], sha256.as_str());

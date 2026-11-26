@@ -2,7 +2,7 @@
 
 > **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
-`ext_io::plugin` is the Rust host/guest implementation of `ext.plugin/v1`. It is behind the `plugin`
+`ext_io::plugin` is the Rust host/guest implementation of `ext.io.pc/v1`. It is behind the `plugin`
 Cargo feature, which is on by default. The crate has not been published to crates.io yet: use a path
 dependency pointing at this directory, or a Git dependency pinned to a revision of
 [webong/ext](https://github.com/webong/ext). Rust 1.88+ is required by the locked
@@ -116,7 +116,7 @@ for contracts where the host has no typed wrapper. Public errors are
 
 Native host connections:
 
-- `native::Worker::process(path, args)` owns a child speaking `ext.plugin/v1` JSON lines.
+- `native::Worker::process(path, args)` owns a child speaking `ext.io.pc/v1` JSON lines.
   It inherits the host process environment and stderr. For different launch
   policy or a supplied connection, implement `host::Backend` explicitly.
 - `native::Worker::cshared(absolute_path)` loads the ext C ABI v1. Verified immutable

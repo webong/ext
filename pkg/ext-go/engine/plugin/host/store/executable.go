@@ -13,7 +13,7 @@ import (
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
-// ExecutablePackage describes a compiled guest to seal as an ext.package/v1.
+// ExecutablePackage describes a compiled guest to seal as an ext.io/v1.
 // The descriptor's revision is set to the executable's SHA-256 digest.
 type ExecutablePackage struct {
 	Descriptor plugin.Descriptor

@@ -5,8 +5,8 @@ declare(strict_types=1);
 // An example guest: echoes payloads, fails in public, reports progress and answers health
 // checks. Run it under a host, or by hand:
 //
-//   printf '%s\n' '{"apiVersion":"ext.plugin/v1","id":"hello","operation":"plugin.hello","deadline":"2999-01-01T00:00:00Z"}' \
-//     '{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"example/php-echo","revision":"1"},"contract":{"name":"example.echo","version":"v1"},"operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"hi":[]}}' \
+//   printf '%s\n' '{"apiVersion":"ext.io.pc/v1","id":"hello","operation":"session.hello","deadline":"2999-01-01T00:00:00Z"}' \
+//     '{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"example/php-echo","revision":"1"},"contract":{"name":"example.echo","version":"v1"},"operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"hi":[]}}' \
 //     | php plugin.php
 
 require __DIR__ . '/../../../../pkg/ext-php/autoload.php'; // or Composer's vendor/autoload.php

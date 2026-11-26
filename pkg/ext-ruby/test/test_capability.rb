@@ -8,7 +8,7 @@ class CapabilityTest < Minitest::Test
 
   IDENT = { "id" => "example/p", "revision" => "r1" }.freeze
   DESC = {
-    "apiVersion" => "ext.plugin/v1",
+    "apiVersion" => "ext.io.pc/v1",
     "identity" => IDENT,
     "contracts" => [
       { "name" => "ext.health", "version" => "v1", "operations" => [{ "name" => "check", "surface" => "observation" }] },
@@ -19,7 +19,7 @@ class CapabilityTest < Minitest::Test
 
   def request(contract, operation, payload, surface = "")
     r = {
-      "apiVersion" => "ext.plugin/v1",
+      "apiVersion" => "ext.io.pc/v1",
       "id" => "c1",
       "plugin" => IDENT,
       "contract" => { "name" => contract, "version" => "v1" },

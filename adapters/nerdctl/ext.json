@@ -1,59 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "nerdctl",
-      "revision": ""
-    },
-    "contracts": [
-      {
-        "name": "ext.adapter",
-        "version": "2.0",
-        "operations": [
-          {
-            "name": "list"
-          },
-          {
-            "name": "validate"
-          },
-          {
-            "name": "run"
-          },
-          {
-            "name": "doctor"
-          },
-          {
-            "name": "build"
-          },
-          {
-            "name": "image_push"
-          },
-          {
-            "name": "image_pull"
-          },
-          {
-            "name": "image_save"
-          },
-          {
-            "name": "image_load"
-          },
-          {
-            "name": "volume_exists"
-          },
-          {
-            "name": "volume_create"
-          },
-          {
-            "name": "volume_export"
-          },
-          {
-            "name": "volume_import"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "main",
@@ -110,5 +56,57 @@
         "shell"
       ]
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "nerdctl",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "list"
+        },
+        {
+          "name": "validate"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "doctor"
+        },
+        {
+          "name": "build"
+        },
+        {
+          "name": "image_push"
+        },
+        {
+          "name": "image_pull"
+        },
+        {
+          "name": "image_save"
+        },
+        {
+          "name": "image_load"
+        },
+        {
+          "name": "volume_exists"
+        },
+        {
+          "name": "volume_create"
+        },
+        {
+          "name": "volume_export"
+        },
+        {
+          "name": "volume_import"
+        }
+      ]
+    }
+  ]
 }

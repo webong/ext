@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /*
- * Guest SDK for ext.plugin/v1 over bounded JSON lines (needs only ext-json).
+ * Guest SDK for ext.io.pc/v1 over bounded JSON lines (needs only ext-json).
  *
  *     use ExtIO\Plugin;
  *
@@ -14,14 +14,14 @@ declare(strict_types=1);
  *         return $payload;
  *     });
  *
- * The guest answers plugin.hello with the descriptor, validates every request the way the Go
+ * The guest answers session.hello with the descriptor, validates every request the way the Go
  * plugin.ValidateRequest does, and calls the handler sequentially. It never writes to standard
  * output except protocol frames.
  */
 
 namespace ExtIO\Plugin;
 
-const API_VERSION = 'ext.plugin/v1';
+const API_VERSION = 'ext.io.pc/v1';
 const MAX_FRAME_BYTES = 24 << 20;
 const MAX_RETRY_AFTER_MS = 365 * 24 * 60 * 60 * 1000;
 const MAX_MESSAGE_BYTES = 4096;
@@ -83,7 +83,7 @@ function currentCall(): ?CallInfo
 }
 
 /**
- * Reads a descriptor from a plugin.json (ext.package/v1) or a bare descriptor file.
+ * Reads a descriptor from a plugin.json (ext.io/v1) or a bare descriptor file.
  *
  * @throws \InvalidArgumentException
  */
@@ -93,7 +93,7 @@ function loadDescriptor(string $path): \stdClass
 }
 
 /**
- * Throws InvalidArgumentException unless $descriptor is a valid ext.plugin/v1 descriptor.
+ * Throws InvalidArgumentException unless $descriptor is a valid ext.io.pc/v1 descriptor.
  */
 function validateDescriptor(mixed $descriptor): void
 {

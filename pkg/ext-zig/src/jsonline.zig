@@ -94,7 +94,7 @@ pub fn serve(guest: *const author.Guest, conn: *Connection, a: w.Allocator) !voi
 fn validateHello(a: w.Allocator, value: w.Value) !void {
     const Hello = struct { apiVersion: []const u8, id: []const u8, operation: []const u8, deadline: []const u8, plugin: struct { id: []const u8 = "", revision: []const u8 = "", version: []const u8 = "" } = .{}, contract: struct { name: []const u8 = "", version: []const u8 = "" } = .{}, surface: []const u8 = "" };
     const h = try w.typed(Hello, a, value);
-    if (!w.eq(u8, h.apiVersion, w.version) or !w.eq(u8, h.id, "hello") or !w.eq(u8, h.operation, "plugin.hello") or h.plugin.id.len != 0 or h.plugin.revision.len != 0 or h.plugin.version.len != 0 or h.contract.name.len != 0 or h.contract.version.len != 0 or h.surface.len != 0) return error.Invalid;
+    if (!w.eq(u8, h.apiVersion, w.version) or !w.eq(u8, h.id, "hello") or !w.eq(u8, h.operation, "session.hello") or h.plugin.id.len != 0 or h.plugin.revision.len != 0 or h.plugin.version.len != 0 or h.contract.name.len != 0 or h.contract.version.len != 0 or h.surface.len != 0) return error.Invalid;
     if (w.now() >= try w.deadline(h.deadline)) return error.Deadline;
 }
 extern "c" fn read(c_int, [*]u8, usize) isize;

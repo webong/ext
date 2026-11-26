@@ -1,4 +1,4 @@
-"""Guest SDK for ext.plugin/v1 over bounded JSON lines (stdlib only).
+"""Guest SDK for ext.io.pc/v1 over bounded JSON lines (stdlib only).
 
     from ext_io import plugin
 
@@ -9,7 +9,7 @@
 
     plugin.serve_stdio("plugin.json", handler)
 
-The module answers ``plugin.hello`` with the descriptor, validates every request
+The module answers ``session.hello`` with the descriptor, validates every request
 the way the Go ``plugin.ValidateRequest`` does, and calls the handler
 sequentially. It never writes to stdout except protocol frames.
 """

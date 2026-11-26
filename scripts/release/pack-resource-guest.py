@@ -20,7 +20,7 @@ def pack(template: Path, executable: Path, output: Path, target_os: str, arch: s
     target = output / executable.name
     shutil.copy2(executable, target)
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
-    manifest["descriptor"]["identity"]["revision"] = digest
+    manifest["identity"]["revision"] = digest
     artifacts[0].update({"sha256": digest, "os": target_os, "arch": arch})
     (output / "ext.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

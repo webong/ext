@@ -336,7 +336,7 @@ func TestInProcessReverseCallsMatchGo(t *testing.T) {
 func TestReverseRequestSeenByServices(t *testing.T) {
 	c := reverseCase{mode: "rev-go", payload: goCall("sign")}
 	got := c.run(t, openCReverse)
-	want := `{"apiVersion":"ext.plugin/v1","id":"g1","plugin":{"id":"cgoengine/reverse","revision":"r1"},"contract":{"name":"host.svc","version":"v1"},"operation":"sign","surface":"signing","deadline":"0001-01-01T00:00:00Z","payload":{"n":1},"parent":"1"} deadline-set=true`
+	want := `{"apiVersion":"ext.io.pc/v1","id":"g1","plugin":{"id":"cgoengine/reverse","revision":"r1"},"contract":{"name":"host.svc","version":"v1"},"operation":"sign","surface":"signing","deadline":"0001-01-01T00:00:00Z","payload":{"n":1},"parent":"1"} deadline-set=true`
 	if len(got.Authorized) != 1 || len(got.Handled) != 1 || got.Authorized[0] != want || got.Handled[0] != want {
 		t.Fatalf("authorized %q, handled %q, want %q", got.Authorized, got.Handled, want)
 	}

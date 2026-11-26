@@ -10,7 +10,7 @@ class GuestTest < Minitest::Test
 
   IDENT = { "id" => "example/p", "revision" => "r1" }.freeze
   DESC = {
-    "apiVersion" => "ext.plugin/v1",
+    "apiVersion" => "ext.io.pc/v1",
     "identity" => IDENT,
     "contracts" => [
       {
@@ -36,7 +36,7 @@ class GuestTest < Minitest::Test
 
   def req(op = "echo", **kw)
     r = {
-      "apiVersion" => "ext.plugin/v1",
+      "apiVersion" => "ext.io.pc/v1",
       "id" => "c1",
       "plugin" => IDENT,
       "contract" => { "name" => "example.echo", "version" => "v1" },
@@ -49,8 +49,8 @@ class GuestTest < Minitest::Test
   end
 
   def hello(**kw)
-    r = { "apiVersion" => "ext.plugin/v1", "id" => "hello", "plugin" => { "id" => "", "revision" => "" },
-          "contract" => { "name" => "", "version" => "" }, "operation" => "plugin.hello", "deadline" => FUTURE }
+    r = { "apiVersion" => "ext.io.pc/v1", "id" => "hello", "plugin" => { "id" => "", "revision" => "" },
+          "contract" => { "name" => "", "version" => "" }, "operation" => "session.hello", "deadline" => FUTURE }
     kw.each { |k, v| r[k.to_s] = v }
     r
   end
@@ -75,7 +75,7 @@ class GuestTest < Minitest::Test
     out, err = run_guest(frames(hello, req))
     assert_nil err
     assert_equal DESC, out[0]["payload"]
-    assert_equal({ "apiVersion" => "ext.plugin/v1", "id" => "c1", "payload" => { "v" => 1 } }, out[1])
+    assert_equal({ "apiVersion" => "ext.io.pc/v1", "id" => "c1", "payload" => { "v" => 1 } }, out[1])
   end
 
   def test_hello_must_be_first_and_strict
@@ -102,7 +102,7 @@ class GuestTest < Minitest::Test
       req("missing"),
       req("seen"), # declared surface missing
       req(deadline: "0001-01-01T00:00:00Z"),
-      req("plugin.hello")
+      req("session.hello")
     ]
     g = guest
     cases.each do |r|
@@ -199,8 +199,8 @@ class GuestTest < Minitest::Test
 
   def test_strict_json_ends_stream
     bad = [
-      %({"apiVersion":"ext.plugin/v1","id":"hello","id":"hello"}\n),
-      %({"apiVersion":"ext.plugin/v1","unknown":1}\n),
+      %({"apiVersion":"ext.io.pc/v1","id":"hello","id":"hello"}\n),
+      %({"apiVersion":"ext.io.pc/v1","unknown":1}\n),
       "[1,2]\n",
       %({"a":NaN}\n),
       %({"a":"\\ud800"}\n),
@@ -230,7 +230,7 @@ class GuestTest < Minitest::Test
   end
 
   def test_payload_strictness_after_hello
-    raw = frames(hello) + %({"apiVersion":"ext.plugin/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}\n)
+    raw = frames(hello) + %({"apiVersion":"ext.io.pc/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}\n)
     out, err = run_guest(raw)
     refute_nil err
     assert_equal 1, out.length
@@ -267,7 +267,7 @@ class GuestTest < Minitest::Test
       bare = File.join(d, "descriptor.json")
       pkg = File.join(d, "plugin.json")
       File.write(bare, JSON.generate(DESC))
-      File.write(pkg, JSON.generate({ "apiVersion" => "ext.package/v1", "descriptor" => DESC, "artifacts" => [] }))
+      File.write(pkg, JSON.generate(DESC.merge("apiVersion" => "ext.io/v1", "kind" => "package", "artifacts" => [])))
       assert_equal DESC, P.load_descriptor(bare)
       assert_equal DESC, P.load_descriptor(pkg)
       assert_instance_of P::Guest, P::Guest.new(pkg, HANDLER)
@@ -277,10 +277,10 @@ class GuestTest < Minitest::Test
   end
 
   def test_a_descriptor_with_symbol_keys_is_read_as_json
-    symbols = { apiVersion: "ext.plugin/v1", identity: { id: "example/p", revision: "r1" },
+    symbols = { apiVersion: "ext.io.pc/v1", identity: { id: "example/p", revision: "r1" },
                 contracts: [{ name: "example.echo", version: "v1", operations: [{ name: "echo" }] }] }
     g = P::Guest.new(symbols) { |_c, _o, p| p }
-    assert_equal "ext.plugin/v1", g.handshake["apiVersion"]
+    assert_equal "ext.io.pc/v1", g.handshake["apiVersion"]
     assert_equal({ "v" => 1 }, g.invoke(req)["payload"])
   end
 
@@ -295,7 +295,7 @@ class GuestTest < Minitest::Test
       mutate.call { |d| d["identity"]["id"] = "Bad" },
       mutate.call { |d| d["contracts"] = [] },
       mutate.call { |d| d["contracts"][0]["operations"] = [] },
-      mutate.call { |d| d["contracts"][0]["operations"] << { "name" => "plugin.hello" } },
+      mutate.call { |d| d["contracts"][0]["operations"] << { "name" => "session.hello" } },
       mutate.call { |d| d["contracts"][0]["operations"] << { "name" => "echo" } },
       mutate.call { |d| d["contracts"] << d["contracts"][0].dup },
       mutate.call { |d| d["extra"] = 1 }

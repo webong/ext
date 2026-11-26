@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.name = "ext-io-host"
   spec.version = ExtIO::Plugin::VERSION
   spec.authors = ["Wisdom Ebong", "ext contributors"]
-  spec.summary = "ext for Ruby: the host SDK for ext.plugin/v1 on the ext C engine"
+  spec.summary = "ext for Ruby: the host SDK for ext.io.pc/v1 on the ext C engine"
   spec.description = <<~TEXT
     Runs ext plugins (JSON-line processes and C ABI libraries) from Ruby through the ext C engine,
     which does admission, handshake checks, validation, deadlines and the session lifecycle. Calls

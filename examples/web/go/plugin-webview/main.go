@@ -1,5 +1,5 @@
 // Command plugin-webview runs a WASI plugin guest inside a browser or webview
-// and talks ext.plugin/v1 to it. It is a proof of concept for hosting
+// and talks ext.io.pc/v1 to it. It is a proof of concept for hosting
 // WebAssembly plugins in the system web engine, driven by the web engine in
 // res/web/host/engine/bundle. See README.md.
 package main

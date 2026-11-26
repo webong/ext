@@ -26,7 +26,7 @@ plugin integration and provider adapters
 
 The language-neutral contract is `inference.provider/v1`, recorded in
 [docs/contract-names.md](../../../docs/contract-names.md). It is served through the
-Ext plugin contract (`ext.plugin/v1`) using the existing plugin host/guest
+Ext plugin contract (`ext.io.pc/v1`) using the existing plugin host/guest
 mechanics (`pkg/ext-go/engine`). A separate integration package,
 `src/ctn/inference`, bridges `res/int/inference` and the plugin engine so the
 core never imports CTX, CTN, Cymonkey, or a concrete provider.

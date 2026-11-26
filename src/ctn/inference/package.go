@@ -20,7 +20,7 @@ type ExecutablePackage struct {
 	ID, Version, Binary, OutputDir, OS, Arch string
 }
 
-// PackageExecutable copies a compiled guest into a sealed ext.package/v1
+// PackageExecutable copies a compiled guest into a sealed ext.io/v1
 // directory. The caller reviews and installs the resulting package separately.
 func PackageExecutable(options ExecutablePackage) (packagekit.Manifest, error) {
 	if options.ID == "" || options.Binary == "" || options.OutputDir == "" {

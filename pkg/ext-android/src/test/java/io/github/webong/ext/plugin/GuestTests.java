@@ -116,7 +116,7 @@ public final class GuestTests {
     }
 
     static byte[] request(String operation, String payload, String deadline) {
-        String body = "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"java/test\",\"revision\":\"r1\"},"
+        String body = "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"java/test\",\"revision\":\"r1\"},"
                 + "\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"" + operation
                 + "\",\"deadline\":\"" + deadline + "\"" + (payload == null ? "" : ",\"payload\":" + payload) + "}";
         return body.getBytes(StandardCharsets.UTF_8);
@@ -133,7 +133,7 @@ public final class GuestTests {
     static void descriptor() throws Exception {
         try (Guest g = guest()) {
             String json = text(g.descriptorJson());
-            require(json.contains("\"apiVersion\":\"ext.plugin/v1\""), json);
+            require(json.contains("\"apiVersion\":\"ext.io.pc/v1\""), json);
             require(json.contains("\"id\":\"java/test\"") && json.contains("\"name\":\"echo\""), json);
         }
     }
@@ -241,7 +241,7 @@ public final class GuestTests {
         }
     }
 
-    static final String HELLO = "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\","
+    static final String HELLO = "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"operation\":\"session.hello\","
             + "\"deadline\":\"2099-01-01T00:00:00Z\"}";
 
     static void jsonLine() throws Exception {
@@ -252,7 +252,7 @@ public final class GuestTests {
         }
         String[] lines = text(out.toByteArray()).split("\n");
         require(lines.length == 2, "lines: " + lines.length);
-        require(lines[0].startsWith("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":{")
+        require(lines[0].startsWith("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"payload\":{")
                 && lines[0].contains("\"id\":\"java/test\""), lines[0]);
         require(lines[1].contains("\"payload\":{\"v\":7}"), lines[1]);
     }
@@ -260,7 +260,7 @@ public final class GuestTests {
     static void jsonLineRejects() throws Exception {
         List<String> bad = List.of(
                 "{\"x\":1,\"x\":2}", "{} {}", "{\"x\":}", "[1,]", "{\"x\":1,\"\\u0078\":2}",
-                HELLO.replace("plugin.hello", "plugin.other"),
+                HELLO.replace("session.hello", "plugin.other"),
                 HELLO.replace("\"hello\"", "\"other\""),
                 HELLO.replace("2099-01-01T00:00:00Z", "2001-01-01T00:00:00Z"),
                 HELLO.replace("}", ",\"extra\":1}"));

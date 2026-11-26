@@ -1,7 +1,7 @@
 {
   "name": "ext-io",
   "version": "0.1.0",
-  "description": "ext for TypeScript: the plugin host and guest SDK for ext.plugin/v1",
+  "description": "ext for TypeScript: the plugin host and guest SDK for ext.io.pc/v1",
   "license": "MIT",
   "repository": {
     "type": "git",

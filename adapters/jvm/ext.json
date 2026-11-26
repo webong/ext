@@ -1,35 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "jvm",
-      "revision": ""
-    },
-    "contracts": [
-      {
-        "name": "ext.adapter",
-        "version": "2.0",
-        "operations": [
-          {
-            "name": "list"
-          },
-          {
-            "name": "observe"
-          },
-          {
-            "name": "validate"
-          },
-          {
-            "name": "run"
-          },
-          {
-            "name": "doctor"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "main",
@@ -84,5 +54,33 @@
         "shell"
       ]
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "jvm",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "list"
+        },
+        {
+          "name": "observe"
+        },
+        {
+          "name": "validate"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "doctor"
+        }
+      ]
+    }
+  ]
 }

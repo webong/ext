@@ -2,7 +2,7 @@
 
 > **Why `ext_io`:** it matches the `ext-io` package of the other languages: one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
-This package implements typed guests and host sessions for `ext.plugin/v1`,
+This package implements typed guests and host sessions for `ext.io.pc/v1`,
 including JSON-line and C ABI bindings. It targets **Zig 0.17.0**, pinned because
 Zig's standard library and build APIs change between releases. It has no
 third-party dependencies and links libc for clocks and standalone stdio.

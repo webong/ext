@@ -2,7 +2,7 @@
 
 > **Why `ext-io`:** the bare name `ext` is taken on the registries, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `ExtIO\Plugin` is built so far; `ExtIO\System`, `ExtIO\Web` and `ExtIO\Int` are planned.
 
-A guest for `ext.plugin/v1` over JSON lines that needs only `ext-json` (PHP 8.1+), with no
+A guest for `ext.io.pc/v1` over JSON lines that needs only `ext-json` (PHP 8.1+), with no
 Composer dependencies and no native build.
 Hosts use the Go `pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it.
 A PHP program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
@@ -18,7 +18,7 @@ Plugin\serveStdio('plugin.json', function (string $contract, string $operation, 
 });
 ```
 
-The manifest file is `plugin.json`. `serveStdio` accepts the manifest or a bare descriptor file by
+The example uses `plugin.json`; callers choose the manifest filename. `serveStdio` accepts the manifest or a bare descriptor file by
 structure.
 
 Install it with Composer (`composer require webong/ext-io`, PSR-4 `ExtIO\` → `src/`), or without
@@ -26,7 +26,7 @@ Composer `require 'path/to/pkg/ext-php/autoload.php';`. [The echo example](../..
 
 - `serveStdio($descriptor, $handler, $maxCallSeconds = 30.0, $redactErrors = false)`: serves
   until the input ends. `$descriptor` is an array or `stdClass`, or the path of an
-  `ext.package/v1` `plugin.json` (its `descriptor` is used) or a bare descriptor file.
+  `ext.io/v1` `plugin.json` (its runtime descriptor is derived from identity and contracts) or a bare descriptor file.
 - `new Guest($descriptor, $handler, ...)`, `serve($guest, $in, $out)`: the same with
   caller-supplied streams, for tests. `Guest::invoke($request)` answers one decoded request.
 - `new RemoteError($code, $message, $retryAfterMs = null)`: sent as the structured error.
@@ -89,7 +89,7 @@ the host is given). A frame the host may not send ends the session with `Protoco
 call in flight is not answered; when the input ends during a call, the call is answered and the
 session ends. `Guest::invoke($request)` on its own has no frames: `$call->reverse` is `null`.
 
-Behavior matches the Go `jsonline` server and the Python guest: `plugin.hello` is required first
+Behavior matches the Go `jsonline` server and the Python guest: `session.hello` is required first
 and answered with the descriptor; frames are at most 24 MiB and read with a bound; envelopes with
 unknown fields, duplicate keys, trailing values, non-finite numbers, unpaired surrogates or
 nesting beyond 64 levels end the stream; each request is checked for API version, id, identity,

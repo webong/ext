@@ -1,6 +1,6 @@
 {
     "name": "webong/ext-io",
-    "description": "ext for PHP: the plugin guest SDK for ext.plugin/v1 over JSON lines (needs only ext-json), and a host SDK on the ext C engine through FFI",
+    "description": "ext for PHP: the plugin guest SDK for ext.io.pc/v1 over JSON lines (needs only ext-json), and a host SDK on the ext C engine through FFI",
     "type": "library",
     "license": "MIT",
     "keywords": ["ext", "ext-io", "plugin", "sdk"],

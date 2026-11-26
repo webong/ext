@@ -233,7 +233,7 @@ final class RouterTests {
         }
 
         static String hello(String extra) {
-            return "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\""
+            return "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"operation\":\"session.hello\",\"deadline\":\""
                     + Instant.now().plusSeconds(30) + "\"" + (extra == null ? "" : "," + extra) + "}";
         }
 
@@ -255,7 +255,7 @@ final class RouterTests {
         /** A request for {@code operation}; a call whose operation reports progress asks for events. */
         String request(String operation, String payload, boolean progress) {
             String id = Integer.toString(++next);
-            send("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"java/frames\",\"revision\":\"r1\"},"
+            send("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"java/frames\",\"revision\":\"r1\"},"
                     + "\"contract\":{\"name\":\"test.frames\",\"version\":\"v1\"},\"operation\":\"" + operation + "\","
                     + "\"payload\":" + payload + ",\"deadline\":\"" + Instant.now().plusSeconds(30) + "\""
                     + (progress ? ",\"progress\":{\"eventsPerSecond\":5}" : "") + "}");
@@ -296,7 +296,7 @@ final class RouterTests {
     }
 
     static String answer(String id, String body) {
-        return "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"" + id + "\"" + (body.isEmpty() ? "" : "," + body) + "}";
+        return "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"" + id + "\"" + (body.isEmpty() ? "" : "," + body) + "}";
     }
 
     static void require(boolean ok, String message) {
@@ -452,7 +452,7 @@ final class RouterTests {
             {"a second request during a call", null},
             {"an unknown frame", "{\"frame\":\"mystery\"}"},
             {"an answer to a request never issued", answer("g99", "\"payload\":1")},
-            {"a progress frame from the host", "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\",\"parent\":\"1\",\"kind\":\"log\"}"},
+            {"a progress frame from the host", "{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\",\"parent\":\"1\",\"kind\":\"log\"}"},
             {"a malformed answer to the request waiting", answer("g1", "\"payload\":1,\"extra\":1")},
             {"an answer with both payload and error", answer("g1", "\"payload\":1,\"error\":{\"code\":\"x\",\"message\":\"m\"}")},
             {"an answer with neither payload nor error", answer("g1", "")},
@@ -510,13 +510,13 @@ final class RouterTests {
     static void withoutFrames() throws Exception {
         try (Guest guest = new Guest(DESCRIPTOR, RouterTests::handle)) {
             for (String[] c : new String[][] {{"events", "operation_failed"}, {"ask", "operation_failed"}}) {
-                String response = GuestTests.text(guest.invoke(bytes("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\","
+                String response = GuestTests.text(guest.invoke(bytes("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\","
                         + "\"plugin\":{\"id\":\"java/frames\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test.frames\","
                         + "\"version\":\"v1\"},\"operation\":\"" + c[0] + "\",\"deadline\":\"2099-01-01T00:00:00Z\","
                         + "\"payload\":{},\"progress\":{}}")));
                 require(response.contains(c[1]), c[0] + ": " + response);
             }
-            String response = GuestTests.text(guest.invoke(bytes("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\","
+            String response = GuestTests.text(guest.invoke(bytes("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\","
                     + "\"plugin\":{\"id\":\"java/frames\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test.frames\","
                     + "\"version\":\"v1\"},\"operation\":\"session\",\"deadline\":\"2099-01-01T00:00:00Z\"}")));
             require(response.contains("\"session\":false,\"reverse\":false"), response);

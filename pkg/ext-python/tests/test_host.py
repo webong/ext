@@ -182,7 +182,7 @@ class HostTest(unittest.TestCase):
         with self.eng.process(self.descriptor, self.guest) as h:
             h.start()
             request = {
-                "apiVersion": "ext.plugin/v1", "id": "r1", "plugin": self.descriptor["identity"],
+                "apiVersion": "ext.io.pc/v1", "id": "r1", "plugin": self.descriptor["identity"],
                 "contract": {"name": self.contract["name"], "version": self.contract["version"]},
                 "operation": "echo", "deadline": "2099-01-01T00:00:00Z", "payload": {"value": 3},
             }

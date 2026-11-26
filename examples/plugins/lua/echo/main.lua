@@ -2,7 +2,7 @@
 -- Run it from this directory with the SDK on the path, for example
 --   LUA_PATH="../../../../pkg/ext-lua/?.lua;../../../../pkg/ext-lua/?/init.lua;;" lua main.lua
 -- or after `luarocks make` in pkg/ext-lua. A host starts it as a process and speaks
--- ext.plugin/v1 over its standard input and output.
+-- ext.io.pc/v1 over its standard input and output.
 local here = (debug.getinfo(1, "S").source:match("^@(.*)[/\\][^/\\]*$")) or "."
 package.path = here .. "/../../../../pkg/ext-lua/?.lua;" .. here .. "/../../../../pkg/ext-lua/?/init.lua;" .. package.path
 local plugin = require("ext_io.plugin")

@@ -28,7 +28,7 @@ final class ExportsTests: XCTestCase {
         return (status, String(decoding: response.prefix(Int(written)), as: UTF8.self))
     }
 
-    private let echo = #"{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"swift/exports","revision":"r1"},"contract":{"name":"test","version":"v1"},"operation":"echo","deadline":"2099-01-01T00:00:00Z","payload":{"v":7}}"#
+    private let echo = #"{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"swift/exports","revision":"r1"},"contract":{"name":"test","version":"v1"},"operation":"echo","deadline":"2099-01-01T00:00:00Z","payload":{"v":7}}"#
 
     func testABIVersion() {
         XCTAssertEqual(ext_plugin_guest_abi_version(), UInt32(EXT_PLUGIN_GUEST_ABI_VERSION))

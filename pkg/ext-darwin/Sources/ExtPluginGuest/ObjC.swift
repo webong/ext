@@ -80,7 +80,7 @@ public final class ObjCGuest: NSObject {
     /// The descriptor exactly as the engine serves it to a handshake.
     @objc public func descriptorJSON() throws -> Data { try guest.descriptorJSON() }
 
-    /// Validates a complete ext.plugin/v1 request and returns the complete response.
+    /// Validates a complete ext.io.pc/v1 request and returns the complete response.
     @objc public func invoke(_ request: Data, timeoutMilliseconds: UInt32) throws -> Data {
         try guest.invoke(request, timeoutMilliseconds: timeoutMilliseconds)
     }

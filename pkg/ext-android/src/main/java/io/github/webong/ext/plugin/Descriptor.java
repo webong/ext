@@ -4,12 +4,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * The ext.plugin/v1 descriptor a guest serves in its handshake. {@code reverse} lists
+ * The ext.io.pc/v1 descriptor a guest serves in its handshake. {@code reverse} lists
  * the host operations the plugin may call ({@link Call#reverse()}); it is empty for a
  * plugin that calls none.
  */
 public record Descriptor(Identity identity, List<Contract> contracts, List<Contract> reverse) {
-    public static final String API_VERSION = "ext.plugin/v1";
+    public static final String API_VERSION = "ext.io.pc/v1";
 
     public Descriptor(Identity identity, List<Contract> contracts) {
         this(identity, contracts, List.of());

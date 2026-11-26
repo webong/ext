@@ -14,7 +14,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * The package store of the shared C engine: install, upgrade, replace, remove and load
- * reviewed {@code ext.package/v1} packages under a root the application supplies (see
+ * reviewed {@code ext.io/v1} packages under a root the application supplies (see
  * {@code ext_store_*} in lib/plugin/include/ext_plugin_host.h). A package is its {@code plugin.json}
  * manifest and the artifacts it lists, in a directory named by the package id with '/' encoded
  * as "%2f". The store copies and re-verifies content; it never runs it or grants authority, and
@@ -71,10 +71,13 @@ public final class PackageStore implements AutoCloseable {
 
     /** Opens a store at {@code root}, which need not exist yet. An empty root is {@link #INVALID}. */
     public PackageStore(String root, StoreLimits limits) throws GuestException {
+        this(root, limits, "plugin.json");
+    }
+    public PackageStore(String root, StoreLimits limits, String manifestPath) throws GuestException {
         Objects.requireNonNull(limits, "limits");
         maxArchiveBytes = limits.maxArchiveBytes();
         handle = NativeEngine.storeOpen(text(Objects.requireNonNull(root, "root")),
-                limits.maxArtifactBytes(), limits.maxTreeFiles(), limits.maxTreeBytes());
+                limits.maxArtifactBytes(), limits.maxTreeFiles(), limits.maxTreeBytes(), text(Objects.requireNonNull(manifestPath, "manifestPath")));
     }
 
     /**

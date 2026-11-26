@@ -88,7 +88,7 @@ func TestTheGeneratedBinding(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		guest += ".exe"
 	}
-	descriptor := json.RawMessage(` + "`" + `{"apiVersion":"ext.plugin/v1","identity":{"id":"reverse/guest","revision":"r1"},"contracts":[{"name":"reverse.test","version":"v1","operations":[{"name":"run","progress":true}]}],"reverse":[{"name":"host.svc","version":"v1","operations":[{"name":"sign","surface":"signing"},{"name":"secret"},{"name":"empty"},{"name":"fail"},{"name":"twice"},{"name":"none"},{"name":"errok"},{"name":"errcode"},{"name":"errmsg"},{"name":"errretry"},{"name":"errretryok"},{"name":"badjson"},{"name":"big"},{"name":"slow"},{"name":"slowerr"},{"name":"gate"},{"name":"hang"}]}]}` + "`" + `)
+	descriptor := json.RawMessage(` + "`" + `{"apiVersion":"ext.io.pc/v1","identity":{"id":"reverse/guest","revision":"r1"},"contracts":[{"name":"reverse.test","version":"v1","operations":[{"name":"run","progress":true}]}],"reverse":[{"name":"host.svc","version":"v1","operations":[{"name":"sign","surface":"signing"},{"name":"secret"},{"name":"empty"},{"name":"fail"},{"name":"twice"},{"name":"none"},{"name":"errok"},{"name":"errcode"},{"name":"errmsg"},{"name":"errretry"},{"name":"errretryok"},{"name":"badjson"},{"name":"big"},{"name":"slow"},{"name":"slowerr"},{"name":"gate"},{"name":"hang"}]}]}` + "`" + `)
 	reversed := 0
 	host, err := x.OpenHost(HostConfig{
 		Descriptor: descriptor, Verify: "allow", Authorize: "allow",

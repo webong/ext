@@ -83,7 +83,7 @@ func TestConcurrentCalls(t *testing.T) {
 	calls := []call{
 		{"schema.check", `{"schema":{"type":"object","properties":{"a":{"type":"integer"}},"required":["a"]},"value":{"a":7}}`},
 		{"schema.check", `{"schema":{"type":"object","properties":{"a":{"type":"integer"}},"required":["a"]},"value":{"a":"x"}}`},
-		{"descriptor.validate", `{"apiVersion":"ext.plugin/v1","identity":{"id":"example/a","revision":"r1"},"contracts":[{"name":"example.a","version":"v1","operations":[{"name":"read"}]}]}`},
+		{"descriptor.validate", `{"apiVersion":"ext.io.pc/v1","identity":{"id":"example/a","revision":"r1"},"contracts":[{"name":"example.a","version":"v1","operations":[{"name":"read"}]}]}`},
 		{"descriptor.validate", `{"apiVersion":"ext.plugin/v2"}`},
 		{"endpoint.check", `{"scheme":"http","address":"127.0.0.1:1","path":"/p","token":"AAAAAAAAAAAAAAAAAAAAAA","expires":"2099-01-01T00:00:00Z"}`},
 	}
@@ -151,7 +151,7 @@ func BenchmarkDescriptorValidate(b *testing.B) {
 	if !Available {
 		b.Skip("no translation for this platform")
 	}
-	input := json.RawMessage(`{"apiVersion":"ext.plugin/v1","identity":{"id":"example/a","revision":"r1"},"contracts":[{"name":"example.a","version":"v1","operations":[{"name":"read"},{"name":"write"}]}]}`)
+	input := json.RawMessage(`{"apiVersion":"ext.io.pc/v1","identity":{"id":"example/a","revision":"r1"},"contracts":[{"name":"example.a","version":"v1","operations":[{"name":"read"},{"name":"write"}]}]}`)
 	b.SetBytes(int64(len(input)))
 	for i := 0; i < b.N; i++ {
 		if _, err := EngineCall("descriptor.validate", input); err != nil {

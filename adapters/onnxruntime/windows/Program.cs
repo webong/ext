@@ -5,7 +5,7 @@ using Webong.Ext.ML.Windows;
 
 // Package the published single-file executable as ID onnxruntime, version 1.0.0.
 // Its descriptor revision is the SHA-256 of those exact executable bytes.
-const string ApiVersion = "ext.plugin/v1";
+const string ApiVersion = "ext.io.pc/v1";
 const int MaxFrameBytes = 24 << 20;
 const int MaxTensorBytes = 16 << 20;
 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -46,7 +46,7 @@ try
                 throw new InvalidDataException("invalid request envelope");
             if (!handshaken)
             {
-                if (id != "hello" || request.GetProperty("operation").GetString() != "plugin.hello")
+                if (id != "hello" || request.GetProperty("operation").GetString() != "session.hello")
                     throw new InvalidDataException("invalid handshake");
                 Write(output, new { apiVersion = ApiVersion, id, payload = descriptor });
                 handshaken = true;

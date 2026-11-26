@@ -4,9 +4,9 @@
 and network-observation packages do not depend on each other. Java is the API, and
 Kotlin calls it directly.
 
-- **Plugin** (`io.github.webong.ext.plugin`): author an `ext.plugin/v1` guest on the JVM over a small JNI
+- **Plugin** (`io.github.webong.ext.plugin`): author an `ext.io.pc/v1` guest on the JVM over a small JNI
   library that binds the guest half of the shared [C engine](../../lib/plugin/README.md), keep reviewed
-  `ext.package/v1` packages in the engine's package store, and host a WebAssembly reactor in a WebView or
+  `ext.io/v1` packages in the engine's package store, and host a WebAssembly reactor in a WebView or
   in WAMR.
 - **Web** (`io.github.webong.ext.web`): the cookie, userscript and bookmarklet rules of
   [`res/web`](../../res/web/README.md), in plain Java with no native code, run against the same fixtures as
@@ -71,8 +71,8 @@ try (Guest guest = new Guest(descriptor, call -> {
 - `Guest.invoke(request)` validates a complete request and returns the complete
   response, so an application can put the guest behind its own transport, such as
   an Android bound service.
-- `JsonLine` is the ext.plugin/v1 JSON-line transport for a guest process: it
-  serves the `plugin.hello` handshake and then one response per request line.
+- `JsonLine` is the ext.io.pc/v1 JSON-line transport for a guest process: it
+  serves the `session.hello` handshake and then one response per request line.
   Stdout belongs to the protocol; log to stderr.
 - `Call.payload()` is the request payload exactly as sent, so numbers keep their
   original text. Throw `RemoteError` for a failure callers may see; any other

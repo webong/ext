@@ -2,7 +2,7 @@
 import Foundation
 import WebKit
 
-/// Hosts an ext.plugin/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in a
+/// Hosts an ext.io.pc/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in a
 /// hidden web view and exchanges frames with it. The web view is the platform's own
 /// web engine, so this is the `restricted` route of docs/adr-mobile-wasm.md: the
 /// guest has no network, files or process, but it runs under the browser's rules,
@@ -76,7 +76,7 @@ public final class WebViewPluginHost {
         return try await exchange(operation: 1, frame: Data(hello.utf8), timeout: deadline.timeIntervalSinceNow)
     }
 
-    /// Sends one complete ext.plugin/v1 request and returns the complete response.
+    /// Sends one complete ext.io.pc/v1 request and returns the complete response.
     public func invoke(_ request: Data, timeout: TimeInterval = 30) async throws -> Data {
         try await exchange(operation: 2, frame: request, timeout: timeout)
     }

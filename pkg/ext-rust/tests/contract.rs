@@ -231,7 +231,7 @@ fn a_struct_is_read_only_from_an_object() {
     // serde would read a list as the fields in order; Go refuses it.
     assert!(wire::typed::<Operation>(serde_json::json!(["echo"])).is_err());
     assert!(wire::typed::<ContractRef>(serde_json::json!(["a", "v1"])).is_err());
-    let descriptor = |identity: serde_json::Value, contract: serde_json::Value| serde_json::json!({"apiVersion":"ext.plugin/v1","identity":identity,"contracts":[contract]});
+    let descriptor = |identity: serde_json::Value, contract: serde_json::Value| serde_json::json!({"apiVersion":"ext.io.pc/v1","identity":identity,"contracts":[contract]});
     let identity = serde_json::json!({"id":"a/b","revision":"r1"});
     let contract = serde_json::json!({"name":"c","version":"v1","operations":[{"name":"o"}]});
     assert!(wire::typed::<Descriptor>(descriptor(identity.clone(), contract.clone())).is_ok());

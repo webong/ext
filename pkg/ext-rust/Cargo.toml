@@ -3,7 +3,7 @@ name = "ext-io"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
-description = "ext for Rust: the typed plugin host and guest SDK for ext.plugin/v1"
+description = "ext for Rust: the typed plugin host and guest SDK for ext.io.pc/v1"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/webong/ext"
@@ -13,7 +13,7 @@ categories = ["development-tools"]
 
 [features]
 default = ["plugin"]
-# `ext_io::plugin`: the ext.plugin/v1 host and guest SDK. An area added later (the names
+# `ext_io::plugin`: the ext.io.pc/v1 host and guest SDK. An area added later (the names
 # system, web and int are reserved) gets a feature of its own, so a plugin-only build compiles none of it.
 plugin = ["dep:serde", "dep:serde_json", "dep:time", "dep:libloading"]
 

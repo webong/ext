@@ -81,7 +81,7 @@ local function validate_contracts(contracts, reverse)
       -- Go leaves a member that is null alone, as if absent.
       if absent(surface) then surface = "" end
       if not is_identifier(name)
-        or name == "plugin.hello"
+        or name == "session.hello"
         or names[name]
         or type(surface) ~= "string"
         or (surface ~= "" and not is_identifier(surface))
@@ -95,7 +95,7 @@ local function validate_contracts(contracts, reverse)
   end
 end
 
---- Raises a string error unless d is a valid ext.plugin/v1 descriptor.
+--- Raises a string error unless d is a valid ext.io.pc/v1 descriptor.
 function guest.validate_descriptor(d)
   if not only(d, DESCRIPTOR_FIELDS) then
     invalid("descriptor must be an object with apiVersion, identity, contracts")
@@ -120,7 +120,7 @@ function guest.validate_descriptor(d)
   end
 end
 
---- Reads a descriptor from a plugin.json (ext.package/v1) or a bare descriptor file. Raises a
+--- Reads a descriptor from a plugin.json (ext.io/v1) or a bare descriptor file. Raises a
 --- string error.
 function guest.load_descriptor(path)
   local f, err = io.open(path, "rb")
@@ -130,9 +130,9 @@ function guest.load_descriptor(path)
   if #raw > 16 * 1024 * 1024 then invalid("descriptor file exceeds 16 MiB") end
   local ok, data = pcall(core.decode_frame, raw)
   if not ok then invalid(tostring(data)) end
-  if json.is_object(data) and data.descriptor ~= nil then
-    if data.apiVersion ~= "ext.package/v1" then invalid("unsupported package apiVersion") end
-    data = data.descriptor
+  if json.is_object(data) and data.apiVersion == "ext.io/v1" then
+    if data.kind ~= "package" or data.descriptor ~= nil then invalid("invalid ext.io/v1 package") end
+    data = {apiVersion="ext.io.pc/v1", identity=data.identity, contracts=data.contracts, reverse=data.reverse}
   end
   guest.validate_descriptor(data)
   return data
@@ -424,7 +424,7 @@ local function answer_hello(g, request)
   if surface == nil then surface = "" end
   if request.apiVersion ~= API_VERSION
     or request.id ~= "hello"
-    or request.operation ~= "plugin.hello"
+    or request.operation ~= "session.hello"
     or plugin.id ~= "" or plugin.revision ~= "" or plugin.version ~= ""
     or contract.name ~= "" or contract.version ~= ""
     or surface ~= ""

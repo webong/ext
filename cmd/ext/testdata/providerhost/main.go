@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -60,16 +61,14 @@ func run() error {
 		return err
 	}
 	defer store.Close()
-	var manifest struct {
-		Descriptor json.RawMessage `json:"descriptor"`
-	}
+	var manifest packagekit.Manifest
 	if err := store.Call("load", id, &manifest); err != nil {
 		return err
 	}
 	var entry struct {
 		Path string `json:"path"`
 	}
-	if err := store.Call("resolve_entrypoint", map[string]any{"id": "example/provider", "contract": "example.value", "version": "v1", "protocol": "ext.plugin/v1", "reviewed_digest": digest, "os": runtime.GOOS, "arch": runtime.GOARCH}, &entry); err != nil {
+	if err := store.Call("resolve_entrypoint", map[string]any{"id": "example/provider", "contract": "example.value", "version": "v1", "protocol": "ext.io.pc/v1", "reviewed_digest": digest, "os": runtime.GOOS, "arch": runtime.GOARCH}, &entry); err != nil {
 		return err
 	}
 	host, err := lib.Open("host", map[string]any{"descriptor": manifest.Descriptor, "backend": map[string]any{"kind": "process", "executable": entry.Path}, "verify": "allow", "authorize": "allow"}, nil)

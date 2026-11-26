@@ -1,6 +1,6 @@
 # ExtIO.Host
 
-The ext plugin host for .NET: runs `ext.plugin/v1` plugins through the ext C engine (`lib/plugin`),
+The ext plugin host for .NET: runs `ext.io.pc/v1` plugins through the ext C engine (`lib/plugin`),
 which does what a host must get right: admission, the handshake check against the descriptor,
 request and response validation, deadlines and the session's lifecycle. This package only moves
 bytes and policy decisions across P/Invoke. It loads the engine's shared library (`libext_plugin_host`,

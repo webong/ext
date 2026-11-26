@@ -57,7 +57,7 @@ final class Reporter {
     }
 
     private void write(Frames.Event e) throws FrameException {
-        StringBuilder frame = new StringBuilder("{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\",\"parent\":");
+        StringBuilder frame = new StringBuilder("{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\",\"parent\":");
         Json.quote(frame, parent).append(",\"kind\":");
         Json.quote(frame, e.kind());
         if (!e.stream().isEmpty()) {

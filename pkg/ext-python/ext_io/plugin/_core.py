@@ -4,7 +4,7 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 
-API_VERSION = "ext.plugin/v1"
+API_VERSION = "ext.io.pc/v1"
 MAX_FRAME_BYTES = 24 << 20
 MAX_RETRY_AFTER_MS = 365 * 24 * 60 * 60 * 1000
 MAX_MESSAGE_BYTES = 4096

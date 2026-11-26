@@ -324,11 +324,11 @@ fn run(a: A, guest: *const author.Guest, input: []const u8) !Run {
     return .{ .frames = frames.items, .failure = failure };
 }
 fn helloFrame(a: A) ![]const u8 {
-    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\"{s}\"}}\n", .{try w.timestamp(a, w.now() + w.timeout_ns)});
+    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"operation\":\"session.hello\",\"deadline\":\"{s}\"}}\n", .{try w.timestamp(a, w.now() + w.timeout_ns)});
 }
 fn requestFrame(a: A, id: []const u8, operation: []const u8, payload: []const u8, rate: bool) ![]const u8 {
     const rate_text: []const u8 = if (rate) ",\"progress\":{\"eventsPerSecond\":5}" else "";
-    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"{s}\",\"plugin\":{{\"id\":\"zig/frames\",\"revision\":\"r1\"}},\"contract\":{{\"name\":\"test.frames\",\"version\":\"v1\"}},\"operation\":\"{s}\",\"payload\":{s},\"deadline\":\"{s}\"{s}}}\n", .{ id, operation, payload, try w.timestamp(a, w.now() + w.timeout_ns), rate_text });
+    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"{s}\",\"plugin\":{{\"id\":\"zig/frames\",\"revision\":\"r1\"}},\"contract\":{{\"name\":\"test.frames\",\"version\":\"v1\"}},\"operation\":\"{s}\",\"payload\":{s},\"deadline\":\"{s}\"{s}}}\n", .{ id, operation, payload, try w.timestamp(a, w.now() + w.timeout_ns), rate_text });
 }
 fn join(a: A, parts: []const []const u8) ![]const u8 {
     return std.mem.concat(a, u8, parts);
@@ -413,9 +413,9 @@ test "a reverse call names the call and returns the answer" {
     const input = try join(a, &[_][]const u8{
         try helloFrame(a),
         try requestFrame(a, "1", "ask", "{\"op\":\"sign\",\"payload\":{\"n\":1}}", false),
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"g1\",\"payload\":\"signed\"}\n",
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"g1\",\"payload\":\"signed\"}\n",
         try requestFrame(a, "2", "ask", "{\"op\":\"sign\"}", false),
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"g2\",\"error\":{\"code\":\"denied\",\"message\":\"reverse call refused\"}}\n",
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"g2\",\"error\":{\"code\":\"denied\",\"message\":\"reverse call refused\"}}\n",
         try requestFrame(a, "3", "ask", "{\"op\":\"nothere\"}", false),
     });
     const result = try run(a, &guest, input);
@@ -442,13 +442,13 @@ test "what the host may not do ends the session" {
     var guest = try testGuest(a);
     defer guest.deinit();
     const violations = [_][]const u8{
-        "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"9\",\"operation\":\"events\"}\n", // a second request during a call
+        "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"9\",\"operation\":\"events\"}\n", // a second request during a call
         "{\"frame\":\"mystery\"}\n",
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"g99\",\"payload\":1}\n", // never issued
-        "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\",\"parent\":\"1\",\"kind\":\"log\"}\n", // from the host
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"g1\",\"payload\":1,\"extra\":1}\n",
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"g1\",\"payload\":1,\"error\":{\"code\":\"x\",\"message\":\"m\"}}\n",
-        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\",\"id\":\"g1\"}\n", // neither payload nor error
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"g99\",\"payload\":1}\n", // never issued
+        "{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\",\"parent\":\"1\",\"kind\":\"log\"}\n", // from the host
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"g1\",\"payload\":1,\"extra\":1}\n",
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"g1\",\"payload\":1,\"error\":{\"code\":\"x\",\"message\":\"m\"}}\n",
+        "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"g1\"}\n", // neither payload nor error
         "7\n", // not an object
     };
     for (violations) |bad| {
@@ -494,7 +494,7 @@ test "the hello may not carry a rate or a parent" {
     const stamp = try w.timestamp(a, w.now() + w.timeout_ns);
     const bad = [_][]const u8{ ",\"progress\":{}", ",\"parent\":\"1\"" };
     for (bad) |extra| {
-        const input = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\"{s}\"{s}}}\n", .{ stamp, extra });
+        const input = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"operation\":\"session.hello\",\"deadline\":\"{s}\"{s}}}\n", .{ stamp, extra });
         const result = try run(a, &guest, input);
         try std.testing.expect(result.failure != null);
         try std.testing.expectEqual(@as(usize, 0), result.frames.len);

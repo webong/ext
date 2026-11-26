@@ -25,8 +25,8 @@ commands with CTX's project selection. `ext ctn …` consumes installed capabili
 `ext ctn adapter ls` lists adapters but does not install them. Both management
 entry points call `pkg/ext-go/engine/plugin/host/adapter/adaptercmd`.
 
-`ext package doctor NAME` runs the trusted adapter's default diagnostics with
-no project selection. `ext ctx adapter doctor NAME` retains CTX's project selection
+`ext package doctor NAME` checks package integrity, trust and target compatibility
+without executing the adapter. `ext ctx adapter doctor NAME` retains CTX's project selection
 and invocation policy through a callback into the shared command.
 
 These are ext adapters regardless of which product invokes them. Availability
@@ -56,7 +56,7 @@ provider switch in core code.
 
 ## Manifest
 
-An adapter is an Ext package. Ext looks for the `ext.package/v1` document in
+An adapter is an Ext package. Ext looks for the `ext.io/v1` document in
 `ext.json`. It also supports historical packages whose manifest is
 `plugin.json` when the primary file is absent. A package has one manifest.
 See the [plugin contract](adr-plugin-contract.md#package-store).
@@ -74,33 +74,79 @@ other adapter.
 
 ~~~json
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {"id": "example", "revision": ""},
-    "contracts": [{
-      "name": "ext.adapter", "version": "2.0",
-      "operations": [{"name": "list"}, {"name": "validate"}, {"name": "run"}, {"name": "doctor"}]
-    }]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
-    {"name": "main", "path": "ctx-example", "sha256": ""},
-    {"name": "main-windows", "path": "ctx-example.ps1", "sha256": "", "os": "windows"}
+    {
+      "name": "main",
+      "path": "ctx-example",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-example.ps1",
+      "sha256": "",
+      "os": "windows"
+    }
   ],
   "entrypoints": [
-    {"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.adapter/2.0"]},
-    {"name": "main.windows", "runtime": "argv", "artifact": "main-windows", "protocols": ["ext.adapter/2.0"]}
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
   ],
   "metadata": {
     "ctx.adapter/v1": {
       "display_name": "Example App",
       "description": "Example context adapter",
       "runtime": "computer",
-      "surfaces": ["shell", "web"],
+      "surfaces": [
+        "shell",
+        "web"
+      ],
       "selector_key": "example_context",
-      "commands": ["example", "examplectl"]
+      "commands": [
+        "example",
+        "examplectl"
+      ]
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "example",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "list"
+        },
+        {
+          "name": "validate"
+        },
+        {
+          "name": "run"
+        },
+        {
+          "name": "doctor"
+        }
+      ]
+    }
+  ]
 }
 ~~~
 
@@ -108,7 +154,7 @@ Where each adapter field lives:
 
 | Field | In ext.json |
 | --- | --- |
-| `name` | `descriptor.identity.id` |
+| `name` | `identity.id` |
 | API version `2.0` | the version of the `ext.adapter` contract. It is the version of the invocation protocol below, which this change did not alter, so it stays `2.0`. |
 | `capabilities` | the operations of the `ext.adapter` contract |
 | `browser_share` | the operations of the `ext.adapter.browser.share` contract (version `1`) |
@@ -139,7 +185,7 @@ ext ctx and is closed: an unknown key is an error, so a typo is not ignored. Its
 | `computer_hook_settings_file`, `computer_hook_template` | string | computer hook setup |
 | `share_dependencies` | list | `space:provider` links to named package `requires` |
 | `dependencies_darwin`, `dependencies_linux`, `dependencies_windows` | list | legacy `space:adapter@api` strings; cannot mix with `share_dependencies` |
-| `go_entry` | string | the Go package `ext package build` compiles, default `.` |
+| `go_entry` | string | legacy adapter build entry; generic `ext package build` uses an explicit command |
 
 To stay short, the rest of this page writes a field in the compact notation
 `key = "value"`, where a list is comma separated: `capabilities = "list,run"` means
@@ -828,19 +874,18 @@ package_files = "policy.json,templates"
 ~~~
 
 ~~~sh
-ext package build ./example
-ext package build ./example --os linux --arch amd64
+ext package build ./example --output ./example.zip -- go build -o ctx-example ./cmd/ctx-example
+ext package build ./example --os linux --arch amd64 --output ./example.zip -- go build -o ctx-example ./cmd/ctx-example
 ext package pack ./ready-package --os linux --arch amd64 --output ./example-linux-amd64.ctxadapter
-ext package install ./example/dist/example-darwin-arm64.ctxadapter
+ext package install ./example.zip --sha256 <reviewed-archive-digest>
 ext package trust example
 ~~~
 
-`ext package build` requires Go and emits one archive per target. Cross builds
-default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
-under `examples/plugins/go/adapters/go_echo` shows the public parser and a complete Go
-adapter. An adapter written in another language can prepare a package directory
-and use `ext package pack` without Go. `pack` seals and includes every regular file in the
-given directory, so use a directory containing only runtime files.
+`ext package build` runs an explicit author-supplied command in an isolated
+source copy; it supports any toolchain. `pack` needs no toolchain and includes
+only declared artifacts. Declare platform targets on artifacts explicitly.
+See [generic package authoring](package-authoring.md) for build environments,
+static checks and package diagnostics.
 
 The registry serves a package index with one SHA-256-pinned archive per target.
 Place the platform archives in one directory and run

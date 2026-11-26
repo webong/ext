@@ -39,7 +39,7 @@ shared registry cases (set `EXT_REGISTRY_TEST_GUEST` to the built
 `ext_registry_test`).
 
 `store::Store` is the engine's package store (`ext_store_*`): `install`, `upgrade`,
-`replace`, `remove`, `load` and `ids` over reviewed `ext.package/v1` packages under a
+`replace`, `remove`, `load` and `ids` over reviewed `ext.io/v1` packages under a
 root you supply, as the Go store does. `install`, `upgrade` and `replace` copy the
 package, verify it at the source and again once copied, and return the installed
 `plugin.json` byte for byte. Failures are `Error::INVALID` (not a valid package, id or

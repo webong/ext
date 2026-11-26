@@ -19,7 +19,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema"
 )
 
-const Version = "ext.package/v1"
+const Version = "ext.io/v1"
 
 var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]{0,255}$`)
 
@@ -91,7 +91,7 @@ type PayloadSchema struct {
 }
 type Manifest struct {
 	APIVersion string            `json:"apiVersion"`
-	Descriptor plugin.Descriptor `json:"descriptor"`
+	Descriptor plugin.Descriptor `json:"-"`
 	// License is an optional SPDX license expression. It is descriptive only.
 	License            string             `json:"license,omitempty"`
 	Artifacts          []Artifact         `json:"artifacts"`
@@ -118,7 +118,7 @@ func (m Manifest) Validate() error {
 	if err := m.Descriptor.Validate(); err != nil {
 		return err
 	}
-	if len(m.Artifacts) < 1 || len(m.Artifacts) > 4096 || len(m.Entrypoints) > 64 || len(m.Requires) > 256 || len(m.Assets) > 1024 || len(m.Payloads) > 1024 || len(m.SharedDependencies) > 256 {
+	if len(m.Artifacts) > 4096 || len(m.Entrypoints) > 64 || len(m.Requires) > 256 || len(m.Assets) > 1024 || len(m.Payloads) > 1024 || len(m.SharedDependencies) > 256 {
 		return plugin.ErrInvalid
 	}
 	if m.License != "" && (!licensePattern.MatchString(m.License) || strings.HasSuffix(m.License, " ") || strings.Contains(m.License, "  ")) {

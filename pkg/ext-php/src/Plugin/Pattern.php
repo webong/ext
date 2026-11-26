@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ExtIO\Plugin;
 
-/** @internal The identifier and revision syntax of ext.plugin/v1. */
+/** @internal The identifier and revision syntax of ext.io.pc/v1. */
 final class Pattern
 {
     private const IDENTIFIER = '/\A[a-z0-9][a-z0-9._\/-]{0,255}\z/';

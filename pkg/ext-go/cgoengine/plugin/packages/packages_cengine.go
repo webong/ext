@@ -9,7 +9,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
-// ValidateManifest reports whether m is a valid ext.package/v1 manifest.
+// ValidateManifest reports whether m is a valid ext.io/v1 manifest.
 func ValidateManifest(m packagekit.Manifest) error {
 	return cgoengine.EngineValue("package.validate", m, nil)
 }

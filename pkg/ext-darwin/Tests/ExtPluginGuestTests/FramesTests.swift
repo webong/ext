@@ -149,7 +149,7 @@ final class FramesUnitTests: XCTestCase {
         let text = String(decoding: try encoder.encode(descriptor), as: UTF8.self)
         XCTAssertEqual(
             text,
-            #"{"apiVersion":"ext.plugin\/v1","contracts":[{"name":"c.d","operations":[{"name":"long","progress":true},{"name":"quick"}],"version":"v1"}],"identity":{"id":"a\/b","revision":"1"},"reverse":[{"name":"host.svc","operations":[{"name":"sign","surface":"signing"}],"version":"v1"}]}"#
+            #"{"apiVersion":"ext.io.pc\/v1","contracts":[{"name":"c.d","operations":[{"name":"long","progress":true},{"name":"quick"}],"version":"v1"}],"identity":{"id":"a\/b","revision":"1"},"reverse":[{"name":"host.svc","operations":[{"name":"sign","surface":"signing"}],"version":"v1"}]}"#
                 .replacingOccurrences(of: "\\/", with: "/"))
         XCTAssertEqual(try JSONDecoder().decode(Descriptor.self, from: Data(text.utf8)), descriptor)
         // Neither member is written when unset.

@@ -36,10 +36,10 @@ func goFrameValidates(raw json.RawMessage) error {
 
 func FrameValidationDifferential(t *testing.T, e Engine) {
 	for name, base := range map[string]map[string]any{
-		"progress": {"frame": "progress", "apiVersion": "ext.plugin/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2},
-		"reverse request": {"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
+		"progress": {"frame": "progress", "apiVersion": "ext.io.pc/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2},
+		"reverse request": {"frame": "reverse_request", "apiVersion": "ext.io.pc/v1", "id": "g1", "parent": "1",
 			"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": "2099-01-01T00:00:00Z", "payload": map[string]any{"n": 1}},
-		"session-scoped reverse request": {"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g2",
+		"session-scoped reverse request": {"frame": "reverse_request", "apiVersion": "ext.io.pc/v1", "id": "g2",
 			"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": "2099-01-01T00:00:00.5+01:00"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -82,7 +82,7 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 // accept anything an int64 holds.
 func RetryHintBoundMatchesGo(t *testing.T, e Engine) {
 	for _, hint := range []string{"0", "-0", "1", "31535999999", "31536000000", "31536000001", "9223372036854775807", "9223372036854775808", "-1", "1.5", "1e3", `"5"`, "null"} {
-		raw := json.RawMessage(`{"apiVersion":"ext.plugin/v1","id":"1","error":{"code":"busy","message":"m","retryAfterMilliseconds":` + hint + `}}`)
+		raw := json.RawMessage(`{"apiVersion":"ext.io.pc/v1","id":"1","error":{"code":"busy","message":"m","retryAfterMilliseconds":` + hint + `}}`)
 		var r plugin.Response
 		want := plugin.Decode(raw, &r)
 		if want == nil {

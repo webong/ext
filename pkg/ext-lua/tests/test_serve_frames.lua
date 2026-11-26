@@ -13,7 +13,7 @@ local IDENT = { id = "lua/frames", revision = "r1" }
 local HOST = { "host.svc", "v1" }
 local FUTURE = "2999-01-01T00:00:00Z"
 local DESC = {
-  apiVersion = "ext.plugin/v1",
+  apiVersion = "ext.io.pc/v1",
   identity = IDENT,
   contracts = {
     {
@@ -99,13 +99,13 @@ local function handler(contract, operation, payload)
 end
 
 local function hello(fields)
-  local r = { apiVersion = "ext.plugin/v1", id = "hello", operation = "plugin.hello", deadline = FUTURE }
+  local r = { apiVersion = "ext.io.pc/v1", id = "hello", operation = "session.hello", deadline = FUTURE }
   for k, v in pairs(fields or {}) do r[k] = v end
   return r
 end
 
 local function answer(request_id, body)
-  local r = { frame = "reverse_response", apiVersion = "ext.plugin/v1", id = request_id }
+  local r = { frame = "reverse_response", apiVersion = "ext.io.pc/v1", id = request_id }
   for k, v in pairs(body or {}) do r[k] = v end
   return r
 end
@@ -136,7 +136,7 @@ local function hosted(script, first)
     state.next = state.next + 1
     local id = tostring(state.next)
     local r = {
-      apiVersion = "ext.plugin/v1", id = id, plugin = IDENT,
+      apiVersion = "ext.io.pc/v1", id = id, plugin = IDENT,
       contract = { name = "test.frames", version = "v1" }, operation = operation,
       payload = payload == nil and json.null or payload, deadline = FUTURE,
     }
@@ -389,7 +389,7 @@ test("what the host may not do ends the session", function()
     { "a second request during a call", nil },
     { "an unknown frame", { frame = "mystery" } },
     { "an answer to a request never issued", answer("g99", { payload = 1 }) },
-    { "a progress frame from the host", { frame = "progress", apiVersion = "ext.plugin/v1", parent = "1", kind = "log" } },
+    { "a progress frame from the host", { frame = "progress", apiVersion = "ext.io.pc/v1", parent = "1", kind = "log" } },
     { "a malformed answer to the request waiting", answer("g1", { payload = 1, extra = 1 }) },
     { "an answer with both payload and error", answer("g1", { payload = 1, error = { code = "x", message = "m" } }) },
     { "an answer with neither payload nor error", answer("g1") },
@@ -436,7 +436,7 @@ test("a guest invoked directly has no frames", function()
   local g = plugin.Guest(DESC, handler, { redact_errors = true })
   local function request(operation)
     return {
-      apiVersion = "ext.plugin/v1", id = "1", plugin = IDENT,
+      apiVersion = "ext.io.pc/v1", id = "1", plugin = IDENT,
       contract = { name = "test.frames", version = "v1" }, operation = operation,
       payload = {}, deadline = FUTURE, progress = {},
     }

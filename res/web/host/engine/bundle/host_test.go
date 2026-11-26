@@ -28,7 +28,7 @@ func TestHostChannelCarriesMessagesBothWays(t *testing.T) {
 		p := load(t, base)
 		p.post("alive", `{}`)
 		// page to host, including characters JSON must escape and a plugin-shaped frame
-		frame = `{"apiVersion":"ext.plugin/v1","id":"1","payload":{"t":"héllo 🙂 \"quoted\"\n"}}`
+		frame = `{"apiVersion":"ext.io.pc/v1","id":"1","payload":{"t":"héllo 🙂 \"quoted\"\n"}}`
 		if code := p.post("host", `{"data":`+quoteJSON(frame)+`}`); code != 204 {
 			t.Errorf("host send status %d", code)
 		}
@@ -200,11 +200,11 @@ const frames = (posted) => posted.map((s) => JSON.parse(s));
 // iOS: the page reports through the "ext" message handler.
 let ios = boot((posted) => ({ webkit: { messageHandlers: { ext: { postMessage: (s) => posted.push(s) } } } }));
 assert.strictEqual(ios.window.ext.host.transport, "wkwebview");
-ios.window.ext.host.send('{"apiVersion":"ext.plugin/v1"}');
+ios.window.ext.host.send('{"apiVersion":"ext.io.pc/v1"}');
 ios.window.ext.log("a", { b: 1 });
 ios.window.ext.exit(7);
 const got = frames(ios.posted);
-assert.deepStrictEqual(got.find((f) => f.kind === "host"), { data: '{"apiVersion":"ext.plugin/v1"}', kind: "host" });
+assert.deepStrictEqual(got.find((f) => f.kind === "host"), { data: '{"apiVersion":"ext.io.pc/v1"}', kind: "host" });
 assert.deepStrictEqual(got.find((f) => f.kind === "log" && f.level === "log"), { level: "log", text: 'a {"b":1}', kind: "log" });
 assert.strictEqual(got.find((f) => f.kind === "exit").code, 7);
 assert.ok(!got.some((f) => f.kind === "alive" || f.kind === "closed"), "a native host owns its webview, so no heartbeat crosses the bridge");

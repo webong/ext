@@ -18,9 +18,9 @@ class ExampleTest < Minitest::Test
 
   def test_the_example_serves
     ident = { "id" => "example/ruby-echo", "revision" => "fixture-1" }
-    base = { "apiVersion" => "ext.plugin/v1", "plugin" => ident, "deadline" => "2999-01-01T00:00:00Z" }
+    base = { "apiVersion" => "ext.io.pc/v1", "plugin" => ident, "deadline" => "2999-01-01T00:00:00Z" }
     input = frames(
-      { "apiVersion" => "ext.plugin/v1", "id" => "hello", "operation" => "plugin.hello", "deadline" => "2999-01-01T00:00:00Z" },
+      { "apiVersion" => "ext.io.pc/v1", "id" => "hello", "operation" => "session.hello", "deadline" => "2999-01-01T00:00:00Z" },
       base.merge("id" => "1", "contract" => { "name" => "example.echo", "version" => "v1" }, "operation" => "count",
                  "payload" => { "to" => 2 }, "progress" => {}),
       base.merge("id" => "2", "contract" => { "name" => "ext.health", "version" => "v1" }, "operation" => "check",

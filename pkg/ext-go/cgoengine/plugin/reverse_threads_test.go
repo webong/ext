@@ -75,7 +75,7 @@ func TestSessionScopedReverseMatchesGo(t *testing.T) {
 				id = "r1"
 			}
 			if want.Collected != `{"result":"signed"}` || len(want.Handled) != 1 ||
-				want.Handled[0] != `{"apiVersion":"ext.plugin/v1","id":"`+id+`","plugin":{"id":"cgoengine/reverse","revision":"r1"},"contract":{"name":"host.svc","version":"v1"},"operation":"sign","surface":"signing","deadline":"0001-01-01T00:00:00Z","payload":{"n":1}} deadline-set=true` ||
+				want.Handled[0] != `{"apiVersion":"ext.io.pc/v1","id":"`+id+`","plugin":{"id":"cgoengine/reverse","revision":"r1"},"contract":{"name":"host.svc","version":"v1"},"operation":"sign","surface":"signing","deadline":"0001-01-01T00:00:00Z","payload":{"n":1}} deadline-set=true` ||
 				want.Facts[0] != "deadline-within-call=true value=open" {
 				t.Errorf("the reference answered %+v", want)
 			}

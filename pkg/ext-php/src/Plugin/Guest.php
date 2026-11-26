@@ -75,7 +75,7 @@ final class Guest
         return self::$current;
     }
 
-    /** A copy of the descriptor, as plugin.hello answers it. */
+    /** A copy of the descriptor, as session.hello answers it. */
     public function handshake(): \stdClass
     {
         return Json::decode(Json::encode($this->descriptor));
@@ -223,7 +223,7 @@ final class Guest
         $deadline = Time::parse(Json::get($request, 'deadline'));
         if (Json::get($request, 'apiVersion') !== API_VERSION
             || Json::get($request, 'id') !== 'hello'
-            || Json::get($request, 'operation') !== 'plugin.hello'
+            || Json::get($request, 'operation') !== 'session.hello'
             || implode('', $plugin) !== ''
             || implode('', $contract) !== ''
             || Json::get($request, 'surface', '') !== ''

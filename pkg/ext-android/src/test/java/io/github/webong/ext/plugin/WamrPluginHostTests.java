@@ -124,7 +124,7 @@ public final class WamrPluginHostTests {
     }
 
     static byte[] request(String operation, String payload, String id, Instant deadline) {
-        String body = "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"ctx/conformance\","
+        String body = "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"ctx/conformance\","
                 + "\"revision\":\"fixture-1\"},\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},"
                 + "\"operation\":\"" + operation + "\",\"deadline\":\"" + deadline + "\""
                 + (payload == null ? "" : ",\"payload\":" + payload) + "}";

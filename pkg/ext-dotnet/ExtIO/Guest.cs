@@ -64,7 +64,7 @@ public sealed class CallInfo
 }
 
 /// <summary>
-/// An ext.plugin/v1 guest. It answers <c>plugin.hello</c> with the descriptor, validates every
+/// An ext.io.pc/v1 guest. It answers <c>session.hello</c> with the descriptor, validates every
 /// request the way the Go <c>plugin.ValidateRequest</c> does, and calls the handler sequentially.
 /// Any failure but a <see cref="RemoteError"/> becomes <c>provider_error</c> with the message cut to
 /// 4096 bytes; with <c>redactErrors</c> it becomes a generic <c>operation_failed</c> instead, so
@@ -98,7 +98,7 @@ public sealed class Guest
     public Guest(JsonObject descriptor, Handler handler, TimeSpan? maxCall = null, bool redactErrors = false)
         : this(CopyDescriptor(descriptor), handler, maxCall, redactErrors, true) { }
 
-    /// <summary>A guest whose descriptor is in a plugin.json (ext.package/v1) or a bare descriptor file.</summary>
+    /// <summary>A guest whose descriptor is in a plugin.json (ext.io/v1) or a bare descriptor file.</summary>
     public Guest(string descriptorPath, Handler handler, TimeSpan? maxCall = null, bool redactErrors = false)
         : this(LoadDescriptor(descriptorPath), handler, maxCall, redactErrors, true) { }
 
@@ -147,12 +147,12 @@ public sealed class Guest
         return (JsonObject)copy!;
     }
 
-    /// <summary>The descriptor the guest answers <c>plugin.hello</c> with.</summary>
+    /// <summary>The descriptor the guest answers <c>session.hello</c> with.</summary>
     public JsonObject Handshake() => (JsonObject)descriptor.DeepClone();
 
     // --- descriptor --------------------------------------------------------------------------
 
-    /// <summary>Throws <see cref="ArgumentException"/> unless the value is a valid ext.plugin/v1 descriptor.</summary>
+    /// <summary>Throws <see cref="ArgumentException"/> unless the value is a valid ext.io.pc/v1 descriptor.</summary>
     public static void ValidateDescriptor(JsonNode? d)
     {
         if (!Wire.OnlyKeys(d, DescriptorFields))
@@ -213,7 +213,7 @@ public sealed class Guest
                 var surface = surfaceNode is null ? "" : Wire.AsString(surfaceNode);
                 var progress = progressNode is null ? (bool?)null : Wire.AsBool(progressNode);
                 if (!Wire.Matches(Wire.Identifier, opName) ||
-                    opName == "plugin.hello" ||
+                    opName == "session.hello" ||
                     !names.Add(opName!) ||
                     surface is null ||
                     (surface != "" && !Wire.Matches(Wire.Identifier, surface)) ||
@@ -226,7 +226,7 @@ public sealed class Guest
         }
     }
 
-    /// <summary>Reads a descriptor from a plugin.json (ext.package/v1) or a bare descriptor file.</summary>
+    /// <summary>Reads a descriptor from a plugin.json (ext.io/v1) or a bare descriptor file.</summary>
     public static JsonObject LoadDescriptor(string path)
     {
         byte[] raw;
@@ -245,11 +245,13 @@ public sealed class Guest
         {
             throw new ArgumentException(e.Message);
         }
-        if (data is JsonObject o && o.ContainsKey("descriptor"))
+        if (data is JsonObject o && Wire.AsString(o["apiVersion"]) == "ext.io/v1")
         {
-            if (Wire.AsString(o["apiVersion"]) != "ext.package/v1") throw new ArgumentException("unsupported package apiVersion");
-            data = o["descriptor"];
-            o.Remove("descriptor");
+            if (Wire.AsString(o["kind"]) != "package" || o.ContainsKey("descriptor")) throw new ArgumentException("invalid ext.io/v1 package");
+            var descriptor = new JsonObject { ["apiVersion"] = "ext.io.pc/v1" };
+            foreach (var key in new[] { "identity", "contracts", "reverse" })
+                if (o.ContainsKey(key)) descriptor[key] = o[key]?.DeepClone();
+            data = descriptor;
         }
         ValidateDescriptor(data);
         return (JsonObject)data!;
@@ -478,7 +480,7 @@ public sealed class Guest
         var hasSurface = r.TryGetPropertyValue("surface", out var surface);
         if (Wire.AsString(r["apiVersion"]) != Wire.ApiVersion ||
             Wire.AsString(r["id"]) != "hello" ||
-            Wire.AsString(r["operation"]) != "plugin.hello" ||
+            Wire.AsString(r["operation"]) != "session.hello" ||
             plugin.Any(v => v != "") ||
             contract.Any(v => v != "") ||
             (hasSurface && Wire.AsString(surface) != "") ||

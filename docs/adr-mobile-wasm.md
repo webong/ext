@@ -77,7 +77,7 @@ memory limits, and the wasmi C API.
 
 Every phone has one that runs WebAssembly: WKWebView on iOS, the System WebView on
 Android. A spike (**run**) put a real plugin guest, the repository's Go test guest
-compiled to WASI (5.6 MB), inside a page and spoke the real `ext.plugin/v1` protocol
+compiled to WASI (5.6 MB), inside a page and spoke the real `ext.io.pc/v1` protocol
 to it: handshake, an `echo` with a Unicode payload, and an unknown operation that
 was correctly refused as `invalid_request`.
 
@@ -128,7 +128,7 @@ decided by the project owner after the evidence above.
 
 1. **Primary: the system web engine** (WKWebView on iOS, the System WebView on
    Android). It ships nothing extra, and the spike shows the hard part works. A
-   host loads the guest into a hidden webview and passes `ext.plugin/v1` messages
+   host loads the guest into a hidden webview and passes `ext.io.pc/v1` messages
    across the page boundary. Its isolation is `restricted`.
 2. **Fallback: WAMR** as an in-process interpreter in `lib/plugin`, for hosts
    where the webview is unsuitable: no usable webview, a need for the stricter

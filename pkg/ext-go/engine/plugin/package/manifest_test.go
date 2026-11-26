@@ -164,3 +164,35 @@ func TestDecodeStillRejectsUnknownAndDuplicateFields(t *testing.T) {
 		t.Fatal("duplicate key inside metadata accepted:", err)
 	}
 }
+
+func TestUnifiedManifestWire(t *testing.T) {
+	m := manifest("example/provider")
+	m.Artifacts = nil
+	m.Entrypoints = nil
+	if err := m.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]json.RawMessage
+	if err := json.Unmarshal(b, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire["descriptor"] != nil || string(wire["kind"]) != `"package"` || wire["identity"] == nil {
+		t.Fatal(string(b))
+	}
+	var decoded packagekit.Manifest
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Descriptor.APIVersion != plugin.APIVersion || decoded.Descriptor.Identity != m.Descriptor.Identity {
+		t.Fatal(decoded)
+	}
+	for _, bad := range []string{strings.Replace(string(b), "ext.io/v1", "ext.package/v1", 1), strings.Replace(string(b), `"kind":"package"`, `"kind":"descriptor"`, 1), strings.Replace(string(b), `"kind":"package"`, `"kind":"package","descriptor":{}`, 1)} {
+		if json.Unmarshal([]byte(bad), &decoded) == nil {
+			t.Fatal("accepted incompatible manifest", bad)
+		}
+	}
+}

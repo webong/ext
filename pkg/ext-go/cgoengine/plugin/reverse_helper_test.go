@@ -202,7 +202,7 @@ func runRawReverse(mode string) int {
 		if payload != "" {
 			payloadField = `,"payload":` + payload
 		}
-		return fmt.Sprintf(`{"frame":"reverse_request","apiVersion":"ext.plugin/v1",%s%s,"contract":{"name":"host.svc","version":"v1"},"operation":%q,"deadline":%s%s}`+"\n", id, parentField, op, deadline, payloadField)
+		return fmt.Sprintf(`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1",%s%s,"contract":{"name":"host.svc","version":"v1"},"operation":%q,"deadline":%s%s}`+"\n", id, parentField, op, deadline, payloadField)
 	}
 	future := `"2099-01-01T00:00:00Z"`
 	ask := func(frame string) string {
@@ -221,7 +221,7 @@ func runRawReverse(mode string) int {
 	case "pre-handshake-session":
 		early = ask(request(`"id":"g1"`, "", "sign", future, ""))
 	}
-	fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":"hello","payload":%s}`+"\n", descriptor)
+	fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":"hello","payload":%s}`+"\n", descriptor)
 	switch mode {
 	case "idle-bad":
 		// A frame that breaks the rules, when no call is in flight.
@@ -277,6 +277,6 @@ func runRawReverse(mode string) int {
 		if reply == "" {
 			reply = "null"
 		}
-		fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":%q,"payload":{"reply":%s}}`+"\n", id, reply)
+		fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":%q,"payload":{"reply":%s}}`+"\n", id, reply)
 	}
 }

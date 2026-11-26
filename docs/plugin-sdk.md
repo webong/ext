@@ -48,9 +48,9 @@ protocols require an explicit binding or domain translation.
 
 The wire protocol, domain contract versions, SDK/package releases and immutable
 artifact revisions are independent. The currently implemented wire version is
-`ext.plugin/v1`. The optional contracts are `ext.health@v1`,
+`ext.io.pc/v1`. The optional contracts are `ext.health@v1`,
 `ext.configuration@v1` and `ext.stream@v1`. Package manifests use
-`ext.package/v1`; their embedded schemas use the `ext.schema/v1` vocabulary.
+`ext.io/v1`; their embedded schemas use the `ext.schema/v1` vocabulary.
 
 * Existing v1 fields and meanings remain stable. Unknown envelope fields,
   duplicate JSON keys, oversized frames and trailing JSON remain errors.
@@ -102,7 +102,7 @@ The [runtime authoring guide](plugin-runtimes.md) contains build recipes and one
 typed implementation shared across native Go, WASI and C shared libraries.
 WASI guests use the same `jsonline.ServeStdio` helper as standalone command
 guests. The C binding has its own versioned ABI header, while domain envelopes
-continue to use `ext.plugin/v1`. Native loaders require explicit verified paths;
+continue to use `ext.io.pc/v1`. Native loaders require explicit verified paths;
 they do not discover, install or authorize artifacts.
 
 ## Typed authoring

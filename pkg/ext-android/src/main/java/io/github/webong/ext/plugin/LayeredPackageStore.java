@@ -35,6 +35,9 @@ public final class LayeredPackageStore implements AutoCloseable {
 
     /** Opens a view over {@code roots}, highest priority first, which need not exist. */
     public LayeredPackageStore(List<String> roots, StoreLimits limits) throws GuestException {
+        this(roots, limits, "plugin.json");
+    }
+    public LayeredPackageStore(List<String> roots, StoreLimits limits, String manifestPath) throws GuestException {
         Objects.requireNonNull(roots, "roots");
         Objects.requireNonNull(limits, "limits");
         byte[][] paths = new byte[roots.size()][];
@@ -42,7 +45,7 @@ public final class LayeredPackageStore implements AutoCloseable {
             paths[i] = PackageStore.text(Objects.requireNonNull(roots.get(i), "root"));
         }
         handle = NativeEngine.layeredOpen(paths, limits.maxArtifactBytes(), limits.maxTreeFiles(),
-                limits.maxTreeBytes());
+                limits.maxTreeBytes(), PackageStore.text(Objects.requireNonNull(manifestPath,"manifestPath")));
     }
 
     /**

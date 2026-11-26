@@ -82,6 +82,8 @@ export interface Streams {
 }
 /** Bounds on a package store; zero or absent takes the default (4 GiB, 250000 files, 16 GiB). */
 export interface PackageStoreLimits {
+ /** Host-selected relative manifest path; defaults to plugin.json. No filename probing. */
+ manifestPath?: string;
  maxArtifactBytes?: number; maxTreeFiles?: number; maxTreeBytes?: number;
  /** The bound on an archive file for installArchive and installArchiveFrom; 512 MiB when 0 or absent. */
  maxArchiveBytes?: number;

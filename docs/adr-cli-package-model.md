@@ -76,10 +76,10 @@ The native library workflow is now `ext bundle fetch` and `ext bundle bind`,
 with no intermediate `lib` subcommand. Libraries describe their interfaces in
 `interface.json`; citations identify release artifacts by target and driver.
 Loading a library through its C interface remains different from running a
-plugin through `ext.plugin/v1`. Sharing the bundle command family does not
+plugin through `ext.io.pc/v1`. Sharing the bundle command family does not
 make a library description a plugin descriptor or grant execution authority.
 
-Keep `ext.package/v1`, descriptors, declared dependencies, exact contract
+Keep `ext.io/v1`, descriptors, declared dependencies, exact contract
 versions, artifact integrity and explicit trust. Reuse sealed packages,
 digest-pinned archive installation, bounded extraction and receipts; see
 [adapter packages](adr-adapter-package.md), [the plugin contract](adr-plugin-contract.md)
@@ -109,7 +109,8 @@ manifest metadata from live observations that require an authorized invocation.
    --binary FILE --output DIRECTORY [--os OS --arch ARCH]` seals a compiled guest
    using its declared identity and capabilities, without a product plugin. It
    writes `ext.json`, hashes the executable and grants no installation trust.
-   Directory-based `pack` and `build|test|doctor` retain tool-adapter handlers;
+   Directory `pack`, explicit-command `build`, static `test`, and installed-package
+   `doctor` use contract-neutral authoring and validation;
    `index` describes sealed archives for package sources. Archive installs use `--sha256` and
    preserve receipts. There is no top-level adapter compatibility alias.
 3. Implemented: named source snapshots reuse the existing artifact index, with
@@ -196,3 +197,6 @@ activation semantics; they are not aliases for source refresh. The original
 store/trust consolidation reused existing APIs. Subsequent engine services are
 implemented in C and held to shared fixtures, with no new host mechanics added
 to the retiring pure-Go engine.
+
+See [package authoring](package-authoring.md) for directory packing, explicit
+build commands, and the limits of static diagnostics.

@@ -27,7 +27,7 @@ pub fn service(a: std.mem.Allocator, operation: [:0]const u8, input: []const u8)
     return a.dupe(u8, if (out.len == 0) &.{} else out.data[0..out.len]) catch error.OutOfMemory;
 }
 
-const descriptor = "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"example/echo\",\"revision\":\"1\"}," ++
+const descriptor = "{\"apiVersion\":\"ext.io.pc/v1\",\"identity\":{\"id\":\"example/echo\",\"revision\":\"1\"}," ++
     "\"contracts\":[{\"name\":\"example.echo\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
 
 test "the engine is compiled in and answers a service" {

@@ -89,7 +89,7 @@ What an archive install and a download must do is fixed as fixtures every langua
 
 ## The package manifest
 
-A package directory holds `plugin.json`, the `ext.package/v1` manifest, and exactly the artifacts it lists
+A package directory holds `plugin.json`, the `ext.io/v1` manifest, and exactly the artifacts it lists
 (`store.ManifestName`). A `package.json` is an ordinary file there: ship one as an artifact, or carry a Node
 tree with its own. Manifests named `package.json`, as in releases before v0.4.0, are not read.
 

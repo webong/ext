@@ -1,6 +1,6 @@
 # ExtIO
 
-The ext plugin guest SDK for .NET. A plugin written with it speaks `ext.plugin/v1` as bounded JSON
+The ext plugin guest SDK for .NET. A plugin written with it speaks `ext.io.pc/v1` as bounded JSON
 lines on standard input and output, so any ext host (Go, the C engine, Rust, Zig, TypeScript, Python,
 Ruby, PHP, Lua or .NET's own `ExtIO.Host`) can run it as a process. It uses the base class library only
 (`System.Text.Json.Nodes` for values) and needs no native code.
@@ -17,7 +17,7 @@ Guest.ServeStdio("plugin.json", (contract, operation, payload) => operation swit
 });
 ```
 
-`Guest` answers `plugin.hello` with the descriptor (from a `plugin.json` package manifest or a bare
+`Guest` answers `session.hello` with the descriptor (from a `plugin.json` package manifest or a bare
 descriptor), validates every request the way the Go host does, and calls the handler once at a time.
 
 - **Errors.** A `RemoteError` reaches the host as it is. Any other exception becomes `provider_error`

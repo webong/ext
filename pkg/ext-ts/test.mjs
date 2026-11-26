@@ -29,7 +29,7 @@ test('typed JSON-line host and guest', async () => {
     const guest = registry.guest({ authorize() {
         } });
     const invalid = await guest.invoke({
-        apiVersion: 'ext.plugin/v1',
+        apiVersion: 'ext.io.pc/v1',
         id: 'invalid',
         plugin: registry.descriptor.identity,
         contract: method.contract,
@@ -125,7 +125,7 @@ test('selection is frozen before asynchronous verification', async () => {
 
 test('fragmented frames and multiple frames in one chunk preserve boundaries', async () => {
  const encoder=new TextEncoder();let bytes=new Uint8Array();let closed=false;
- const io={async write(data){const request=decodeJSON(data);const payload=request.operation==='plugin.hello'?descriptor:request.payload;const response=encoder.encode(JSON.stringify({apiVersion:'ext.plugin/v1',id:request.id,payload})+'\n');const next=new Uint8Array(bytes.length+response.length);next.set(bytes);next.set(response,bytes.length);bytes=next;},async read(){if(closed)return null;const n=Math.min(7,bytes.length);const part=bytes.slice(0,n);bytes=bytes.slice(n);return part;},close(){closed=true;}};
+ const io={async write(data){const request=decodeJSON(data);const payload=request.operation==='session.hello'?descriptor:request.payload;const response=encoder.encode(JSON.stringify({apiVersion:'ext.io.pc/v1',id:request.id,payload})+'\n');const next=new Uint8Array(bytes.length+response.length);next.set(bytes);next.set(response,bytes.length);bytes=next;},async read(){if(closed)return null;const n=Math.min(7,bytes.length);const part=bytes.slice(0,n);bytes=bytes.slice(n);return part;},close(){closed=true;}};
  const backend=new JSONLineBackend(io);const s=await Session.open(descriptor,{verify(){},authorize(){},connect(){return backend;}});
  assert.equal(await s.call({name:'ext.conformance',version:'v1'},'echo','x'.repeat(12000)),'x'.repeat(12000));await s.close();
 });

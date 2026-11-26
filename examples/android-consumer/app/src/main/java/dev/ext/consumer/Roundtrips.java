@@ -26,7 +26,7 @@ public final class Roundtrips {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
         format.setTimeZone(TimeZone.getTimeZone("UTC"));
         String deadline = format.format(new Date(System.currentTimeMillis() + 30_000));
-        return "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"" + plugin + "\",\"revision\":\""
+        return "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"" + plugin + "\",\"revision\":\""
                 + revision + "\"},\"contract\":{\"name\":\"" + contract + "\",\"version\":\"v1\"},\"operation\":\""
                 + operation + "\",\"deadline\":\"" + deadline + "\"" + (payload == null ? "" : ",\"payload\":" + payload) + "}";
     }

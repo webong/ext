@@ -42,7 +42,7 @@ import json, pathlib, sys, datetime
 p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('lib/plugin/testdata/v1/descriptor.json').read_text())
 (p/'descriptor.json').write_text(json.dumps(d))
 for op in ['echo','public-error','wait']:
- r=dict(apiVersion='ext.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
+ r=dict(apiVersion='ext.io.pc/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(op+'.json')).write_text(json.dumps(r))
 PY
 # The Rust, Zig and Node.js tests of progress events, reverse calls and data endpoints

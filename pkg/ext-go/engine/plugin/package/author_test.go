@@ -123,7 +123,7 @@ func TestLoadDescriptorFromManifestOrBareFile(t *testing.T) {
 	if err != nil || d.Identity != m.Descriptor.Identity {
 		t.Fatalf("bare: %+v %v", d, err)
 	}
-	os.WriteFile(barePath, []byte(`{"apiVersion":"ext.plugin/v1","extra":1}`), 0o600)
+	os.WriteFile(barePath, []byte(`{"apiVersion":"ext.io.pc/v1","extra":1}`), 0o600)
 	if _, err := packagekit.LoadDescriptor(barePath); err == nil {
 		t.Fatal("accepted an invalid descriptor")
 	}

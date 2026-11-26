@@ -70,6 +70,9 @@ pub struct Extension {
     pub close: unsafe extern "C" fn(*mut c_void),
     pub release: unsafe extern "C" fn(*mut c_void),
 }
+#[repr(C)]
+pub struct StoreLayout { pub manifest_path: *const std::ffi::c_char, pub fallback_path: *const std::ffi::c_char }
+
 /// Bounds on one package store (`ext_plugin_store_limits`); zero takes the default.
 #[repr(C)]
 pub struct StoreLimits {
@@ -257,6 +260,7 @@ extern "C" {
     pub fn ext_plugin_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
     pub fn ext_plugin_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
     pub fn ext_plugin_directory_digest(root: *const c_char, out: *mut u8) -> Status;
+    pub fn ext_plugin_store_open_with_layout(root: *const std::ffi::c_char, limits: *const StoreLimits, layout: *const StoreLayout, out: *mut *mut c_void) -> i32;
     pub fn ext_plugin_store_open(
         root: *const c_char,
         limits: *const StoreLimits,
@@ -322,6 +326,7 @@ extern "C" {
         limits: *const StoreLimits,
         out: *mut *mut c_void,
     ) -> Status;
+    pub fn ext_plugin_layered_open_with_layout(roots: *const *const c_char, count: usize, limits: *const StoreLimits, layout: *const StoreLayout, out: *mut *mut c_void) -> Status;
     pub fn ext_plugin_layered_close(l: *mut c_void);
     pub fn ext_plugin_layered_load(
         l: *mut c_void,

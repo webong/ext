@@ -33,7 +33,7 @@ record, matching checksum, or successful handshake never grants authority.
 
 There are three independent identities:
 
-1. `apiVersion: ext.plugin/v1` specifies the shared envelope and semantics.
+1. `apiVersion: ext.io.pc/v1` specifies the shared envelope and semantics.
 2. `identity` pins a package ID, immutable revision, and optional release
    version. A revision must change with any selected artifact or configuration
    change, including changes that keep the same release version.
@@ -129,7 +129,7 @@ cooperation. These mechanics are explicit in backend profiles and the
 
 `store.New(root, Limits)` manages `packagekit` packages under a root the
 consumer supplies; the library has no default location. A package directory
-holds an `ext.package/v1` manifest and exactly the artifacts
+holds an `ext.io/v1` manifest and exactly the artifacts
 it lists. `Install` copies from a source directory, refusing symbolic links,
 non-regular files, oversize artifacts (`Limits.MaxArtifactBytes`, default
 4 GiB), unlisted files and digest mismatches, verifies the staged copy, then
@@ -175,7 +175,7 @@ snapshots retain the selected manifest's bytes and path.
 
 The manifest's path is reserved, including within an artifact tree. Other
 files, such as an npm `package.json`, can be declared as ordinary artifacts.
-The selected manifest must declare `ext.package/v1` in `apiVersion`.
+The selected manifest must declare `ext.io/v1` in `apiVersion`.
 
 ### Manifest license and metadata
 
@@ -188,7 +188,7 @@ grants authority, selects a backend or establishes trust. Because the manifest
 is part of the package directory, the trust digest covers metadata. A consumer
 reads its own key and ignores the others.
 
-These are additive fields of `ext.package/v1`. Decoding rejects unknown fields,
+These are additive fields of `ext.io/v1`. Decoding rejects unknown fields,
 so a host older than this change rejects a package that uses either field. That
 is deliberate: a host must not silently ignore a requirement it does not
 understand. A package that sets neither field is unchanged and stays readable by
@@ -277,7 +277,7 @@ the host; `RedactErrors` sends a generic message instead.
 from files; `store.WriteManifest` writes one beside its artifacts. The executable
 form pins the running GOOS/GOARCH and a `sha256:` revision of the file, and
 declares entrypoint `main` for the `process` runtime (`process.Profile`) speaking
-`ext.plugin/v1`. The source form lists files as artifacts named by their paths
+`ext.io.pc/v1`. The source form lists files as artifacts named by their paths
 (artifact names are lower-case) with a revision over the sorted path and digest
 pairs. `packagekit.LoadDescriptor` reads a descriptor from a manifest or a
 bare descriptor file.
@@ -295,7 +295,7 @@ trailing values, and nesting deeper than 64 levels are rejected. Payload fields
 are opaque JSON governed by the consumer's contract. Protocol stdout must be
 kept separate from diagnostic stderr when used over process pipes.
 
-The first request uses `operation: plugin.hello`, `id: hello`, the shared API
+The first request uses `operation: session.hello`, `id: hello`, the shared API
 version, empty plugin/contract identities, and a deadline. Its response payload
 is the descriptor. Subsequent requests carry the selected identity, exact
 contract reference, operation, declared surface, deadline, and optional payload.
@@ -394,7 +394,7 @@ selected adapter's product-specific plugin operation.
 
 A consumer's existing plugin and platform-extension envelopes can be translated
 by a consumer-owned `plugin.Backend` while implementations migrate. Existing
-envelopes that use a `plugin.hello` method likewise need an explicit translation
+envelopes that use a `session.hello` method likewise need an explicit translation
 or a new native binding; sharing a hello method name does not make the
 envelopes compatible. The generic library must not detect any product by name
 to choose a translation.

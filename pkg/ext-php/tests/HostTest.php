@@ -241,7 +241,7 @@ final class HostTest extends TestCase
         $h = $engine->process($descriptor, $guest);
         $h->start();
         $request = [
-            'apiVersion' => 'ext.plugin/v1', 'id' => 'r1', 'plugin' => $descriptor->identity,
+            'apiVersion' => 'ext.io.pc/v1', 'id' => 'r1', 'plugin' => $descriptor->identity,
             'contract' => ['name' => $contract->name, 'version' => $contract->version],
             'operation' => 'echo', 'deadline' => '2099-01-01T00:00:00Z', 'payload' => ['value' => 3],
         ];

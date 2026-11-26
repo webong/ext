@@ -1,4 +1,4 @@
-// Package jsonline binds ext.plugin/v1 to bounded newline-delimited JSON over
+// Package jsonline binds ext.io.pc/v1 to bounded newline-delimited JSON over
 // a caller-owned duplex connection (for example, local IPC or process pipes).
 // It neither starts processes nor chooses native endpoints.
 package jsonline
@@ -71,7 +71,7 @@ func (c *Client) Handshake(ctx context.Context) (plugin.Descriptor, error) {
 	if callerDeadline, ok := ctx.Deadline(); ok {
 		deadline = callerDeadline
 	}
-	r, err := c.exchange(ctx, plugin.Request{APIVersion: plugin.APIVersion, ID: "hello", Operation: "plugin.hello", Deadline: deadline})
+	r, err := c.exchange(ctx, plugin.Request{APIVersion: plugin.APIVersion, ID: "hello", Operation: "session.hello", Deadline: deadline})
 	if err != nil {
 		return plugin.Descriptor{}, err
 	}

@@ -278,7 +278,7 @@ final class DownloadCasesTests: XCTestCase {
         let archives = Self.fixtures.appendingPathComponent("archives")
         guard FileManager.default.fileExists(atPath: archives.path) else { throw XCTSkip("the shared fixtures are not here") }
         let archive = try Data(contentsOf: archives.appendingPathComponent("tar-gz-top.bin"))
-        let digest = "817dde24b2deeb6b0eab23a0fa3c6d4fd7cf09401297a00396cb34a24169f480"
+        let digest = "7adbf798b3e126b9c84ad914d47a581be48fc1216afcb08b84028e62f0e16020"
 
         let id = try identity()
         let origin = try Server(tls: id.identity)

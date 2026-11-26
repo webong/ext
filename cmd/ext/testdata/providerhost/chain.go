@@ -93,7 +93,7 @@ func runChain() error {
 		var entry struct {
 			Path string `json:"path"`
 		}
-		if err := store.Call("resolve_entrypoint", map[string]any{"id": id, "contract": contract, "version": "v1", "protocol": "ext.plugin/v1", "reviewed_digest": digests[id], "os": runtime.GOOS, "arch": runtime.GOARCH}, &entry); err != nil {
+		if err := store.Call("resolve_entrypoint", map[string]any{"id": id, "contract": contract, "version": "v1", "protocol": "ext.io.pc/v1", "reviewed_digest": digests[id], "os": runtime.GOOS, "arch": runtime.GOARCH}, &entry); err != nil {
 			return nil, err
 		}
 		cfg := map[string]any{"descriptor": byID[id].Descriptor, "backend": map[string]any{"kind": "process", "executable": entry.Path}, "verify": "allow", "authorize": "allow"}

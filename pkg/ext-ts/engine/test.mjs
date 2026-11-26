@@ -11,7 +11,7 @@ import './archive.test.mjs';
 import './download.test.mjs';
 const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
 const descriptor=JSON.parse(await readFile(new URL('../../../lib/plugin/testdata/v1/descriptor.json',import.meta.url)));
-function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
+function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.io.pc/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
 test('C services and async guest dispatch',async()=>{
  assert.deepEqual(engine.service('descriptor.validate',descriptor),descriptor);
  const g=new engine.Guest({descriptor,handle:async r=>{await new Promise(resolve=>setTimeout(resolve,1));return {payload:r.payload};}});
@@ -243,7 +243,7 @@ async function storePackage(dir,{id,revision,contract='example.read',body,tree=f
   await writeFile(join(dir,'data','run.sh'),'#!/bin/sh\n',{mode:0o700});await chmod(join(dir,'data','run.sh'),0o700);
   artifacts.push({name:'data',path:'data',sha256:(await engine.directoryDigest(join(dir,'data'))),kind:'tree'});
  }
- const manifest=JSON.stringify({apiVersion:'ext.package/v1',descriptor:{apiVersion:'ext.plugin/v1',identity:{id,revision},contracts:[{name:contract,version:'v1',operations:[{name:'read'}]}]},artifacts},null,'\t');
+ const manifest=JSON.stringify({apiVersion:'ext.io/v1',kind:'package',identity:{id,revision},contracts:[{name:contract,version:'v1',operations:[{name:'read'}]}],artifacts},null,'\t');
  await writeFile(join(dir,'plugin.json'),manifest+'\r\n\r\n');
  return dir;
 }
@@ -358,7 +358,7 @@ async function runnablePackage(dir,{id,artifacts,entrypoints}){
   await writeFile(join(dir,'bin',name),name);
   listed.push({name,path:'bin/'+name,sha256:createHash('sha256').update(name).digest('hex'),...(os&&{os}),...(arch&&{arch})});
  }
- const manifest=JSON.stringify({apiVersion:'ext.package/v1',descriptor:{apiVersion:'ext.plugin/v1',identity:{id,revision:'r1'},contracts:[{name:'example',version:'v1',operations:[{name:'read'}]}]},artifacts:listed,
+ const manifest=JSON.stringify({apiVersion:'ext.io/v1',kind:'package',identity:{id,revision:'r1'},contracts:[{name:'example',version:'v1',operations:[{name:'read'}]}],artifacts:listed,
   entrypoints:entrypoints.map(([name,runtime,artifact,protocol])=>({name,runtime,artifact,protocols:[protocol]}))});
  await writeFile(join(dir,'plugin.json'),manifest);
  return dir;
@@ -557,7 +557,7 @@ test('package writer holds ownership across async store mutations',async()=>{
     const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
     try{new engine.PackageWriter(${JSON.stringify(home)});process.exit(1);}catch(e){if(e.status!==18)throw e;}`;
    execFileSync(process.execPath,['--input-type=module','-e',code]);
-   assert.equal(JSON.parse(await locked.load('example/writer')).descriptor.identity.id,'example/writer');
+   assert.equal(JSON.parse(await locked.load('example/writer')).identity.id,'example/writer');
    return 7;
   });
   assert.equal(result,7);
@@ -575,4 +575,18 @@ test('package writer holds ownership across async store mutations',async()=>{
   await assert.rejects(store.withWriter(home,null),TypeError);
   await store.withWriter(home,async()=>{});
  }finally{store.close();await rm(base,{recursive:true,force:true});}
+});
+
+test('stores and layered views retain the host-selected manifest filename',async()=>{
+ const base=await mkdtemp(join(tmpdir(),'ext-manifest-layout-'));
+ const root=join(base,'store'),source=join(base,'source');
+ let store,layered;
+ try {
+  await storePackage(source,{id:'example/custom',revision:'r1',body:'data'});
+  await rename(join(source,'plugin.json'),join(source,'chosen.json'));
+  store=new engine.PackageStore(root,{manifestPath:'chosen.json'});
+  await store.install(source);
+  layered=new engine.LayeredPackageStore([root],{manifestPath:'chosen.json'});
+  assert.equal(JSON.parse((await layered.load('example/custom')).manifest).identity.id,'example/custom');
+ } finally { if(layered)await layered.close();if(store)await store.close();await rm(base,{recursive:true,force:true}); }
 });

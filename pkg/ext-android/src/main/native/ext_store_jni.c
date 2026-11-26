@@ -92,13 +92,16 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeWriter
 
 JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeOpen(
     JNIEnv *env, jclass cls, jbyteArray root, jlong max_artifact_bytes, jint max_tree_files,
-    jlong max_tree_bytes) {
+    jlong max_tree_bytes, jbyteArray manifest_path) {
   (void)cls;
   char *path = c_string(env, root);
   if (!path) return 0;
   ext_plugin_store_limits limits = limits_of(max_artifact_bytes, max_tree_files, max_tree_bytes);
   ext_plugin_store *store = NULL;
-  ext_plugin_status status = ext_plugin_store_open(path, &limits, &store);
+  char *manifest=c_string(env,manifest_path);
+  ext_plugin_store_layout layout={manifest,NULL};
+  ext_plugin_status status = manifest ? ext_plugin_store_open_with_layout(path, &limits, &layout, &store) : EXT_PLUGIN_INVALID;
+  free(manifest);
   free(path);
   if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
@@ -239,7 +242,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
 
 JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layeredOpen(
     JNIEnv *env, jclass cls, jobjectArray roots, jlong max_artifact_bytes, jint max_tree_files,
-    jlong max_tree_bytes) {
+    jlong max_tree_bytes, jbyteArray manifest_path) {
   (void)cls;
   jsize count = (*env)->GetArrayLength(env, roots);
   /* At least one slot, so that a request for no roots still reaches the engine, which refuses it. */
@@ -264,7 +267,10 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layeredOpe
   int failed = made < count;
   if (!failed) {
     ext_plugin_store_limits limits = limits_of(max_artifact_bytes, max_tree_files, max_tree_bytes);
-    status = ext_plugin_layered_open((const char *const *)paths, (size_t)count, &limits, &layered);
+    char *manifest=c_string(env,manifest_path);
+    ext_plugin_store_layout layout={manifest,NULL};
+    status = manifest ? ext_plugin_layered_open_with_layout((const char *const *)paths, (size_t)count, &limits, &layout, &layered) : EXT_PLUGIN_INVALID;
+    free(manifest);
   }
   for (jsize i = 0; i < made; i++) free(paths[i]);
   free(paths);

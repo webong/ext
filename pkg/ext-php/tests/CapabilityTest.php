@@ -20,7 +20,7 @@ final class CapabilityTest extends TestCase
     private static function desc(): array
     {
         return [
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'identity' => self::IDENT,
             'contracts' => [
                 ['name' => 'ext.health', 'version' => 'v1', 'operations' => [['name' => 'check', 'surface' => 'observation']]],
@@ -33,7 +33,7 @@ final class CapabilityTest extends TestCase
     private static function request(string $contract, string $operation, mixed $payload, string $surface = ''): mixed
     {
         $r = [
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'id' => 'c1',
             'plugin' => self::IDENT,
             'contract' => ['name' => $contract, 'version' => 'v1'],

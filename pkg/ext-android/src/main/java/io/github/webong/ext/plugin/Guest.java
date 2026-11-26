@@ -73,7 +73,7 @@ public final class Guest implements AutoCloseable {
     }
 
     /**
-     * Validates a complete ext.plugin/v1 request and returns the complete response,
+     * Validates a complete ext.io.pc/v1 request and returns the complete response,
      * including public and sanitized private errors. Safe to call from many threads.
      */
     public byte[] invoke(byte[] request, int timeoutMilliseconds) throws GuestException {

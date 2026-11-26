@@ -176,9 +176,9 @@ func PairwiseMutationDifferential(t *testing.T, e Engine) {
 	if err = plugin.Decode(data, &d); err != nil || d.Validate() != nil {
 		t.Fatalf("fixture invalid: %v", err)
 	}
-	request := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "echo", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z"}
-	response := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "payload": map[string]any{"value": 7}}
-	failure := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "error": map[string]any{"code": "busy", "message": "m", "retryAfterMilliseconds": 10}}
+	request := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "echo", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z"}
+	response := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "payload": map[string]any{"value": 7}}
+	failure := map[string]any{"apiVersion": "ext.io.pc/v1", "id": "1", "error": map[string]any{"code": "busy", "message": "m", "retryAfterMilliseconds": 10}}
 	manifest, _ := manifestDocument(t)
 
 	// EXT_PAIR_SCALE multiplies every sample size, for a longer search.

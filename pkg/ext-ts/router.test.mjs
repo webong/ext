@@ -87,7 +87,7 @@ class Host {
         });
         this.served = serveGuest(nodeIO(this.#to, this.#from), guest()).then(() => null, e => e);
         if (hello)
-            this.send({ apiVersion: 'ext.plugin/v1', id: 'hello', plugin: { id: '', revision: '' }, contract: { name: '', version: '' }, operation: 'plugin.hello', deadline: new Date(Date.now() + 30000).toISOString() });
+            this.send({ apiVersion: 'ext.io.pc/v1', id: 'hello', plugin: { id: '', revision: '' }, contract: { name: '', version: '' }, operation: 'session.hello', deadline: new Date(Date.now() + 30000).toISOString() });
     }
     #wake() {
         const waiting = this.#waiting;
@@ -118,7 +118,7 @@ class Host {
     request(operation, payload = null, { progress = false, deadlineMs = 30000 } = {}) {
         const id = String(++this.#next);
         this.send({
-            apiVersion: 'ext.plugin/v1', id, plugin: { id: 'test/frames', revision: 'r1' }, contract, operation, payload,
+            apiVersion: 'ext.io.pc/v1', id, plugin: { id: 'test/frames', revision: 'r1' }, contract, operation, payload,
             deadline: new Date(Date.now() + deadlineMs).toISOString(), ...(progress ? { progress: { eventsPerSecond: 5 } } : {})
         });
         return id;
@@ -144,7 +144,7 @@ async function started() {
     return host;
 }
 
-const answer = (id, body = { payload: 1 }) => ({ frame: 'reverse_response', apiVersion: 'ext.plugin/v1', id, ...body });
+const answer = (id, body = { payload: 1 }) => ({ frame: 'reverse_response', apiVersion: 'ext.io.pc/v1', id, ...body });
 
 test('the descriptor declares progress and reverse', async () => {
     const host = new Host();
@@ -270,7 +270,7 @@ test('what the host may not do ends the session', async () => {
         ['a second request during a call', null],
         ['an unknown frame', { frame: 'mystery' }],
         ['an answer to a request never issued', answer('g99')],
-        ['a progress frame from the host', { frame: 'progress', apiVersion: 'ext.plugin/v1', parent: '1', kind: 'log' }],
+        ['a progress frame from the host', { frame: 'progress', apiVersion: 'ext.io.pc/v1', parent: '1', kind: 'log' }],
         ['a malformed answer to the request waiting', answer('g1', { payload: 1, extra: 1 })],
         ['an answer with both payload and error', answer('g1', { payload: 1, error: { code: 'x', message: 'm' } })],
         ['an answer with neither payload nor error', answer('g1', {})],
@@ -314,7 +314,7 @@ test('a handler is cancelled when the connection ends', async () => {
 test('a transport without frames gives no reverse caller and no reporter', async () => {
     const g = guest();
     const request = operation => ({
-        apiVersion: 'ext.plugin/v1', id: '1', plugin: { id: 'test/frames', revision: 'r1' }, contract, operation, payload: {},
+        apiVersion: 'ext.io.pc/v1', id: '1', plugin: { id: 'test/frames', revision: 'r1' }, contract, operation, payload: {},
         deadline: new Date(Date.now() + 5000).toISOString(), progress: {}
     });
     assert.equal((await g.invoke(request('events'))).error.code, 'operation_failed'); // events needs a reporter
@@ -323,7 +323,7 @@ test('a transport without frames gives no reverse caller and no reporter', async
 });
 
 test('the hello may leave out the plugin, the contract and the surface', async () => {
-    const hello = extra => ({ apiVersion: 'ext.plugin/v1', id: 'hello', operation: 'plugin.hello', deadline: new Date(Date.now() + 30000).toISOString(), ...extra });
+    const hello = extra => ({ apiVersion: 'ext.io.pc/v1', id: 'hello', operation: 'session.hello', deadline: new Date(Date.now() + 30000).toISOString(), ...extra });
     for (const [what, frame, accepted] of [
         ['a bare hello, as the C engine sends it', hello(), true],
         ['empty members', hello({ plugin: { id: '', revision: '' }, contract: { name: '', version: '' }, surface: '' }), true],

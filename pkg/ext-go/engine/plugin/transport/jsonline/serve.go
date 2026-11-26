@@ -141,7 +141,7 @@ func (s *serveState) loop(ctx context.Context, guest plugin.Endpoint) error {
 		response := plugin.Response{APIVersion: plugin.APIVersion, ID: request.ID}
 		var err error
 		if !s.hello {
-			if request.APIVersion != plugin.APIVersion || request.ID != "hello" || request.Operation != "plugin.hello" || request.Plugin != (plugin.Identity{}) || request.Contract != (plugin.ContractRef{}) || request.Surface != "" || len(request.Payload) != 0 || request.Deadline.IsZero() || request.Progress != nil || request.Parent != "" {
+			if request.APIVersion != plugin.APIVersion || request.ID != "hello" || request.Operation != "session.hello" || request.Plugin != (plugin.Identity{}) || request.Contract != (plugin.ContractRef{}) || request.Surface != "" || len(request.Payload) != 0 || request.Deadline.IsZero() || request.Progress != nil || request.Parent != "" {
 				return plugin.ErrInvalid
 			}
 			if !time.Now().Before(request.Deadline) {

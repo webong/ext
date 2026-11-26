@@ -17,7 +17,7 @@ claim the same name for different payloads. It holds no schemas and no code.
 Listing a name here does not make the plugin library responsible for it.
 
 The plugin library owns the `ext.*` namespace for its own formats, such as
-`ext.plugin/v1` and `ext.package/v1`. No consumer contract uses it.
+`ext.io.pc/v1` and `ext.io/v1`. No consumer contract uses it.
 
 ## What a name may look like
 
@@ -30,7 +30,7 @@ A host or guest that addresses operations as one string uses
 library resolves the longest declared contract name that prefixes the method;
 the rest is the operation (`Descriptor.ResolveMethod`).
 
-The operation name `plugin.hello` is reserved by the library for the handshake
+The operation name `session.hello` is reserved by the library for the handshake
 and cannot be declared.
 
 ## Choosing a name

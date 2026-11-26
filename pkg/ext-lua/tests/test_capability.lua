@@ -9,7 +9,7 @@ local function test(name, f) tests[#tests + 1] = { name, f } end
 
 local IDENT = { id = "example/p", revision = "r1" }
 local DESC = {
-  apiVersion = "ext.plugin/v1",
+  apiVersion = "ext.io.pc/v1",
   identity = IDENT,
   contracts = {
     { name = "ext.health", version = "v1", operations = { { name = "check", surface = "observation" } } },
@@ -20,7 +20,7 @@ local DESC = {
 
 local function request(contract, operation, payload, surface)
   return {
-    apiVersion = "ext.plugin/v1", id = "c1", plugin = IDENT,
+    apiVersion = "ext.io.pc/v1", id = "c1", plugin = IDENT,
     contract = { name = contract, version = "v1" }, operation = operation,
     deadline = "2999-01-01T00:00:00Z", payload = payload, surface = surface,
   }
@@ -104,7 +104,7 @@ test("stream", function()
     t.eq(s.call("ext.stream", "read", bad).error.code, "invalid_input", t.show(bad))
   end
   -- 1.0 is not an integer on the wire, on every Lua
-  local raw = '{"apiVersion":"ext.plugin/v1","id":"c1","plugin":{"id":"example/p","revision":"r1"},"contract":{"name":"ext.stream","version":"v1"},"operation":"read","deadline":"2999-01-01T00:00:00Z","payload":{"id":"s1","sequence":1.0,"limit":1}}'
+  local raw = '{"apiVersion":"ext.io.pc/v1","id":"c1","plugin":{"id":"example/p","revision":"r1"},"contract":{"name":"ext.stream","version":"v1"},"operation":"read","deadline":"2999-01-01T00:00:00Z","payload":{"id":"s1","sequence":1.0,"limit":1}}'
   t.eq(s.guest:invoke(json.decode(raw)).error.code, "invalid_input")
   t.eq(json.encode(s.call("ext.stream", "close", { id = "s1" }).payload), "{}")
   t.eq(s.closed, { "s1" })

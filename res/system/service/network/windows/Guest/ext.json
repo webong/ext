@@ -1,26 +1,38 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "system.network.windows",
-      "revision": "",
-      "version": "1.0.0"
-    },
-    "contracts": [
-      {
-        "name": "ext.system.network",
-        "version": "v1",
-        "operations": [
-          {"name": "observe", "surface": "observation"}
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
-    {"name": "main", "path": "Ext.System.Network.Guest.exe", "sha256": ""}
+    {
+      "name": "main",
+      "path": "Ext.System.Network.Guest.exe",
+      "sha256": ""
+    }
   ],
   "entrypoints": [
-    {"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.system.network/v1"]}
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.system.network/v1"
+      ]
+    }
+  ],
+  "kind": "package",
+  "identity": {
+    "id": "system.network.windows",
+    "revision": "",
+    "version": "1.0.0"
+  },
+  "contracts": [
+    {
+      "name": "ext.system.network",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "observe",
+          "surface": "observation"
+        }
+      ]
+    }
   ]
 }

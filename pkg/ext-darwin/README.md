@@ -4,9 +4,9 @@
 system-observation, and network-observation libraries do not depend on each other.
 
 - **Plugin** (`ExtPluginGuest`, `ExtPluginExports`, `ExtPluginWebView`, `ExtPluginWamr`, `ExtPluginStore`): author an
-  `ext.plugin/v1` plugin in Swift, and Objective-C through the C headers, on the guest half of the
+  `ext.io.pc/v1` plugin in Swift, and Objective-C through the C headers, on the guest half of the
   shared [C engine](../../lib/plugin/README.md); host a WebAssembly reactor in a web view or in WAMR;
-  keep installed `ext.package/v1` packages in the engine's package store.
+  keep installed `ext.io/v1` packages in the engine's package store.
 - **Web** (`ExtWeb`): the cookie, userscript and bookmarklet rules of [`res/web`](../../res/web/README.md),
   in Swift, run against the same fixtures as Go. The code is `lib/system/web/ios`; this package ships it. See Web rules.
 
@@ -147,7 +147,7 @@ host.close()
 
 - The page API is [`window.ext.host`](../../docs/web-engine.md) of `res/web/host/engine/bundle`. The
   host registers a script message handler named `ext` and delivers frames with
-  `window.ext.host._deliver`; `ext.plugin/v1` frames pass through as strings.
+  `window.ext.host._deliver`; `ext.io.pc/v1` frames pass through as strings.
 - A running WebAssembly call cannot be interrupted. A call that overruns its timeout
   destroys the web view, and the host is then closed.
 - It is main-actor code. One host runs one plugin, one call at a time.
@@ -277,7 +277,7 @@ is a credential.
 
 `ExtPluginStore` binds the engine's package store (`ext_store_*` and `ext_layered_*` in
 [`ext_plugin_host.h`](../../lib/plugin/include/ext_plugin_host.h)), the one the Go, Rust, Node and Zig bindings use:
-install, upgrade, replace, remove and load reviewed `ext.package/v1` packages under a root the app
+install, upgrade, replace, remove and load reviewed `ext.io/v1` packages under a root the app
 supplies. A package is its `plugin.json` and the artifacts it lists, in a directory named by the package
 id with `/` written `%2f`. The store copies and re-verifies content; it never runs it or grants authority,
 and it has no default location.

@@ -68,7 +68,7 @@ the Plugin SDK CI job fails (`--check` verifies them). A page sees:
 | `window.ext.host.onmessage = fn` | receive messages from the host; the page assigns it |
 | `window.ext.host.transport` | `"http"`, `"wkwebview"`, `"android"` or `"none"` |
 
-Messages are strings, so `ext.plugin/v1` frames pass through unchanged. `console.*`
+Messages are strings, so `ext.io.pc/v1` frames pass through unchanged. `console.*`
 and uncaught errors are reported to the host as well, with no code in the page.
 
 **Over loopback** (`Run`), the page posts to the engine's server and polls it for

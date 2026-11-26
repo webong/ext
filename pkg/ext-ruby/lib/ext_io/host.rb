@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Host SDK for ext.plugin/v1: runs plugins through the C engine (lib/plugin).
+# Host SDK for ext.io.pc/v1: runs plugins through the C engine (lib/plugin).
 #
 #   require "ext_io/host"
 #

@@ -173,7 +173,7 @@ impl Host {
         };
         let deadline = SystemTime::now() + Duration::from_secs(30);
         host.send(
-            json!({"apiVersion":"ext.plugin/v1","id":"hello","operation":"plugin.hello",
+            json!({"apiVersion":"ext.io.pc/v1","id":"hello","operation":"session.hello",
             "deadline": ext_io::plugin::wire::timestamp(deadline).unwrap()}),
         );
         host
@@ -207,7 +207,7 @@ impl Host {
         self.next += 1;
         let id = self.next.to_string();
         let mut r = json!({
-            "apiVersion":"ext.plugin/v1","id":id,
+            "apiVersion":"ext.io.pc/v1","id":id,
             "plugin":{"id":"test/frames","revision":"r1"},
             "contract":{"name":"test.frames","version":"v1"},
             "operation":operation,"payload":payload,
@@ -360,7 +360,7 @@ fn a_reverse_call_names_the_call_and_returns_the_answer() {
             json!({"name":"host.svc","version":"v1"})
         );
         assert_eq!(request["payload"], json!({"n": 1}));
-        host.send(json!({"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":"signed"}));
+        host.send(json!({"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":"signed"}));
         let (_, response) = host.until_response(&id);
         assert_eq!(response["payload"]["result"], "signed");
         // The host's error comes back with its code, and ids go on counting.
@@ -368,7 +368,7 @@ fn a_reverse_call_names_the_call_and_returns_the_answer() {
         let request = host.recv();
         assert_eq!(request["id"], "g2");
         assert!(request.get("payload").is_none());
-        host.send(json!({"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g2","error":{"code":"denied","message":"reverse call refused"}}));
+        host.send(json!({"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g2","error":{"code":"denied","message":"reverse call refused"}}));
         let (_, response) = host.until_response(&id);
         assert_eq!(response["payload"]["code"], "denied");
         // An operation the descriptor does not list is refused without a frame.
@@ -390,7 +390,7 @@ fn an_answer_to_an_abandoned_request_is_dropped() {
     let (_, response) = host.until_response(&id);
     assert_eq!(response["payload"]["deadline"], true);
     host.send(
-        json!({"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1}),
+        json!({"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":1}),
     );
     let id = host.request("events", Value::Null, true);
     let (_, response) = host.until_response(&id);
@@ -400,7 +400,7 @@ fn an_answer_to_an_abandoned_request_is_dropped() {
 
 #[test]
 fn what_the_host_may_not_do_ends_the_session() {
-    let answer = |id: &str| json!({"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":id,"payload":1});
+    let answer = |id: &str| json!({"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":id,"payload":1});
     for mode in MODES {
         let violations: Vec<(&str, Value)> = vec![
             ("a second request during a call", Value::Null),
@@ -408,15 +408,15 @@ fn what_the_host_may_not_do_ends_the_session() {
             ("an answer to a request never issued", answer("g99")),
             (
                 "a progress frame from the host",
-                json!({"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log"}),
+                json!({"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log"}),
             ),
             (
                 "a malformed answer to the request waiting",
-                json!({"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1,"extra":1}),
+                json!({"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":1,"extra":1}),
             ),
             (
                 "an answer with both payload and error",
-                json!({"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1,"error":{"code":"x","message":"m"}}),
+                json!({"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":1,"error":{"code":"x","message":"m"}}),
             ),
         ];
         for (what, frame) in violations {
@@ -489,7 +489,7 @@ fn a_transport_without_frames_gives_no_reverse_caller_and_no_reporter() {
     let g = guest();
     let request = |op: &str| -> ext_io::plugin::Request {
         serde_json::from_value(json!({
-            "apiVersion":"ext.plugin/v1","id":"1",
+            "apiVersion":"ext.io.pc/v1","id":"1",
             "plugin":{"id":"test/frames","revision":"r1"},
             "contract":{"name":"test.frames","version":"v1"},
             "operation":op,"payload":{},

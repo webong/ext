@@ -99,7 +99,7 @@ fn archive_cases() {
                     false,
                 );
                 status(result.map(|manifest| {
-                    got_revision = revision(&manifest, "/descriptor/identity/revision");
+                    got_revision = revision(&manifest, "/identity/revision");
                 }))
             } else if let Some(id) = text(step, "receipt") {
                 status(store.receipt(id).map(|receipt| {

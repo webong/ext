@@ -10,7 +10,7 @@ binding is a convenience; it is not permission to use a plugin.
 
 | Layer | Responsibility |
 | --- | --- |
-| `ext.plugin/v1` | Identity, exact descriptor, requests, responses, errors and deadlines |
+| `ext.io.pc/v1` | Identity, exact descriptor, requests, responses, errors and deadlines |
 | Host implementation | Verify selection, authorize invocations, own sessions and choose installed bindings |
 | Guest implementation | Declare contracts, authorize domain work and execute handlers |
 | Runtime backend | Implement launch/ABI/transport mechanics behind `plugin.Backend` |
@@ -104,7 +104,7 @@ embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
 
 ```text
 Host in any language
-  → ext.plugin/v1 JSON lines
+  → ext.io.pc/v1 JSON lines
   → ext bridge (Go)
   → HashiCorp gRPC or net/rpc
   → guest implementing the selected Ext domain contract
@@ -123,7 +123,7 @@ Configuration uses `ext.bridge/v1` and is reviewed local launch policy. The
 {
   "apiVersion": "ext.bridge/v1",
   "descriptor": {
-    "apiVersion": "ext.plugin/v1",
+    "apiVersion": "ext.io.pc/v1",
     "identity": {"id": "example/echo", "revision": "build-1"},
     "contracts": [{"name": "example.echo", "version": "v1",
       "operations": [{"name": "echo"}]}]

@@ -71,7 +71,7 @@ final class WebViewPluginHostTests: XCTestCase {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let when = formatter.string(from: deadline ?? Date().addingTimeInterval(30))
-        var body = #"{"apiVersion":"ext.plugin/v1","id":"\#(id)","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"\#(operation)","deadline":"\#(when)""#
+        var body = #"{"apiVersion":"ext.io.pc/v1","id":"\#(id)","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"\#(operation)","deadline":"\#(when)""#
         if let payload { body += #","payload":\#(payload)"# }
         return Data((body + "}").utf8)
     }

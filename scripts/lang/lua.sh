@@ -19,7 +19,7 @@ lang_cmd_rock() {
     luarocks make --tree "$tree" ext-io-0.1.0-1.rockspec)
   (cd "$tree/.." &&
     LUA_PATH="$tree/share/lua/5.4/?.lua;$tree/share/lua/5.4/?/init.lua" \
-      lua -e 'local p = require("ext_io.plugin"); assert(p.API_VERSION == "ext.plugin/v1" and p.capability.Router)')
+      lua -e 'local p = require("ext_io.plugin"); assert(p.API_VERSION == "ext.io.pc/v1" and p.capability.Router)')
 }
 
 lang_main "$0" "$@"

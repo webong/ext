@@ -1,6 +1,6 @@
 // Package backend runs plugin guests built as C shared libraries (lib/plugin/include/ext_plugin_guest.h),
 // including Go -buildmode=c-shared guests, as a plugin backend. cengine/cguest loads the library and
-// exchanges bytes; this package speaks the plugin protocol over it: ext.plugin/v1 frames, the frame
+// exchanges bytes; this package speaks the plugin protocol over it: ext.io.pc/v1 frames, the frame
 // limit and default deadline, the descriptor and response checks, and the engine's errors. Native
 // code executes inside the host and cannot be forcibly stopped.
 package backend

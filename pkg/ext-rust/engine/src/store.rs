@@ -1,5 +1,5 @@
 //! The package store of the C engine: install, upgrade, replace, remove and load
-//! reviewed `ext.package/v1` packages under a root the application supplies (see
+//! reviewed `ext.io/v1` packages under a root the application supplies (see
 //! `ext_store_*` in lib/plugin/services.md). A package is its `plugin.json`
 //! manifest and the artifacts it lists, in a directory named by the package id.
 //! The store copies and re-verifies content; it never runs it or grants
@@ -108,6 +108,12 @@ type Put = unsafe extern "C" fn(*mut c_void, *const std::ffi::c_char, u32, *mut 
 impl Store {
     /// Returns a store rooted at `root`, which need not exist yet.
     pub fn open(root: &str, limits: Limits) -> Result<Self, Error> {
+        Self::open_with_manifest(root, limits, "plugin.json")
+    }
+    /// Opens packages using a host-selected relative manifest path.
+    pub fn open_with_manifest(root: &str, limits: Limits, manifest: &str) -> Result<Self, Error> {
+        let manifest = cstring(manifest)?;
+        let layout = ffi::StoreLayout { manifest_path: manifest.as_ptr(), fallback_path: ptr::null() };
         let root = cstring(root)?;
         let raw = ffi::StoreLimits {
             max_artifact_bytes: limits.max_artifact_bytes,
@@ -115,7 +121,7 @@ impl Store {
             max_tree_bytes: limits.max_tree_bytes,
         };
         let mut handle = ptr::null_mut();
-        check(unsafe { ffi::ext_plugin_store_open(root.as_ptr(), &raw, &mut handle) })?;
+        check(unsafe { ffi::ext_plugin_store_open_with_layout(root.as_ptr(), &raw, &layout, &mut handle) })?;
         Ok(Self {
             handle,
             max_archive_bytes: limits.max_archive_bytes,
@@ -356,6 +362,11 @@ unsafe impl Sync for Layered {}
 impl Layered {
     /// Returns a view over `roots`, which need not exist.
     pub fn open(roots: &[&str], limits: Limits) -> Result<Self, Error> {
+        Self::open_with_manifest(roots, limits, "plugin.json")
+    }
+    pub fn open_with_manifest(roots: &[&str], limits: Limits, manifest: &str) -> Result<Self, Error> {
+        let manifest = cstring(manifest)?;
+        let layout = ffi::StoreLayout { manifest_path: manifest.as_ptr(), fallback_path: ptr::null() };
         let owned = roots
             .iter()
             .map(|root| cstring(root))
@@ -368,7 +379,7 @@ impl Layered {
         };
         let mut handle = ptr::null_mut();
         check(unsafe {
-            ffi::ext_plugin_layered_open(pointers.as_ptr(), pointers.len(), &raw, &mut handle)
+            ffi::ext_plugin_layered_open_with_layout(pointers.as_ptr(), pointers.len(), &raw, &layout, &mut handle)
         })?;
         Ok(Self(handle))
     }

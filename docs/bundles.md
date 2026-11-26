@@ -13,7 +13,7 @@ A bundle is a selection document, not a new archive format:
   "target": "linux/amd64",
   "packages": [
     {
-      "manifest": {"...": "the complete sealed ext.package/v1 manifest"},
+      "manifest": {"...": "the complete sealed ext.io/v1 manifest"},
       "archive": {
         "source": "provider.zip",
         "sha256": "the archive's 64-character hexadecimal SHA-256"

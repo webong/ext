@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 )
 
-const APIVersion = "ext.plugin/v1"
+const APIVersion = "ext.io.pc/v1"
 const MaxFrameBytes = 24 << 20
 
 // MaxRetryAfterMilliseconds bounds a RemoteError retry hint to one year.
@@ -127,7 +127,7 @@ func validateContracts(contracts []Contract) error {
 		seen[c.ContractRef] = true
 		ops := map[string]bool{}
 		for _, op := range c.Operations {
-			if !identifier.MatchString(op.Name) || op.Name == "plugin.hello" || ops[op.Name] || (op.Surface != "" && !identifier.MatchString(op.Surface)) {
+			if !identifier.MatchString(op.Name) || op.Name == "session.hello" || ops[op.Name] || (op.Surface != "" && !identifier.MatchString(op.Surface)) {
 				return fmt.Errorf("%w: invalid, reserved, or duplicate operation", ErrInvalid)
 			}
 			ops[op.Name] = true

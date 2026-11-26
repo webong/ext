@@ -13,7 +13,7 @@ import (
 func init() {
 	Symbols["github.com/webong/ext/pkg/ext-go/core/plugin/plugin"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"APIVersion":                reflect.ValueOf(constant.MakeFromLiteral("\"ext.plugin/v1\"", token.STRING, 0)),
+		"APIVersion":                reflect.ValueOf(constant.MakeFromLiteral("\"ext.io.pc/v1\"", token.STRING, 0)),
 		"Boundaries":                reflect.ValueOf(&plugin.Boundaries).Elem(),
 		"BoundaryConfined":          reflect.ValueOf(constant.MakeFromLiteral("\"confined\"", token.STRING, 0)),
 		"BoundaryContainer":         reflect.ValueOf(constant.MakeFromLiteral("\"container\"", token.STRING, 0)),

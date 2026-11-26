@@ -11,7 +11,7 @@
     <AssemblyName>ExtIO</AssemblyName>
     <RootNamespace>ExtIO.Plugin</RootNamespace>
     <PackageId>ExtIO</PackageId>
-    <Description>The ext plugin guest SDK for .NET: write ext.plugin/v1 plugins that speak bounded JSON lines over standard input and output, with progress events, reverse calls and the ext.health, ext.configuration and ext.stream capabilities. Base class library only.</Description>
+    <Description>The ext plugin guest SDK for .NET: write ext.io.pc/v1 plugins that speak bounded JSON lines over standard input and output, with progress events, reverse calls and the ext.health, ext.configuration and ext.stream capabilities. Base class library only.</Description>
     <PackageTags>ext;ext-io;plugin;guest</PackageTags>
   </PropertyGroup>
 </Project>

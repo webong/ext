@@ -93,7 +93,7 @@ public final class TestActivity extends Activity {
     private static String request(String operation, String payload, String id, long deadlineMillis) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
         format.setTimeZone(TimeZone.getTimeZone("UTC"));
-        String body = "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"ctx/conformance\","
+        String body = "{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"" + id + "\",\"plugin\":{\"id\":\"ctx/conformance\","
                 + "\"revision\":\"fixture-1\"},\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},"
                 + "\"operation\":\"" + operation + "\",\"deadline\":\"" + format.format(new Date(System.currentTimeMillis() + deadlineMillis)) + "\"";
         return body + (payload == null ? "" : ",\"payload\":" + payload) + "}";

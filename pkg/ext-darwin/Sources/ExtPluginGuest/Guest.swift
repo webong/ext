@@ -81,7 +81,7 @@ public final class Guest: @unchecked Sendable {
         return Data(bytes: data, count: out.len)
     }
 
-    /// Validates a complete ext.plugin/v1 request and returns the complete
+    /// Validates a complete ext.io.pc/v1 request and returns the complete
     /// response, including public and sanitized private errors.
     public func invoke(_ request: Data, timeoutMilliseconds: UInt32 = 30_000) throws -> Data {
         try invoke(request, timeoutMilliseconds: timeoutMilliseconds, connection: nil)

@@ -8,7 +8,7 @@ local function test(name, f) tests[#tests + 1] = { name, f } end
 
 local IDENT = { id = "example/p", revision = "r1" }
 local DESC = {
-  apiVersion = "ext.plugin/v1",
+  apiVersion = "ext.io.pc/v1",
   identity = IDENT,
   contracts = {
     {
@@ -28,7 +28,7 @@ end
 
 local function req(op, fields)
   local r = {
-    apiVersion = "ext.plugin/v1",
+    apiVersion = "ext.io.pc/v1",
     id = "c1",
     plugin = IDENT,
     contract = { name = "example.echo", version = "v1" },
@@ -51,8 +51,8 @@ end
 
 local function hello(fields)
   return with({
-    apiVersion = "ext.plugin/v1", id = "hello", plugin = { id = "", revision = "" },
-    contract = { name = "", version = "" }, operation = "plugin.hello", deadline = FUTURE,
+    apiVersion = "ext.io.pc/v1", id = "hello", plugin = { id = "", revision = "" },
+    contract = { name = "", version = "" }, operation = "session.hello", deadline = FUTURE,
   }, fields)
 end
 
@@ -69,7 +69,7 @@ test("hello and echo", function()
   local out, err = run(t.frames(hello(), req()))
   t.eq(err, nil)
   t.eq(out[1].payload, DESC)
-  t.eq(out[2], { apiVersion = "ext.plugin/v1", id = "c1", payload = { v = 1 } })
+  t.eq(out[2], { apiVersion = "ext.io.pc/v1", id = "c1", payload = { v = 1 } })
 end)
 
 test("the frames are written byte for byte as Python writes them", function()
@@ -77,10 +77,10 @@ test("the frames are written byte for byte as Python writes them", function()
   local g = plugin.Guest(DESC, handler)
   plugin.serve(g, t.reader(t.frames(hello(), req(), req("busy"), req("missing"))), out)
   local lines = out:lines()
-  t.eq(lines[1], '{"apiVersion":"ext.plugin/v1","id":"hello","payload":{"apiVersion":"ext.plugin/v1","identity":{"id":"example/p","revision":"r1"},"contracts":[{"name":"example.echo","version":"v1","operations":[{"name":"echo"},{"name":"seen","surface":"observation"},{"name":"boom"},{"name":"busy"},{"name":"noisy"}]}]}}')
-  t.eq(lines[2], '{"apiVersion":"ext.plugin/v1","id":"c1","payload":{"v":1}}')
-  t.eq(lines[3], '{"apiVersion":"ext.plugin/v1","id":"c1","error":{"code":"busy","message":"later","retryAfterMilliseconds":250}}')
-  t.eq(lines[4], '{"apiVersion":"ext.plugin/v1","id":"c1","error":{"code":"invalid_request","message":"request does not match selected contract"}}')
+  t.eq(lines[1], '{"apiVersion":"ext.io.pc/v1","id":"hello","payload":{"apiVersion":"ext.io.pc/v1","identity":{"id":"example/p","revision":"r1"},"contracts":[{"name":"example.echo","version":"v1","operations":[{"name":"echo"},{"name":"seen","surface":"observation"},{"name":"boom"},{"name":"busy"},{"name":"noisy"}]}]}}')
+  t.eq(lines[2], '{"apiVersion":"ext.io.pc/v1","id":"c1","payload":{"v":1}}')
+  t.eq(lines[3], '{"apiVersion":"ext.io.pc/v1","id":"c1","error":{"code":"busy","message":"later","retryAfterMilliseconds":250}}')
+  t.eq(lines[4], '{"apiVersion":"ext.io.pc/v1","id":"c1","error":{"code":"invalid_request","message":"request does not match selected contract"}}')
 end)
 
 test("hello must be first and strict", function()
@@ -98,7 +98,7 @@ test("an empty result is null", function()
   local g = plugin.Guest(DESC, function() return nil end)
   local resp = g:invoke(req())
   t.ok(resp.payload == json.null)
-  t.eq(json.encode(resp), '{"apiVersion":"ext.plugin/v1","id":"c1","payload":null}')
+  t.eq(json.encode(resp), '{"apiVersion":"ext.io.pc/v1","id":"c1","payload":null}')
 end)
 
 test("request validation", function()
@@ -112,7 +112,7 @@ test("request validation", function()
     req("missing"),
     req("seen"), -- declared surface missing
     req(nil, { deadline = "0001-01-01T00:00:00Z" }),
-    req("plugin.hello"),
+    req("session.hello"),
     missing,
   }
   local g = plugin.Guest(DESC, handler)
@@ -219,8 +219,8 @@ end)
 
 test("strict JSON ends the stream", function()
   local bad = {
-    '{"apiVersion":"ext.plugin/v1","id":"hello","id":"hello"}\n',
-    '{"apiVersion":"ext.plugin/v1","unknown":1}\n',
+    '{"apiVersion":"ext.io.pc/v1","id":"hello","id":"hello"}\n',
+    '{"apiVersion":"ext.io.pc/v1","unknown":1}\n',
     "[1,2]\n",
     '{"a":NaN}\n',
     '{"a":"\\ud800"}\n',
@@ -251,7 +251,7 @@ test("nesting is bounded at 64 levels", function()
 end)
 
 test("payload strictness after hello", function()
-  local out, err = run(t.frames(hello()) .. '{"apiVersion":"ext.plugin/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}\n')
+  local out, err = run(t.frames(hello()) .. '{"apiVersion":"ext.io.pc/v1","id":"c1","operation":"echo","deadline":"2999-01-01T00:00:00Z","payload":{"a":1,"a":2}}\n')
   t.ok(plugin.is_protocol_error(err))
   t.eq(#out, 1)
 end)
@@ -290,13 +290,13 @@ test("descriptor loading", function()
   os.remove(dir)
   local bare, pkg = dir .. "-descriptor.json", dir .. "-plugin.json"
   t.write_file(bare, json.encode(DESC))
-  t.write_file(pkg, json.encode({ apiVersion = "ext.package/v1", descriptor = DESC, artifacts = json.array() }))
+  t.write_file(pkg, json.encode({ apiVersion = "ext.io/v1", kind = "package", identity = DESC.identity, contracts = DESC.contracts, reverse = DESC.reverse, artifacts = json.array() }))
   t.eq(plugin.load_descriptor(bare), DESC)
   t.eq(plugin.load_descriptor(pkg), DESC)
   t.ok(getmetatable(plugin.Guest(pkg, handler)) == plugin.Guest)
   t.write_file(pkg, json.encode({ apiVersion = "other", descriptor = DESC }))
   t.raises(function() plugin.load_descriptor(pkg) end, "other package apiVersion")
-  t.write_file(pkg, '{"apiVersion":"ext.package/v1","descriptor":{},"descriptor":{}}')
+  t.write_file(pkg, '{"apiVersion":"ext.io/v1","descriptor":{},"descriptor":{}}')
   t.raises(function() plugin.load_descriptor(pkg) end, "duplicate key")
   t.raises(function() plugin.load_descriptor(dir .. "-missing.json") end, "missing file")
   os.remove(bare)
@@ -305,10 +305,10 @@ end)
 
 test("the hello answer keeps the descriptor file's key order", function()
   local path = os.tmpname()
-  t.write_file(path, '{"contracts":[{"operations":[{"name":"echo"}],"version":"v1","name":"c"}],"reverse":null,"identity":{"revision":"r","id":"a"},"apiVersion":"ext.plugin/v1"}')
+  t.write_file(path, '{"contracts":[{"operations":[{"name":"echo"}],"version":"v1","name":"c"}],"reverse":null,"identity":{"revision":"r","id":"a"},"apiVersion":"ext.io.pc/v1"}')
   local out = t.writer()
   plugin.serve(plugin.Guest(path, handler), t.reader(t.frames(hello())), out)
-  t.eq(out:lines()[1], '{"apiVersion":"ext.plugin/v1","id":"hello","payload":{"contracts":[{"operations":[{"name":"echo"}],"version":"v1","name":"c"}],"reverse":null,"identity":{"revision":"r","id":"a"},"apiVersion":"ext.plugin/v1"}}')
+  t.eq(out:lines()[1], '{"apiVersion":"ext.io.pc/v1","id":"hello","payload":{"contracts":[{"operations":[{"name":"echo"}],"version":"v1","name":"c"}],"reverse":null,"identity":{"revision":"r","id":"a"},"apiVersion":"ext.io.pc/v1"}}')
   os.remove(path)
   -- A descriptor written in Lua: an empty reverse list is an array on the wire.
   local d = t.copy(DESC)
@@ -328,7 +328,7 @@ test("descriptor validation", function()
     mutate(function(d) d.identity.version = json.null end),
     mutate(function(d) d.contracts = json.array() end),
     mutate(function(d) d.contracts[1].operations = json.array() end),
-    mutate(function(d) table.insert(d.contracts[1].operations, { name = "plugin.hello" }) end),
+    mutate(function(d) table.insert(d.contracts[1].operations, { name = "session.hello" }) end),
     mutate(function(d) table.insert(d.contracts[1].operations, { name = "echo" }) end),
     mutate(function(d) table.insert(d.contracts, t.copy(d.contracts[1])) end),
     mutate(function(d) d.extra = 1 end),

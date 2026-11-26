@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
- * Hosts an ext.plugin/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in this process, on
+ * Hosts an ext.io.pc/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in this process, on
  * the WAMR interpreter, through the shared engine's host. This is the fallback route of
  * docs/adr-mobile-wasm.md for apps that prefer not to use a WebView: it needs no UI, gives the
  * guest only the ABI's WASI imports, and enforces a deadline, a memory cap and an optional
@@ -125,7 +125,7 @@ public final class WamrPluginHost implements AutoCloseable {
     }
 
     /**
-     * Sends one complete ext.plugin/v1 request and returns the complete response, including
+     * Sends one complete ext.io.pc/v1 request and returns the complete response, including
      * public errors. A call that fails after dispatch ends the session.
      */
     public byte[] invoke(byte[] request, long timeoutMilliseconds) throws WamrException {

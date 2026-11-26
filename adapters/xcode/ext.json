@@ -1,23 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "xcode",
-      "revision": ""
-    },
-    "contracts": [
-      {
-        "name": "ext.adapter",
-        "version": "2.0",
-        "operations": [
-          {
-            "name": "programs"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "roots",
@@ -39,5 +21,21 @@
         "shell"
       ]
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "xcode",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.adapter",
+      "version": "2.0",
+      "operations": [
+        {
+          "name": "programs"
+        }
+      ]
+    }
+  ]
 }

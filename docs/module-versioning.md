@@ -219,14 +219,14 @@ behind the Cargo feature `plugin` (on by default), `ext_io.plugin`, and the subp
 `res/web/host`, `res/int`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
 consumers use them through Go, NuGet, SwiftPM and the Android library. An area is added when a Rust,
 Python, TypeScript or Zig consumer needs it, preferably as the Go implementation served over
-`ext.plugin/v1` with a thin typed wrapper rather than a second implementation or a new C ABI. It would be a
+`ext.io.pc/v1` with a thin typed wrapper rather than a second implementation or a new C ABI. It would be a
 module of the same package (a Cargo feature, a Python extra, a subpath export), so that a plugin-only user
 pays nothing for it. The names replace the crate and PyPI package `ext-plugin`,
 the npm package `@ctx/plugin` and the Zig package `ext_plugin`; none of them was ever published, so there is
 no compatibility alias. The Zig fingerprint keeps its 32-bit id, and its checksum half follows the new name.
 
 Not renamed, because they name something else: the C ABI (the `ext_plugin_guest_*` symbols and `ext_plugin_guest.h`),
-the `ext.plugin/v1` protocol and the unpublished
+the `ext.io.pc/v1` protocol and the unpublished
 `ext-plugin-engine` crate.
 
 **One version per package.** Every area a package offers shares that package's version: `ext-io` 0.2.0 is
@@ -235,7 +235,7 @@ independent packages, which is what a single package rules out. Before 1.0 a bre
 a minor bump of the whole package, so an area that needs its own release cadence leaves for a package of its
 own (for example `ext-io-web`) instead of versioning inside this one. The packages of different languages
 are versioned separately and need not match: what lets a Rust host call a Python guest is the
-`ext.plugin/v1` protocol version, not the package version.
+`ext.io.pc/v1` protocol version, not the package version.
 
 **Releases.** Each package is released by its own tag and workflow: `ext-rust-vX.Y.Z`
 (`.github/workflows/release.yml` (package `ext-rust`), crates.io), `ext-ts-vX.Y.Z` (`release.yml` (package `ext-ts`), npm) and
@@ -666,7 +666,7 @@ fallback and no dual support), so installed packages and package sources have to
 manifest renamed. A `package.json` is now an ordinary file: a package can ship one as a declared artifact beside
 `plugin.json`, a tree artifact can hold its own, and an unlisted top-level one is rejected like any unlisted file.
 `plugin.json` is reserved as an artifact path in any case. A `plugin.json` is told apart from other files of that
-name by its `apiVersion` (`ext.package/v1`). The reason is that npm and Node tooling own the name `package.json`,
+name by its `apiVersion` (`ext.io/v1`). The reason is that npm and Node tooling own the name `package.json`,
 and a package that carries a Node tree could not coexist with an ext manifest in the same directory.
 `pkg/ext-python` is consumed from the repository, not published: its examples and docs now say `plugin.json`
 (`serve_stdio` accepts a manifest, a bare descriptor file or a dict, by structure, so only the example strings
@@ -680,7 +680,7 @@ module read the manifest by file name, so none of them changes or is retagged.
 loopback data endpoint (`contract/endpoint`), plus `Session.Done`. It is a new minor version of
 `contract`, `cengine` and the umbrella because the exported API grows and the descriptor gains optional
 `reverse` and `progress` declarations: **a plugin that declares either needs a v0.5 host**, while a plugin
-that declares neither runs on any host, and the wire version stays `ext.plugin/v1`. The C engine does not
+that declares neither runs on any host, and the wire version stays `ext.io.pc/v1`. The C engine does not
 implement them and **fails closed**: its descriptor parser rejects a package that declares them, and the
 C build of `cengine` refuses a host that enables reverse calls, instead of ignoring either
 ([the parity note](plugin-engine-parity.md)). `res/system` v0.1.1 carries the supervisor

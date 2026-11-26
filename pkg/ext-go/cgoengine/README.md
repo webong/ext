@@ -23,7 +23,7 @@ re-exported so a program imports this package alone. The common API is `Open`,
 `GuestFromRegistry`, `ResolveRoute`, `ValidateSchema`, `CheckSchema`,
 `DirectoryDigest`, `ArtifactDigest` and `SHA256`. Subpackages:
 
-- [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
+- [`packages`](packages): validate, resolve and verify `ext.io/v1` manifests.
 - [`host`](host): open an installed package as a running plugin; the same API as
   [`cengine/plugin/host`](../cengine/plugin/host), over the engine's process runtime and sessions.
 - [`host/store`](host/store): the installed package store, with layered roots, `Verify` and
@@ -48,10 +48,10 @@ and `NewLaunch` are engine-only and need the C engine build.
 | --- | --- |
 | `cgoengine` (this package) | The entry point: re-exports the data model; sessions, guests, digests and routes on the C engine or in pure Go |
 | `engine` | The pure-Go engine and the portable contract: descriptors, requests, responses, errors, validation, selection, requirements, the pure-Go session and guest, and the adapter process protocol |
-| `packages` | Validate, resolve and verify `ext.package/v1` manifests |
+| `packages` | Validate, resolve and verify `ext.io/v1` manifests |
 | `store` | The installed package store under a caller-supplied root, with layered roots and `Verify` |
 | `host` | Opens an installed package as a running plugin and calls it by dotted method name |
-| `packagekit` | The `ext.package/v1` manifest, dependency resolution and authoring helpers |
+| `packagekit` | The `ext.io/v1` manifest, dependency resolution and authoring helpers |
 | `author`, `schema`, `jsonschema`, `stream`, `instance`, `capability` | Typed authoring, the manifest schema vocabulary, bounded JSON Schema validation, pull streams, instances and the configuration and health helpers |
 | `process`, `jsonline`, `inprocess`, `nativego` | Runtime backends: child process over JSON lines, the JSON-line transport, trusted in-process endpoints, native Go plugins |
 | `interop`, `bridge` | Route resolution and bridges between backends |

@@ -1,4 +1,4 @@
---- Guest SDK for ext.plugin/v1 over bounded JSON lines (pure Lua, no C modules).
+--- Guest SDK for ext.io.pc/v1 over bounded JSON lines (pure Lua, no C modules).
 ---
 ---     local plugin = require("ext_io.plugin")
 ---
@@ -11,7 +11,7 @@
 ---
 ---     plugin.serve_stdio("plugin.json", handler)
 ---
---- The module answers plugin.hello with the descriptor, validates every request the way the Go
+--- The module answers session.hello with the descriptor, validates every request the way the Go
 --- plugin.ValidateRequest does, and calls the handler sequentially. It never writes to standard
 --- output except protocol frames.
 local json = require("ext_io.json")

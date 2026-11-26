@@ -1,16 +1,42 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {"id": "system.surface.darwin", "revision": "", "version": "1.0.0"},
-    "contracts": [{
-      "name": "ext.system.surface", "version": "v1",
-      "operations": [
-        {"name": "capture", "surface": "observation"},
-        {"name": "input", "surface": "action"}
+  "apiVersion": "ext.io/v1",
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ExtSurfaceGuest",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.system.surface/v1"
       ]
-    }]
+    }
+  ],
+  "kind": "package",
+  "identity": {
+    "id": "system.surface.darwin",
+    "revision": "",
+    "version": "1.0.0"
   },
-  "artifacts": [{"name": "main", "path": "ExtSurfaceGuest", "sha256": ""}],
-  "entrypoints": [{"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.system.surface/v1"]}]
+  "contracts": [
+    {
+      "name": "ext.system.surface",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "capture",
+          "surface": "observation"
+        },
+        {
+          "name": "input",
+          "surface": "action"
+        }
+      ]
+    }
+  ]
 }

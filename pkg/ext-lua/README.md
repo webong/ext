@@ -2,7 +2,7 @@
 
 > **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
-Pure-Lua guest for `ext.plugin/v1` over JSON lines: no C modules and no native build, on Lua 5.1 to
+Pure-Lua guest for `ext.io.pc/v1` over JSON lines: no C modules and no native build, on Lua 5.1 to
 5.5 and LuaJIT. It brings its own strict JSON module (`ext_io.json`). Hosts use the Go
 `pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it. A Lua program can
 also host plugins itself with the opt-in [host SDK](#host-sdk-ext_iohost) on the C engine.
@@ -20,14 +20,14 @@ end
 plugin.serve_stdio("plugin.json", handler)   -- or a descriptor table
 ```
 
-The manifest file is `plugin.json`. `serve_stdio` accepts the manifest or a bare descriptor file by
+The example uses `plugin.json`; callers choose the manifest filename. `serve_stdio` accepts the manifest or a bare descriptor file by
 structure.
 
 Put this directory on `package.path` (`?.lua` and `?/init.lua`), or `luarocks make` the rockspec
 here. [`examples/echo`](../../examples/plugins/lua/echo) is a complete guest.
 
 - `serve_stdio(descriptor, handler, opts)`: serves until the input ends. `descriptor` is a table or
-  the path of an `ext.package/v1` `plugin.json` (its `descriptor` is used) or a bare descriptor
+  the path of an `ext.io/v1` `plugin.json` (its runtime descriptor is derived from identity and contracts) or a bare descriptor
   file. `opts` holds `max_call_seconds` (default 30), `redact_errors` (default false) and `clock`
   (see [Time](#time)).
 - `Guest(descriptor, handler, opts)` (or `Guest.new`), `serve(guest, input, output)`: the same with
@@ -215,7 +215,7 @@ so their hooks run there too, on the Lua thread of the engine call that waits:
 
 ## Behavior
 
-Behavior matches the Go `jsonline` server: `plugin.hello` is required first and answered with the
+Behavior matches the Go `jsonline` server: `session.hello` is required first and answered with the
 descriptor; frames are at most 24 MiB; envelopes with unknown fields, duplicate keys, trailing
 values, non-finite numbers, unpaired surrogates or nesting beyond 64 levels end the stream; each
 request is checked for API version, id, identity, contract, operation, surface and deadline, and a

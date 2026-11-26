@@ -321,7 +321,7 @@ fn validate_contracts(contracts: &[Contract]) -> Result<()> {
         let mut ops = HashSet::new();
         for op in &c.operations {
             if !identifier(&op.name, false)
-                || op.name == "plugin.hello"
+                || op.name == "session.hello"
                 || !ops.insert(&op.name)
                 || (!op.surface.is_empty() && !identifier(&op.surface, false))
             {

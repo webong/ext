@@ -394,7 +394,7 @@ the process, and a failed Session cannot be reused.
 All additions are optional. A plugin that declares nothing new behaves
 identically on old and new hosts. A host that uses nothing new behaves
 identically with old and new plugins. A plugin that declares `reverse` or
-`progress` needs a v0.5.0 host. The wire version stays `ext.plugin/v1`.
+`progress` needs a v0.5.0 host. The wire version stays `ext.io.pc/v1`.
 
 ## Non-goals
 

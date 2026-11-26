@@ -21,7 +21,7 @@ final class ServeFramesGuest
     public static function descriptor(): array
     {
         return [
-            'apiVersion' => 'ext.plugin/v1',
+            'apiVersion' => 'ext.io.pc/v1',
             'identity' => ['id' => 'php/frames', 'revision' => 'r1'],
             'contracts' => [[
                 'name' => 'test.frames',

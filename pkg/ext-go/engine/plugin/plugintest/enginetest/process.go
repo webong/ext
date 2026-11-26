@@ -73,7 +73,7 @@ func runStageGuest(mode string) int {
 	descriptor := guestDescriptor()
 	hello := func(d plugin.Descriptor) {
 		data, _ := json.Marshal(d)
-		fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":"hello","payload":%s}`+"\n", data)
+		fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":"hello","payload":%s}`+"\n", data)
 	}
 	switch mode {
 	case "stage-silent":
@@ -92,11 +92,11 @@ func runStageGuest(mode string) int {
 		hello(descriptor)
 		_, _ = io.Copy(io.Discard, os.Stdin)
 	case "stage-error-hello":
-		fmt.Print(`{"apiVersion":"ext.plugin/v1","id":"hello","error":{"code":"busy","message":"later"}}` + "\n")
+		fmt.Print(`{"apiVersion":"ext.io.pc/v1","id":"hello","error":{"code":"busy","message":"later"}}` + "\n")
 		_, _ = io.Copy(io.Discard, os.Stdin)
 	case "stage-wrong-id":
 		data, _ := json.Marshal(descriptor)
-		fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":"other","payload":%s}`+"\n", data)
+		fmt.Printf(`{"apiVersion":"ext.io.pc/v1","id":"other","payload":%s}`+"\n", data)
 		_, _ = io.Copy(io.Discard, os.Stdin)
 	case "stage-exit-on-call":
 		hello(descriptor)

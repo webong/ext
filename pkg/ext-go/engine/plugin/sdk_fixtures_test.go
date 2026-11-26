@@ -275,44 +275,44 @@ func buildFrameCases() []byte {
 		}
 		return cases
 	}
-	progressBase := map[string]any{"frame": "progress", "apiVersion": "ext.plugin/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2}
+	progressBase := map[string]any{"frame": "progress", "apiVersion": "ext.io.pc/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2}
 	progress := raws("progress", progressBase, []string{
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":1,"total":3}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","dropped":7}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"call-1","kind":"log","stream":"err","text":"oops"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","text":"` + strings.Repeat("x", 2048) + `"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","text":"` + strings.Repeat("x", 2049) + `"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","text":"` + strings.Repeat("é", 1024) + `"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","text":"` + strings.Repeat("é", 1025) + `"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","text":"a\u0000b"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","text":"\ud800"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":5,"total":2}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":5}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":-1}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":1.0}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":18446744073709551615,"total":18446744073709551615}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"progress","completed":18446744073709551616}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","kind":"log"}`,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log"} `,
-		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log"} x`,
-		`["progress","ext.plugin/v1","1","log"]`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":1,"total":3}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","dropped":7}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"call-1","kind":"log","stream":"err","text":"oops"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","text":"` + strings.Repeat("x", 2048) + `"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","text":"` + strings.Repeat("x", 2049) + `"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","text":"` + strings.Repeat("é", 1024) + `"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","text":"` + strings.Repeat("é", 1025) + `"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","text":"a\u0000b"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","text":"\ud800"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":5,"total":2}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":5}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":-1}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":1.0}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":18446744073709551615,"total":18446744073709551615}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"progress","completed":18446744073709551616}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log","kind":"log"}`,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log"} `,
+		`{"frame":"progress","apiVersion":"ext.io.pc/v1","parent":"1","kind":"log"} x`,
+		`["progress","ext.io.pc/v1","1","log"]`,
 		`[]`, `null`, `"progress"`, `7`, ``, `{`,
 	}, judgeProgress)
-	requestBase := map[string]any{"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
+	requestBase := map[string]any{"frame": "reverse_request", "apiVersion": "ext.io.pc/v1", "id": "g1", "parent": "1",
 		"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": "2099-01-01T00:00:00Z", "payload": map[string]any{"n": 1}}
-	sessionBase := map[string]any{"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g2",
+	sessionBase := map[string]any{"frame": "reverse_request", "apiVersion": "ext.io.pc/v1", "id": "g2",
 		"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": "2099-01-01T00:00:00.5+01:00"}
 	request := raws("reverse request", requestBase, []string{
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","parent":"","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","parent":null,"contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z","payload":null}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"0001-01-01T00:00:00Z"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"Sign","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"!!","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":["host.svc","v1"],"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
-		`["reverse_request","ext.plugin/v1","g1",{"name":"host.svc","version":"v1"},"sign","2099-01-01T00:00:00Z"]`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","parent":"","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","parent":null,"contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z","payload":null}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"0001-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"Sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"!!","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.io.pc/v1","id":"g1","contract":["host.svc","v1"],"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`["reverse_request","ext.io.pc/v1","g1",{"name":"host.svc","version":"v1"},"sign","2099-01-01T00:00:00Z"]`,
 		`[]`, `null`, ``,
 	}, judgeReverseRequest)
 	session := raws("session-scoped reverse request", sessionBase, nil, judgeReverseRequest)
@@ -322,23 +322,23 @@ func buildFrameCases() []byte {
 		responses = append(responses, frameCase{Name: label, Frame: raw, ID: id, Valid: judgeReverseResponse(raw, id)})
 	}
 	for _, c := range []struct{ label, id, raw string }{
-		{"payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":"signed"}`},
-		{"null payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":null}`},
-		{"no payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1"}`},
-		{"object payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":{"n":1.10,"big":12345678901234567890}}`},
-		{"public error", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":{"code":"policy","message":"refused","retryAfterMilliseconds":5}}`},
-		{"refusal", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":{"code":"denied","message":"reverse call refused"}}`},
-		{"error with payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1,"error":{"code":"denied","message":"m"}}`},
-		{"error with bad code", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":{"code":"Denied","message":"m"}}`},
-		{"error with long message", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":{"code":"denied","message":"` + strings.Repeat("a", 4097) + `"}}`},
-		{"retry hint of a year", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":{"code":"busy","message":"m","retryAfterMilliseconds":31536000000}}`},
-		{"retry hint over a year", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":{"code":"busy","message":"m","retryAfterMilliseconds":31536000001}}`},
-		{"another call's id", "g2", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1}`},
-		{"wrong tag", "g1", `{"frame":"progress","apiVersion":"ext.plugin/v1","id":"g1","payload":1}`},
+		{"payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":"signed"}`},
+		{"null payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":null}`},
+		{"no payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1"}`},
+		{"object payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":{"n":1.10,"big":12345678901234567890}}`},
+		{"public error", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":{"code":"policy","message":"refused","retryAfterMilliseconds":5}}`},
+		{"refusal", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":{"code":"denied","message":"reverse call refused"}}`},
+		{"error with payload", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":1,"error":{"code":"denied","message":"m"}}`},
+		{"error with bad code", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":{"code":"Denied","message":"m"}}`},
+		{"error with long message", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":{"code":"denied","message":"` + strings.Repeat("a", 4097) + `"}}`},
+		{"retry hint of a year", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":{"code":"busy","message":"m","retryAfterMilliseconds":31536000000}}`},
+		{"retry hint over a year", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":{"code":"busy","message":"m","retryAfterMilliseconds":31536000001}}`},
+		{"another call's id", "g2", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":1}`},
+		{"wrong tag", "g1", `{"frame":"progress","apiVersion":"ext.io.pc/v1","id":"g1","payload":1}`},
 		{"wrong version", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v2","id":"g1","payload":1}`},
-		{"unknown field", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1,"extra":1}`},
-		{"duplicate key", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","id":"g1","payload":1}`},
-		{"error given as a list", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":["denied","m"]}`},
+		{"unknown field", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":1,"extra":1}`},
+		{"duplicate key", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","id":"g1","payload":1}`},
+		{"error given as a list", "g1", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","error":["denied","m"]}`},
 		{"not an object", "g1", `[]`},
 		{"empty", "g1", ``},
 	} {
@@ -348,8 +348,8 @@ func buildFrameCases() []byte {
 		label string
 		raw   string
 	}{
-		{"payload with deep nesting", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":` + strings.Repeat("[", 70) + strings.Repeat("]", 70) + `}`},
-		{"payload with deep nesting within the bound", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":` + strings.Repeat("[", 60) + strings.Repeat("]", 60) + `}`},
+		{"payload with deep nesting", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":` + strings.Repeat("[", 70) + strings.Repeat("]", 70) + `}`},
+		{"payload with deep nesting within the bound", `{"frame":"reverse_response","apiVersion":"ext.io.pc/v1","id":"g1","payload":` + strings.Repeat("[", 60) + strings.Repeat("]", 60) + `}`},
 	} {
 		respond(c.label, "g1", c.raw)
 	}
@@ -456,7 +456,7 @@ type requestCase struct {
 	Bytes    int  `json:"bytes,omitempty"`
 }
 
-const modelDescriptor = `{"apiVersion":"ext.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ext.conformance","version":"v1","operations":[{"name":"echo"},{"name":"long","progress":true},{"name":"wait","progress":false}]}],"reverse":[{"name":"host.svc","version":"v1","operations":[{"name":"sign"},{"name":"slow","surface":"observation"}]}]}`
+const modelDescriptor = `{"apiVersion":"ext.io.pc/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ext.conformance","version":"v1","operations":[{"name":"echo"},{"name":"long","progress":true},{"name":"wait","progress":false}]}],"reverse":[{"name":"host.svc","version":"v1","operations":[{"name":"sign"},{"name":"slow","surface":"observation"}]}]}`
 
 func buildModelCases() []byte {
 	judgeDescriptor := func(raw string) bool {
@@ -469,22 +469,22 @@ func buildModelCases() []byte {
 	}
 	add("the base descriptor", modelDescriptor)
 	for i, raw := range []string{
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o","progress":true,"surface":"s"}]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":null}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x","progress":true}]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x"}]},{"name":"h","version":"v1","operations":[{"name":"y"}]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x"},{"name":"x"}]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"c","version":"v1","operations":[{"name":"o"}]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o","progress":true,"progress":false}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o","progress":true,"surface":"s"}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":null}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x","progress":true}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x"}]},{"name":"h","version":"v1","operations":[{"name":"y"}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x"},{"name":"x"}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"c","version":"v1","operations":[{"name":"o"}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o","progress":true,"progress":false}]}]}`,
 		// A structure is a JSON object. A list of its members in order is not one,
 		// although some decoders read it so.
-		`["ext.plugin/v1",{"id":"a/b","revision":"r1"},[{"name":"c","version":"v1","operations":[{"name":"o"}]}]]`,
-		`{"apiVersion":"ext.plugin/v1","identity":["a/b","r1"],"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[["c","v1",[{"name":"o"}]]]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[["o"]]}]}`,
-		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[["h","v1",[{"name":"x"}]]]}`,
+		`["ext.io.pc/v1",{"id":"a/b","revision":"r1"},[{"name":"c","version":"v1","operations":[{"name":"o"}]}]]`,
+		`{"apiVersion":"ext.io.pc/v1","identity":["a/b","r1"],"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[["c","v1",[{"name":"o"}]]]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[["o"]]}]}`,
+		`{"apiVersion":"ext.io.pc/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[["h","v1",[{"name":"x"}]]]}`,
 	} {
 		add(fmt.Sprintf("hand-made %d", i+1), raw)
 	}
@@ -508,25 +508,25 @@ func buildModelCases() []byte {
 		}
 		requests = append(requests, c)
 	}
-	const requestBase = `{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","payload":{"n":1},"progress":{"eventsPerSecond":7,"bytesPerSecond":900}}`
+	const requestBase = `{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","payload":{"n":1},"progress":{"eventsPerSecond":7,"bytesPerSecond":900}}`
 	addRequest("a request that carries a rate", requestBase)
 	for i, raw := range []string{
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"bytesPerSecond":900}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":0,"bytesPerSecond":0}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":-5,"bytesPerSecond":-5}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":1048576,"bytesPerSecond":1073741824}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":null}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"echo","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"wait","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","parent":"1"}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7,"eventsPerSecond":8}}`,
-		`["ext.plugin/v1","1",{"id":"ctx/conformance","revision":"fixture-1"},{"name":"ext.conformance","version":"v1"},"long","2099-01-01T00:00:00Z"]`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":["ctx/conformance","fixture-1"],"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":["ext.conformance","v1"],"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
-		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":[7,900]}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"bytesPerSecond":900}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":0,"bytesPerSecond":0}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":-5,"bytesPerSecond":-5}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":1048576,"bytesPerSecond":1073741824}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":null}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"echo","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"wait","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","parent":"1"}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7,"eventsPerSecond":8}}`,
+		`["ext.io.pc/v1","1",{"id":"ctx/conformance","revision":"fixture-1"},{"name":"ext.conformance","version":"v1"},"long","2099-01-01T00:00:00Z"]`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":["ctx/conformance","fixture-1"],"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":["ext.conformance","v1"],"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"apiVersion":"ext.io.pc/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":[7,900]}`,
 	} {
 		addRequest(fmt.Sprintf("hand-made %d", i+1), raw)
 	}

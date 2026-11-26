@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The ext.plugin/v1 JSON-line transport for a guest process: one JSON frame per
- * line, a plugin.hello frame first, then one response per request. Stdout belongs
+ * The ext.io.pc/v1 JSON-line transport for a guest process: one JSON frame per
+ * line, a session.hello frame first, then one response per request. Stdout belongs
  * to the protocol; log to stderr.
  *
  * <p>The input is read on a thread of its own, so a handler can report progress
@@ -48,7 +48,7 @@ public final class JsonLine {
                     checkHello(frame);
                     hello = true;
                     ByteArrayOutputStream body = new ByteArrayOutputStream();
-                    body.write("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":".getBytes(StandardCharsets.UTF_8));
+                    body.write("{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"hello\",\"payload\":".getBytes(StandardCharsets.UTF_8));
                     body.write(guest.descriptorJson());
                     body.write('}');
                     response = body.toByteArray();
@@ -104,9 +104,9 @@ public final class JsonLine {
         }
         Map<String, Object> hello = Json.object(Json.parse(frame));
         if (hello == null || !HELLO_FIELDS.containsAll(hello.keySet())
-                || !"ext.plugin/v1".equals(hello.get("apiVersion"))
+                || !"ext.io.pc/v1".equals(hello.get("apiVersion"))
                 || !"hello".equals(hello.get("id"))
-                || !"plugin.hello".equals(hello.get("operation"))
+                || !"session.hello".equals(hello.get("operation"))
                 || !(hello.get("deadline") instanceof String deadline)
                 || !emptyObject(hello.get("plugin")) || !emptyObject(hello.get("contract"))
                 || !(hello.get("surface") == null || "".equals(hello.get("surface")))) {

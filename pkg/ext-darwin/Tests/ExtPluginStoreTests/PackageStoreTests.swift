@@ -96,7 +96,7 @@ final class PackageStoreTests: XCTestCase {
             try write(dir, "data/run.sh", "#!/bin/sh\n", executable: true)
             artifacts += #",{"name":"data","path":"data","sha256":"\#(directoryDigest(dir.appendingPathComponent("data").path))","kind":"tree"}"#
         }
-        let manifest = #"{"apiVersion":"ext.package/v1","descriptor":{"apiVersion":"ext.plugin/v1","identity":{"id":"\#(id)","revision":"\#(revision)"},"contracts":[{"name":"\#(contract)","version":"v1","operations":[{"name":"read"}]}]},"artifacts":[\#(artifacts)]}"#
+        let manifest = #"{"apiVersion":"ext.io/v1","kind":"package","identity":{"id":"\#(id)","revision":"\#(revision)"},"contracts":[{"name":"\#(contract)","version":"v1","operations":[{"name":"read"}]}],"artifacts":[\#(artifacts)]}"#
         try write(dir, "plugin.json", manifest + "\r\n\r\n")
         return dir.path
     }
@@ -512,7 +512,7 @@ final class PackageStoreTests: XCTestCase {
         let entries = entrypoints.map {
             #"{"name":"\#($0.name)","runtime":"\#($0.runtime)","artifact":"\#($0.artifact)","protocols":["\#($0.wire)"]}"#
         }
-        let manifest = #"{"apiVersion":"ext.package/v1","descriptor":{"apiVersion":"ext.plugin/v1","identity":{"id":"\#(id)","revision":"r1"},"contracts":[{"name":"example","version":"v1","operations":[{"name":"read"}]}]},"artifacts":[\#(listed.joined(separator: ","))],"entrypoints":[\#(entries.joined(separator: ","))]}"#
+        let manifest = #"{"apiVersion":"ext.io/v1","kind":"package","identity":{"id":"\#(id)","revision":"r1"},"contracts":[{"name":"example","version":"v1","operations":[{"name":"read"}]}],"artifacts":[\#(listed.joined(separator: ","))],"entrypoints":[\#(entries.joined(separator: ","))]}"#
         try write(dir, "plugin.json", manifest)
         return dir.path
     }

@@ -1449,12 +1449,12 @@ static void destroy_store_external(napi_env env, void *data, void *hint) {
   settle_store(box);
 }
 static napi_value open_store(napi_env env, napi_callback_info info) {
-  size_t count = 4, rn = 0;
-  napi_value args[4], out;
+  size_t count = 5, rn = 0, mn = 0;
+  napi_value args[5], out;
   int64_t artifact = 0, tree_bytes = 0;
   uint32_t tree_files = 0;
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      count != 4)
+      count != 5)
     return failure(env, "invalid store arguments");
   char *root = string(env, args[0], &rn);
   if (!root || strlen(root) != rn || !rn ||
@@ -1468,7 +1468,10 @@ static napi_value open_store(napi_env env, napi_callback_info info) {
   store_box *box = calloc(1, sizeof(*box));
   ext_plugin_store_limits limits = {(uint64_t)artifact, tree_files,
                              (uint64_t)tree_bytes};
-  ext_plugin_status status = box ? ext_plugin_store_open(root, &limits, &box->store) : EXT_PLUGIN_NOMEM;
+  char *manifest = string(env,args[4],&mn);
+  ext_plugin_store_layout layout={manifest,NULL};
+  ext_plugin_status status = !manifest || strlen(manifest)!=mn ? EXT_PLUGIN_INVALID : box ? ext_plugin_store_open_with_layout(root, &limits, &layout, &box->store) : EXT_PLUGIN_NOMEM;
+  free(manifest);
   free(root);
   if (status) {
     free(box);
@@ -1486,13 +1489,13 @@ static napi_value open_store(napi_env env, napi_callback_info info) {
   return out;
 }
 static napi_value open_layered(napi_env env, napi_callback_info info) {
-  size_t count = 4;
-  napi_value args[4], out;
+  size_t count = 5;
+  napi_value args[5], out;
   int64_t artifact = 0, tree_bytes = 0;
   uint32_t tree_files = 0, length = 0;
   bool is_array = false;
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      count != 4 || napi_is_array(env, args[0], &is_array) != napi_ok ||
+      count != 5 || napi_is_array(env, args[0], &is_array) != napi_ok ||
       !is_array || napi_get_array_length(env, args[0], &length) != napi_ok ||
       !length || napi_get_value_int64(env, args[1], &artifact) != napi_ok ||
       artifact < 0 || napi_get_value_uint32(env, args[2], &tree_files) != napi_ok ||
@@ -1511,9 +1514,13 @@ static napi_value open_layered(napi_env env, napi_callback_info info) {
   }
   ext_plugin_store_limits limits = {(uint64_t)artifact, tree_files,
                              (uint64_t)tree_bytes};
+  size_t mn=0; char *manifest=string(env,args[4],&mn);
+  ext_plugin_store_layout layout={manifest,NULL};
+  if(!manifest || strlen(manifest)!=mn) status=EXT_PLUGIN_INVALID;
   if (!status)
-    status = ext_plugin_layered_open((const char *const *)roots, length, &limits,
+    status = ext_plugin_layered_open_with_layout((const char *const *)roots, length, &limits, &layout,
                               &box->layered);
+  free(manifest);
   for (uint32_t i = 0; roots && i < length; i++)
     free(roots[i]);
   free(roots);

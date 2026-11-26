@@ -42,7 +42,7 @@ void *ext_plugin_guest_factory(void) {
 
 static NSData *Request(NSString *operation, NSString *payload) {
     NSString *body = [NSString stringWithFormat:
-        @"{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"objc/test\",\"revision\":\"r1\"},"
+        @"{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"objc/test\",\"revision\":\"r1\"},"
         @"\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"%@\",\"deadline\":\"2099-01-01T00:00:00Z\"%@}",
         operation, payload ? [NSString stringWithFormat:@",\"payload\":%@", payload] : @""];
     return [body dataUsingEncoding:NSUTF8StringEncoding];
@@ -104,7 +104,7 @@ static void TestWebView(NSData *module) {
     Spin(&done, 20);
     CHECK([Text(descriptor) containsString:@"ctx/conformance"], @"web view descriptor %@", Text(descriptor));
     done = NO;
-    NSString *body = @"{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},"
+    NSString *body = @"{\"apiVersion\":\"ext.io.pc/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"},"
                      @"\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":{\"v\":7}}";
     __block NSData *reply = nil;
     [host invoke:[body dataUsingEncoding:NSUTF8StringEncoding] timeout:10 completion:^(NSData *data, NSError *error) { reply = data; done = YES; }];

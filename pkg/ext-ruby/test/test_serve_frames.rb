@@ -12,7 +12,7 @@ module ServeFrames
   HOST = ["host.svc", "v1"].freeze
   FUTURE = "2999-01-01T00:00:00Z"
   DESC = {
-    "apiVersion" => "ext.plugin/v1",
+    "apiVersion" => "ext.io.pc/v1",
     "identity" => IDENT,
     "contracts" => [
       {
@@ -101,13 +101,13 @@ module ServeFrames
   end
 
   def self.hello(**kw)
-    r = { "apiVersion" => "ext.plugin/v1", "id" => "hello", "operation" => "plugin.hello", "deadline" => FUTURE }
+    r = { "apiVersion" => "ext.io.pc/v1", "id" => "hello", "operation" => "session.hello", "deadline" => FUTURE }
     kw.each { |k, v| r[k.to_s] = v }
     r
   end
 
   def self.answer(request_id, **body)
-    r = { "frame" => "reverse_response", "apiVersion" => "ext.plugin/v1", "id" => request_id }
+    r = { "frame" => "reverse_response", "apiVersion" => "ext.io.pc/v1", "id" => request_id }
     body.each { |k, v| r[k.to_s] = v }
     r
   end
@@ -154,7 +154,7 @@ module ServeFrames
       @next += 1
       request_id = @next.to_s
       r = {
-        "apiVersion" => "ext.plugin/v1",
+        "apiVersion" => "ext.io.pc/v1",
         "id" => request_id,
         "plugin" => IDENT,
         "contract" => { "name" => CONTRACT[0], "version" => CONTRACT[1] },
@@ -320,7 +320,7 @@ class ServeFramesTest < Minitest::Test
       ["a second request during a call", nil],
       ["an unknown frame", { "frame" => "mystery" }],
       ["an answer to a request never issued", ServeFrames.answer("g99", payload: 1)],
-      ["a progress frame from the host", { "frame" => "progress", "apiVersion" => "ext.plugin/v1", "parent" => "1", "kind" => "log" }],
+      ["a progress frame from the host", { "frame" => "progress", "apiVersion" => "ext.io.pc/v1", "parent" => "1", "kind" => "log" }],
       ["a malformed answer to the request waiting", ServeFrames.answer("g1", payload: 1, extra: 1)],
       ["an answer with both payload and error", ServeFrames.answer("g1", payload: 1, error: { "code" => "x", "message" => "m" })],
       ["an answer with neither payload nor error", ServeFrames.answer("g1")],
@@ -359,7 +359,7 @@ class ServeFramesTest < Minitest::Test
   def test_a_guest_invoked_directly_has_no_frames
     guest = P::Guest.new(ServeFrames::DESC, ServeFrames::HANDLER, redact_errors: true)
     request = lambda do |operation|
-      { "apiVersion" => "ext.plugin/v1", "id" => "1", "plugin" => ServeFrames::IDENT,
+      { "apiVersion" => "ext.io.pc/v1", "id" => "1", "plugin" => ServeFrames::IDENT,
         "contract" => { "name" => "test.frames", "version" => "v1" }, "operation" => operation,
         "payload" => {}, "deadline" => ServeFrames::FUTURE, "progress" => {} }
     end

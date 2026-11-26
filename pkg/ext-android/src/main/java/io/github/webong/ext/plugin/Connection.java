@@ -265,7 +265,7 @@ final class Connection {
 
     private static byte[] reverseRequest(String id, String parent, ContractRef ref, String operation, byte[] payload,
             long deadlineMillis) throws FrameException {
-        StringBuilder head = new StringBuilder("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.plugin/v1\",\"id\":");
+        StringBuilder head = new StringBuilder("{\"frame\":\"reverse_request\",\"apiVersion\":\"ext.io.pc/v1\",\"id\":");
         Json.quote(head, id);
         if (!parent.isEmpty()) {
             Json.quote(head.append(",\"parent\":"), parent);

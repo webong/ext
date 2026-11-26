@@ -11,7 +11,7 @@ An evaluator is one type of **engine**, defined by the boundary it virtualizes (
 [Program discovery](adr-program-discovery.md#vocabulary)). The others are the
 `executor` (the operating system, with a shared kernel: Docker) and the `emulator` (a
 whole system: QEMU, VMware ESXi). The **plugin engine**, `lib/plugin`, is the shared C library that the language
-SDKs bind to host or author `ext.plugin/v1` plugins; it is not an adapter. Mobile
+SDKs bind to host or author `ext.io.pc/v1` plugins; it is not an adapter. Mobile
 support belongs to it: see [`pkg/ext-darwin`](../pkg/ext-darwin/README.md) and
 [`pkg/ext-android`](../pkg/ext-android/README.md).
 

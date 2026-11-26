@@ -69,10 +69,10 @@ public sealed class RemoteError : Exception
     }
 }
 
-/// <summary>The wire rules of ext.plugin/v1.</summary>
+/// <summary>The wire rules of ext.io.pc/v1.</summary>
 public static class Wire
 {
-    public const string ApiVersion = "ext.plugin/v1";
+    public const string ApiVersion = "ext.io.pc/v1";
     public const int MaxFrameBytes = 24 << 20;
     public const long MaxRetryAfterMs = 365L * 24 * 60 * 60 * 1000;
     public const int MaxMessageBytes = 4096;

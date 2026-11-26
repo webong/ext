@@ -92,12 +92,10 @@ func read(path string, limit int64) ([]byte, error) {
 }
 func manifestID(raw json.RawMessage) (string, error) {
 	var m struct {
-		Descriptor struct {
-			Identity plugin.Identity `json:"identity"`
-		} `json:"descriptor"`
+		Identity plugin.Identity `json:"identity"`
 	}
 	err := json.Unmarshal(raw, &m)
-	return m.Descriptor.Identity.ID, err
+	return m.Identity.ID, err
 }
 func sameJSON(a, b json.RawMessage) bool {
 	decode := func(raw json.RawMessage) (any, error) {

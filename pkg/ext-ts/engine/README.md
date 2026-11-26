@@ -42,7 +42,7 @@ throw an error whose `status` is `status.INVALID`, `status.DENIED` or
 `status.PROTOCOL`.
 
 `new engine.PackageStore(root, limits)` is the engine's package store: `install`,
-`upgrade`, `replace`, `remove`, `load` and `ids` over reviewed `ext.package/v1` packages
+`upgrade`, `replace`, `remove`, `load` and `ids` over reviewed `ext.io/v1` packages
 under a root you supply, as the Go store does. Each call returns a promise and runs on a
 libuv worker. `install`, `upgrade` and `replace` resolve with the installed `plugin.json`
 as text, as the source had it; a rejection carries `status`: `status.INVALID` (not a

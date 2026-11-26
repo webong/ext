@@ -9,9 +9,9 @@ source = {
   dir = "ext/pkg/ext-lua",
 }
 description = {
-  summary = "ext for Lua: the plugin guest SDK for ext.plugin/v1 over JSON lines (pure Lua)",
+  summary = "ext for Lua: the plugin guest SDK for ext.io.pc/v1 over JSON lines (pure Lua)",
   detailed = [[
-    A guest for the ext plugin protocol (ext.plugin/v1) that a host runs as a process and speaks
+    A guest for the ext plugin protocol (ext.io.pc/v1) that a host runs as a process and speaks
     to in JSON lines over standard input and output. Pure Lua with its own strict JSON module:
     no C modules and no native build. Runs on Lua 5.1 to 5.5 and LuaJIT.
   ]],

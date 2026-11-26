@@ -205,7 +205,7 @@ export function loadEngine(addonPath){
      catch(error){
        if(error?.status!==1)throw error;
        const id=typeof envelope?.id==='string'?envelope.id:'';
-       return {apiVersion:'ext.plugin/v1',id,error:{code:'invalid_request',message:'request does not match selected contract'}};
+       return {apiVersion:'ext.io.pc/v1',id,error:{code:'invalid_request',message:'request does not match selected contract'}};
      }
    }
    close(){if(!this.#closed){this.#closed=true;native.closeHost(this.#handle);this.#handle=null;}}
@@ -238,7 +238,7 @@ export function loadEngine(addonPath){
    constructor(root,limits={}){
      if(typeof root!=='string'||root==='')throw new TypeError('root required');
      this.#maxArchiveBytes=size(limits.maxArchiveBytes,'maxArchiveBytes');
-     this.#handle=native.openStore(root,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'));
+     this.#handle=native.openStore(root,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'),limits.manifestPath??'plugin.json');
    }
    #call(operation,argument,flags=0,fields,maxBytes){
      if(this.#closed)return Promise.reject(Object.assign(new Error('store closed'),{status:5}));
@@ -300,7 +300,7 @@ export function loadEngine(addonPath){
    #handle;#closed=false;
    constructor(roots,limits={}){
      if(!Array.isArray(roots)||roots.length===0||roots.some(root=>typeof root!=='string'||root===''))throw new TypeError('roots required');
-     this.#handle=native.openLayered(roots,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'));
+     this.#handle=native.openLayered(roots,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'),limits.manifestPath??'plugin.json');
    }
    #call(operation,argument){
      if(this.#closed)return Promise.reject(Object.assign(new Error('store closed'),{status:5}));

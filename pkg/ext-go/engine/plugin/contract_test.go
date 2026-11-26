@@ -68,7 +68,7 @@ func TestStrictEnvelopes(t *testing.T) {
 		func(v *Descriptor) {
 			v.Contracts[0].Operations = append(v.Contracts[0].Operations, v.Contracts[0].Operations[0])
 		},
-		func(v *Descriptor) { v.Contracts[0].Operations[0].Name = "plugin.hello" },
+		func(v *Descriptor) { v.Contracts[0].Operations[0].Name = "session.hello" },
 	} {
 		bad := d.Clone()
 		change(&bad)
@@ -77,8 +77,8 @@ func TestStrictEnvelopes(t *testing.T) {
 		}
 	}
 	for _, raw := range []string{
-		`{"apiVersion":"ext.plugin/v1","unknown":true}`,
-		`{"apiVersion":"ext.plugin/v1","apiVersion":"wrong"}`,
+		`{"apiVersion":"ext.io.pc/v1","unknown":true}`,
+		`{"apiVersion":"ext.io.pc/v1","apiVersion":"wrong"}`,
 		`{"payload":{"x":1,"x":2}}`,
 		`{} {}`,
 	} {

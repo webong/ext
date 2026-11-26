@@ -14,7 +14,7 @@ import (
 func init() {
 	Symbols["github.com/webong/ext/pkg/ext-go/engine/plugin/plugin"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"APIVersion":                 reflect.ValueOf(constant.MakeFromLiteral("\"ext.plugin/v1\"", token.STRING, 0)),
+		"APIVersion":                 reflect.ValueOf(constant.MakeFromLiteral("\"ext.io.pc/v1\"", token.STRING, 0)),
 		"AdapterAPIVersion":          reflect.ValueOf(constant.MakeFromLiteral("\"2.0\"", token.STRING, 0)),
 		"AdapterContractName":        reflect.ValueOf(constant.MakeFromLiteral("\"ext.adapter\"", token.STRING, 0)),
 		"AdapterDescriptor":          reflect.ValueOf(plugin.AdapterDescriptor),

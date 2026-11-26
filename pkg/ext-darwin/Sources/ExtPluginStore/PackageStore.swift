@@ -138,7 +138,7 @@ public final class PackageWriter: @unchecked Sendable {
 }
 
 /// The engine's package store: install, upgrade, replace, remove and load reviewed
-/// `ext.package/v1` packages under a root the application supplies (see `ext_store_*`
+/// `ext.io/v1` packages under a root the application supplies (see `ext_store_*`
 /// in lib/plugin/include/ext_plugin_host.h). A package is its `plugin.json` manifest and the
 /// artifacts it lists, in a directory named by the package id with `/` written `%2f`.
 /// The store copies and re-verifies content; it never runs it or grants authority, and
@@ -155,10 +155,15 @@ public final class PackageStore: @unchecked Sendable {
     public let limits: PackageStoreLimits
 
     /// Returns a store rooted at `root`, which need not exist yet.
-    public init(root: String, limits: PackageStoreLimits = PackageStoreLimits()) throws {
+    public init(root: String, limits: PackageStoreLimits = PackageStoreLimits(), manifestPath: String = "plugin.json") throws {
         var raw = limits.raw
         var opened: OpaquePointer?
-        try withEngineString(root) { try check(ext_plugin_store_open($0, &raw, &opened)) }
+        try withEngineString(root) { rootPointer in
+            try withEngineString(manifestPath) { manifestPointer in
+                var layout = ext_plugin_store_layout(manifest_path: manifestPointer, fallback_path: nil)
+                try check(ext_plugin_store_open_with_layout(rootPointer, &raw, &layout, &opened))
+            }
+        }
         guard let opened else { throw PackageStoreError.engine(ext_plugin_status(EXT_PLUGIN_NOMEM)) }
         handle = opened
         self.limits = limits
@@ -340,7 +345,7 @@ public final class LayeredPackageStore: @unchecked Sendable {
     private let handle: OpaquePointer
 
     /// Returns a view over `roots`, which need not exist.
-    public init(roots: [String], limits: PackageStoreLimits = PackageStoreLimits()) throws {
+    public init(roots: [String], limits: PackageStoreLimits = PackageStoreLimits(), manifestPath: String = "plugin.json") throws {
         var raw = limits.raw
         var owned: [UnsafeMutablePointer<CChar>] = []
         defer { owned.forEach { free($0) } }
@@ -351,7 +356,10 @@ public final class LayeredPackageStore: @unchecked Sendable {
         }
         let pointers: [UnsafePointer<CChar>?] = owned.map { UnsafePointer($0) }
         var opened: OpaquePointer?
-        try check(ext_plugin_layered_open(pointers, pointers.count, &raw, &opened))
+        try withEngineString(manifestPath) { manifestPointer in
+            var layout = ext_plugin_store_layout(manifest_path: manifestPointer, fallback_path: nil)
+            try check(ext_plugin_layered_open_with_layout(pointers, pointers.count, &raw, &layout, &opened))
+        }
         guard let opened else { throw PackageStoreError.engine(ext_plugin_status(EXT_PLUGIN_NOMEM)) }
         handle = opened
     }

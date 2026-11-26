@@ -1,74 +1,5 @@
 {
-  "apiVersion": "ext.package/v1",
-  "descriptor": {
-    "apiVersion": "ext.plugin/v1",
-    "identity": {
-      "id": "ollama",
-      "revision": "",
-      "version": "1.0.0"
-    },
-    "contracts": [
-      {
-        "name": "inference.provider",
-        "version": "v1",
-        "operations": [
-          {
-            "name": "capabilities",
-            "surface": "observation"
-          },
-          {
-            "name": "health",
-            "surface": "observation"
-          },
-          {
-            "name": "generate",
-            "surface": "action"
-          },
-          {
-            "name": "stream",
-            "surface": "action",
-            "progress": true
-          },
-          {
-            "name": "embed",
-            "surface": "action"
-          },
-          {
-            "name": "transcribe",
-            "surface": "action"
-          },
-          {
-            "name": "synthesize",
-            "surface": "action",
-            "progress": true
-          },
-          {
-            "name": "models",
-            "surface": "observation"
-          },
-          {
-            "name": "close",
-            "surface": "action"
-          }
-        ]
-      },
-      {
-        "name": "ext.stream",
-        "version": "v1",
-        "operations": [
-          {
-            "name": "open"
-          },
-          {
-            "name": "read"
-          },
-          {
-            "name": "close"
-          }
-        ]
-      }
-    ]
-  },
+  "apiVersion": "ext.io/v1",
   "artifacts": [
     {
       "name": "main",
@@ -105,5 +36,72 @@
       "display_name": "Ollama",
       "go_entry": "."
     }
-  }
+  },
+  "kind": "package",
+  "identity": {
+    "id": "ollama",
+    "revision": "",
+    "version": "1.0.0"
+  },
+  "contracts": [
+    {
+      "name": "inference.provider",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "capabilities",
+          "surface": "observation"
+        },
+        {
+          "name": "health",
+          "surface": "observation"
+        },
+        {
+          "name": "generate",
+          "surface": "action"
+        },
+        {
+          "name": "stream",
+          "surface": "action",
+          "progress": true
+        },
+        {
+          "name": "embed",
+          "surface": "action"
+        },
+        {
+          "name": "transcribe",
+          "surface": "action"
+        },
+        {
+          "name": "synthesize",
+          "surface": "action",
+          "progress": true
+        },
+        {
+          "name": "models",
+          "surface": "observation"
+        },
+        {
+          "name": "close",
+          "surface": "action"
+        }
+      ]
+    },
+    {
+      "name": "ext.stream",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "open"
+        },
+        {
+          "name": "read"
+        },
+        {
+          "name": "close"
+        }
+      ]
+    }
+  ]
 }

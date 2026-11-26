@@ -19,7 +19,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Hosts an ext.plugin/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in a hidden
+ * Hosts an ext.io.pc/v1 WebAssembly reactor (docs/plugin-reactor-abi.md) in a hidden
  * {@link WebView} and exchanges frames with it. The WebView is the platform's own web
  * engine, so this is the {@code restricted} route of docs/adr-mobile-wasm.md: the
  * guest has no network, files or process, but runs under the browser's rules and not
@@ -130,7 +130,7 @@ public final class WebViewPluginHost {
         return exchange(1, hello.getBytes(StandardCharsets.UTF_8), timeoutMillis);
     }
 
-    /** Sends one complete ext.plugin/v1 request and returns the complete response. */
+    /** Sends one complete ext.io.pc/v1 request and returns the complete response. */
     public CompletableFuture<byte[]> invoke(byte[] request, long timeoutMillis) {
         return exchange(2, request, timeoutMillis);
     }

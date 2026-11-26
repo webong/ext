@@ -136,7 +136,7 @@ engine and archive support.
 | [`cmd/ext/`](cmd/ext) | The public CLI | Package discovery, installation and command dispatch |
 | [`adapters/`](adapters/README.md) | Integrations with specific products, providers, browsers and native tools | Native discovery, installation, activation and capability implementations |
 | [`tests/`](tests) | Tests spanning libraries and languages | Cross-language conformance and integration checks |
-| [`docs/`](docs) | Guides, contracts and architecture decisions | [Architecture](docs/adr-architecture.md), [CI](docs/ci.md), [adapter authoring](docs/adapter-authoring.md) |
+| [`docs/`](docs) | Guides, contracts and architecture decisions | [Product direction](docs/adr-product-direction.md), [Architecture](docs/adr-architecture.md), [CI](docs/ci.md), [adapter authoring](docs/adapter-authoring.md) |
 
 `lib`, `pkg`, `res` and `src` are containers, not one shared package. Libraries
 do not depend on product internals; products collaborate through plugin

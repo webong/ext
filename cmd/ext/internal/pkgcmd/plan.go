@@ -1,10 +1,10 @@
 package pkgcmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +14,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
@@ -69,6 +70,10 @@ func (m Manager) plan(args []string, out, stderr io.Writer) int {
 	return 0
 }
 func (m Manager) resolvePlan(without, with string) (packagePlan, error) {
+	return m.resolvePlanWithPeers(without, with, nil)
+}
+
+func (m Manager) resolvePlanWithPeers(without, with string, peers []nativeplugin.Peer) (packagePlan, error) {
 	report := packagePlan{Issues: []planIssue{}, Unapproved: []plugin.Identity{}}
 	lib, err := nativeplugin.Open()
 	if err != nil {
@@ -157,6 +162,22 @@ func (m Manager) resolvePlan(without, with string) (packagePlan, error) {
 		}
 		manifests = next
 	}
+	local := make(map[string]bool, len(manifests))
+	for _, manifest := range manifests {
+		local[manifest.Name()] = true
+	}
+	external := make(map[string]bool)
+	for _, peer := range peers {
+		id := peer.Descriptor.Identity.ID
+		if local[id] {
+			continue
+		}
+		if external[id] {
+			return report, fmt.Errorf("multiple live sessions for provider %s", id)
+		}
+		external[id] = true
+		manifests = append(manifests, peer.Manifest())
+	}
 	sort.Slice(manifests, func(i, j int) bool { return manifests[i].Descriptor.Identity.ID < manifests[j].Descriptor.Identity.ID })
 	for _, manifest := range manifests {
 		if err := lib.Library().Call("package.validate", manifest, nil); err != nil {
@@ -185,6 +206,9 @@ func (m Manager) resolvePlan(without, with string) (packagePlan, error) {
 				}
 				report.Issues = append(report.Issues, planIssue{Consumer: manifest.Descriptor.Identity, Requirement: requirement, Status: code(err)})
 			}
+		}
+		if external[manifest.Name()] {
+			continue
 		}
 		var digest string
 		id := manifest.Descriptor.Identity
@@ -220,6 +244,26 @@ func (m Manager) checkRequirements() error {
 			if err != nil {
 				return err
 			}
+			if report.Status == "not_found" {
+				peers, peerErr := nativeplugin.LivePeers(context.Background(), nativeplugin.LedgerPath(filepath.Dir(m.Store.Root())))
+				if peerErr == nil {
+					var candidates []nativeplugin.Peer
+					for _, peer := range peers {
+						for _, issue := range report.Issues {
+							if issue.Status == "not_found" && peerMatchesRequirement(peer, issue.Requirement) {
+								candidates = append(candidates, peer)
+								break
+							}
+						}
+					}
+					if len(candidates) > 0 {
+						report, err = m.resolvePlanWithPeers("", "", candidates)
+						if err != nil {
+							return err
+						}
+					}
+				}
+			}
 			if report.Status != "ok" {
 				return fmt.Errorf("unresolved package dependencies (%s); run ext package plan", report.Status)
 			}
@@ -229,10 +273,26 @@ func (m Manager) checkRequirements() error {
 	return nil
 }
 
+func peerMatchesRequirement(peer nativeplugin.Peer, dependency packagekit.Dependency) bool {
+	if (dependency.OS != "" && dependency.OS != runtime.GOOS) || (dependency.Arch != "" && dependency.Arch != runtime.GOARCH) {
+		return false
+	}
+	_, err := plugin.Select([]plugin.Descriptor{peer.Descriptor}, plugin.Requirement{
+		Provider: dependency.Provider, Identity: dependency.Identity, Contract: dependency.Contract, Operation: dependency.Operation,
+	})
+	return err == nil
+}
+
 // CheckInvocation verifies resolution and transitive host approval before a process
 // starts, so a revoked provider cannot be used via an already approved consumer.
 func (m Manager) CheckInvocation(id string) error {
-	report, err := m.resolvePlan("", "")
+	return m.CheckInvocationWithPeers(id, nil)
+}
+
+// CheckInvocationWithPeers plans with the caller's approved external bindings.
+// Byte approval of an external provider is enforced by the host that runs it.
+func (m Manager) CheckInvocationWithPeers(id string, peers []nativeplugin.Peer) error {
+	report, err := m.resolvePlanWithPeers("", "", peers)
 	if err != nil {
 		return err
 	}

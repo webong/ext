@@ -18,7 +18,7 @@ they provide. Plugin-specific usage belongs in each plugin's documentation.
 | Command | Purpose |
 | --- | --- |
 | `ext commands` | List available commands |
-| `ext package` | Install, trust and manage plugin packages |
+| `ext package` | Install, trust, manage, and [serve](docs/plugin-interoperability.md#same-machine-peers) plugin packages |
 | `ext resource` | Discover providers, inspect resources and invoke explicitly declared operations |
 | `ext source` | Manage cached package catalogs without granting execution trust |
 | `ext bundle` | Plan and install pinned package groups; fetch native artifacts and generate bindings |

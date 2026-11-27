@@ -16,4 +16,4 @@ ctest --test-dir "$work/native" --output-on-failure
 # A missing test or an unexpected skip fails the gate.
 go test -tags ext_ledger_c2go -count=1 -json ./pkg/ext-go/c2goengine/ledger | python3 scripts/check-go-test-results.py \
   TestTranslatedLedgerConformance TestTranslatedLedgerMemoryAndFingerprints \
-  TestTranslatedLedgerRecorderFixtures TestTranslatedLedgerUnsupported
+  TestTranslatedLedgerRecorderFixtures TestTranslatedLedgerUnsupported TestTranslatedLedgerPeers

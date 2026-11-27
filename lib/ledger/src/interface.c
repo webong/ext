@@ -483,6 +483,18 @@ static int call_store(ext_ledger_store *s, const char *op, const lj_value *in, c
   const char *ns = str(in, "namespace"), *id = str(in, "id");
   char *text = NULL;
   size_t n = 0;
+  if (!strcmp(op, "peer_list")) return ll_peer_list(s, ctx, out, out_len);
+  if (!strcmp(op, "peer_publish")) {
+    int64_t ttl = 0;
+    const lj_value *registration = lj_get(in, "registration");
+    if (num(in, "lease_ms", &ttl) != 1 || !registration) return EXT_LEDGER_INVALID;
+    rc = ll_peer_update(s, ctx, lj_get(in, "id"), registration, ttl);
+    return rc ? rc : null_out(out, out_len);
+  }
+  if (!strcmp(op, "peer_withdraw")) {
+    rc = ll_peer_update(s, ctx, lj_get(in, "id"), NULL, 0);
+    return rc ? rc : null_out(out, out_len);
+  }
   if (!strcmp(op, "register")) {
     if ((rc = encoded(in, "schema", &text, &n))) return rc;
     rc = ext_ledger_store_register(s, ctx, text, n);

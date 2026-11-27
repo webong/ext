@@ -173,7 +173,7 @@ persistent trust and permits only reverse calls attached to an active call.
 Each hop of a dependency chain needs its own grant. The CLI closes consumers
 before providers on completion, startup failure or cancellation.
 
-Before any host starts, the CLI copies every reachable reviewed provider into
+Before any host starts, the CLI copies every reachable reviewed local provider into
 one private store through the C snapshot operation and resolves all executable
 paths there. A failed copy removes the partial store without launching guests.
 The graph retains these copies until its hosts close, then removes the store.
@@ -189,5 +189,7 @@ output rejected, and a provider denial after successful inspection preserved.
 Calls use the same process entrypoint as inspection. Separate-entrypoint or
 non-process resource integrations still need consumer-specific support.
 Domain errors preserve the ordinary plugin error envelope and are not coerced
-into discovery categories. Domain-specific success/error mappings and the real
+into discovery categories. [Same-machine peers](plugin-interoperability.md#same-machine-peers) let the
+same grants bind a dependency to a live provider owned by another Ext host.
+Domain-specific success/error mappings and the real
 KVLite integration remain work.

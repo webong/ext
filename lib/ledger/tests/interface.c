@@ -42,6 +42,31 @@ static void expect(uint64_t h, const char *op, const char *in, const char *conta
   ext_ledger_free(out);
 }
 
+static void peer_registrations(uint64_t store) {
+  expect(store, "peer_list", "{}", "[]");
+  const char *one = "{\"id\":\"host/one\",\"lease_ms\":60000,\"registration\":{\"endpoint\":\"one\"}}";
+  const char *two = "{\"id\":\"host/two\",\"lease_ms\":60000,\"registration\":{\"endpoint\":\"two\"}}";
+  ext_ledger_free(call(store, "peer_publish", one, EXT_LEDGER_OK));
+  ext_ledger_free(call(store, "peer_publish", two, EXT_LEDGER_OK));
+  ext_ledger_free(call(store, "peer_publish", one, EXT_LEDGER_OK));
+  expect(store, "peer_list", "{}", "ddca5a47059144f46050df8dc2854ddd97cc9c10d697459afad83cc7b9a9b370");
+  expect(store, "peer_list", "{}", "host/two");
+  ext_ledger_free(call(store, "peer_publish", "{\"id\":\"host/one\",\"lease_ms\":60000,\"registration\":{\"endpoint\":\"other\"}}", EXT_LEDGER_CHANGED));
+  ext_ledger_free(call(store, "peer_publish", "{\"id\":\"host/one\",\"lease_ms\":60001,\"registration\":{}}", EXT_LEDGER_INVALID));
+  ext_ledger_free(call(store, "peer_publish", "{\"id\":\"host/secret\",\"lease_ms\":60000,\"registration\":{\"password\":\"hidden\"}}", EXT_LEDGER_DENIED));
+  ext_ledger_free(call(store, "apply", "{\"transaction\":{\"namespace\":\"ext.peer\",\"vertices\":[{\"id\":\"host/expired\",\"kind\":\"ext.peer/provider\",\"attributes\":{\"registration\":{\"endpoint\":\"expired\"},\"binding_digest\":\"ddca5a47059144f46050df8dc2854ddd97cc9c10d697459afad83cc7b9a9b370\",\"expires_at_ms\":1}}]}}", EXT_LEDGER_OK));
+  char *listed = call(store, "peer_list", "{}", EXT_LEDGER_OK);
+  CHECK(listed && !strstr(listed, "host/expired"), "expired provider leaked into discovery");
+  ext_ledger_free(listed);
+  ext_ledger_free(call(store, "peer_publish", two, EXT_LEDGER_OK));
+  ext_ledger_free(call(store, "get_vertex", "{\"namespace\":\"ext.peer\",\"id\":\"host/expired\"}", EXT_LEDGER_NOT_FOUND));
+  ext_ledger_free(call(store, "peer_withdraw", "{\"id\":\"host/one\"}", EXT_LEDGER_OK));
+  ext_ledger_free(call(store, "peer_withdraw", "{\"id\":\"host/one\"}", EXT_LEDGER_OK));
+  listed = call(store, "peer_list", "{}", EXT_LEDGER_OK);
+  CHECK(listed && !strstr(listed, "host/one") && strstr(listed, "host/two"), "withdraw changed another provider");
+  ext_ledger_free(listed);
+}
+
 int main(void) {
   ext_ledger_free(call(0, "validate_attributes", "{\"attributes\":{\"label\":\"visible\"}}", EXT_LEDGER_OK));
   ext_ledger_free(call(0, "validate_attributes", "{\"attributes\":{\"password\":\"hidden\"}}", EXT_LEDGER_DENIED));
@@ -53,6 +78,7 @@ int main(void) {
 
   uint64_t store = open_json("{\"object\":\"store\",\"backend\":\"memory\"}", EXT_LEDGER_OK);
   CHECK(store != 0, "a store handle");
+  peer_registrations(store);
   ext_ledger_free(call(store, "register", "{\"schema\":{\"namespace\":\"demo\",\"version\":\"1\"}}", EXT_LEDGER_OK));
   uint64_t watch = open_json("{\"object\":\"watch\",\"store\":1,\"namespace\":\"demo\",\"buffer\":8}", EXT_LEDGER_OK);
   char *out = call(watch, "next", "{}", EXT_LEDGER_TIMEOUT);

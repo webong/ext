@@ -85,25 +85,33 @@ func (m Manager) invoke(ctx context.Context, op, id string, request json.RawMess
 	if err != nil {
 		return nil, err
 	}
-	if err := (pkgcmd.Manager{Store: local}).CheckInvocation(id); err != nil {
+	ledgerPath := nativeplugin.LedgerPath(m.Home)
+	var peers []nativeplugin.Peer
+	if len(grants) > 0 {
+		live, err := nativeplugin.LivePeers(ctx, ledgerPath)
+		if err != nil {
+			return nil, err
+		}
+		for _, peer := range live {
+			descriptor := peer.Descriptor
+			for _, grant := range grants {
+				if grant.Provider == descriptor.Identity {
+					if _, err := descriptor.Lookup(grant.Contract, grant.Operation); err == nil {
+						peers = append(peers, peer)
+						break
+					}
+				}
+			}
+		}
+	}
+	if err := (pkgcmd.Manager{Store: local}).CheckInvocationWithPeers(id, peers); err != nil {
 		return nil, err
 	}
 	graph, err := nativeplugin.OpenGraph(ctx, lib, s, nativeplugin.GraphOptions{
 		RootID: id, Contract: ref, OS: runtime.GOOS, Arch: runtime.GOARCH, Layout: local.Layout(),
-		LedgerPath: filepath.Join(m.Home, "execution-ledger"),
+		LedgerPath: ledgerPath, Peers: peers,
 		Review: func(pm packagekit.Manifest) (string, error) {
-			var digest, state string
-			packageID := pm.Descriptor.Identity.ID
-			if err := lib.Library().Call("store_digest", map[string]any{"root": root, "id": packageID, "layout": local.Layout()}, &digest); err != nil {
-				return "", err
-			}
-			if err := lib.Library().Call("trust_state", map[string]any{"path": filepath.Join(root, ".package-trust.json"), "scope": "ext.command/v1", "id": packageID, "digest": digest}, &state); err != nil {
-				return "", err
-			}
-			if state != "trusted" {
-				return "", fmt.Errorf("required package %s is not approved", packageID)
-			}
-			return digest, nil
+			return nativeplugin.ReviewInstalled(lib, root, local.Layout(), pm.Name())
 		},
 		Authorize: func(_ context.Context, _ plugin.Identity, provider plugin.Identity, request plugin.Request) error {
 			// Only reverse calls scoped to an active forward call may spend a grant.

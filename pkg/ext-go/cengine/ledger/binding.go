@@ -257,6 +257,23 @@ func (s *NativeStore) QueryEdges(ctx context.Context, q EdgeQuery) (out []Edge, 
 	err = s.call(ctx, "query_edges", map[string]any{"query": q}, &out)
 	return
 }
+
+// Peers returns the live provider registrations in the shared ledger.
+func (s *NativeStore) Peers(ctx context.Context) (out []Vertex, err error) {
+	err = s.call(ctx, "peer_list", map[string]any{}, &out)
+	return
+}
+
+// PublishPeer creates or renews an immutable registration for a session.
+func (s *NativeStore) PublishPeer(ctx context.Context, id string, registration any, lease time.Duration) error {
+	return s.call(ctx, "peer_publish", map[string]any{"id": id, "registration": registration, "lease_ms": lease.Milliseconds()}, nil)
+}
+
+// WithdrawPeer removes a provider's registration for this session.
+func (s *NativeStore) WithdrawPeer(ctx context.Context, id string) error {
+	return s.call(ctx, "peer_withdraw", map[string]any{"id": id}, nil)
+}
+
 func (s *NativeStore) Changes(ctx context.Context, ns string, after uint64, limit int) (out []Change, err error) {
 	err = s.call(ctx, "changes", map[string]any{"namespace": ns, "after": after, "limit": limit}, &out)
 	return

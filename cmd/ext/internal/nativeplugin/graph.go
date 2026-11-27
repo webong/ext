@@ -25,6 +25,7 @@ type GraphOptions struct {
 	Layout   storelayout.Layout
 	// LedgerPath enables durable observations in a caller-owned ledger.
 	LedgerPath string
+	Peers      []Peer
 	Review     func(packagekit.Manifest) (string, error)
 	Authorize  func(context.Context, plugin.Identity, plugin.Identity, plugin.Request) error
 }
@@ -78,10 +79,12 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 	if limit < 1 || limit > 1024 {
 		return nil, fmt.Errorf("provider graph host limit must be 1..1024")
 	}
-	var rows []struct {
+	type providerRow struct {
 		Manifest  packagekit.Manifest `json:"manifest"`
-		Directory string              `json:"directory"`
+		Directory string              `json:"directory,omitempty"`
+		Binding   map[string]string   `json:"binding,omitempty"`
 	}
+	var rows []providerRow
 	if err := store.Call("list", nil, &rows); err != nil {
 		return nil, err
 	}
@@ -93,6 +96,24 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 	if !ok {
 		return nil, fmt.Errorf("provider %s not found", options.RootID)
 	}
+	external := make(map[plugin.Identity]Peer)
+	for _, peer := range options.Peers {
+		identity := peer.Descriptor.Identity
+		if existing, ok := byID[identity.ID]; ok {
+			if _, remote := external[existing.Descriptor.Identity]; remote {
+				return nil, fmt.Errorf("multiple live sessions for provider %s", identity.ID)
+			}
+			continue // The installed package has precedence.
+		}
+		if !peer.valid() {
+			return nil, fmt.Errorf("invalid peer advertisement for %s", identity.ID)
+		}
+		manifest := peer.Manifest()
+		rows = append(rows, providerRow{Manifest: manifest,
+			Binding: map[string]string{"host": peer.Session.Namespace, "digest": peer.digest}})
+		byID[identity.ID] = manifest
+		external[identity] = peer
+	}
 	config := map[string]any{
 		"packages": rows, "os": options.OS, "arch": options.Arch, "max_hosts": limit, "temp_root": os.TempDir(),
 		"root": map[string]any{"identity": selected.Descriptor.Identity, "contract": options.Contract},
@@ -100,7 +121,7 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 	if options.Layout != (storelayout.Layout{}) {
 		config["layout"] = options.Layout
 	}
-	owned, err := lib.Open("execution_graph", config, library.Handlers{"reverse_authorize": func(data json.RawMessage) (any, error) {
+	handlers := library.Handlers{"reverse_authorize": func(data json.RawMessage) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -115,7 +136,12 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 			return nil, err
 		}
 		return nil, options.Authorize(ctx, event.Consumer, event.Provider, event.Request)
-	}})
+	}}
+	if len(external) > 0 {
+		handlers["backend_connect"] = peerHandler(ctx, external, false)
+		handlers["backend_invoke"] = peerHandler(ctx, external, true)
+	}
+	owned, err := lib.Open("execution_graph", config, handlers)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +171,14 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 		if !ok || manifest.Descriptor.Identity != node.Identity {
 			return nil, fmt.Errorf("native plan package identity changed")
 		}
-		digest, err := options.Review(manifest)
-		if err != nil {
-			return nil, err
+		var digest string
+		if peer, ok := external[node.Identity]; ok {
+			digest = peer.digest
+		} else {
+			digest, err = options.Review(manifest)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if digest == "" {
 			return nil, fmt.Errorf("review of %s returned no digest", node.Identity.ID)
@@ -169,7 +200,7 @@ func OpenGraph(ctx context.Context, lib *library.Described, store *library.Objec
 		if g.closed {
 			err = context.Canceled
 		} else {
-			g.publication, err = publishGraph(ctx, owned, options.LedgerPath)
+			g.publication, err = publishGraph(ctx, owned, options.LedgerPath, external)
 		}
 		g.mu.Unlock()
 		if err != nil {

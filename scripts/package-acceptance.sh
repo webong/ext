@@ -82,6 +82,11 @@ fi
 go test ./cmd/ext -run '^(TestEndToEnd|TestAdapterAcrossProducts|TestAdapterRegistryRelease|TestLegacyAdapterPlan|TestAdapterDependencyPlan|TestProviderThroughCLibrary|TestPackagePlan|TestBundleLifecycle|TestResourceDiscovery|TestResourceDependencyGraph)$' -count=1 -json -timeout=5m | python3 scripts/check-go-test-results.py \
   TestEndToEnd TestAdapterAcrossProducts TestAdapterRegistryRelease TestLegacyAdapterPlan TestAdapterDependencyPlan TestProviderThroughCLibrary \
   TestPackagePlan TestBundleLifecycle TestResourceDiscovery TestResourceDependencyGraph TestResourceDependencyGraph/startup-failure ${resource_cases[@]+"${resource_cases[@]}"}
+case "$(go env GOOS)" in
+  darwin|linux)
+    go test ./cmd/ext -run '^TestSameMachinePeers$' -count=1 -json -timeout=2m | python3 scripts/check-go-test-results.py TestSameMachinePeers
+    ;;
+esac
 go test ./cmd/ext/internal/resourcecmd -count=1 -json | python3 scripts/check-go-test-results.py \
   TestCanceledRequestDoesNotOpenStore TestDependencyGrants
 native_graph_cases=()

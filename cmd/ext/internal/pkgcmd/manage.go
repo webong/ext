@@ -33,6 +33,7 @@ const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sh
        ext package build <directory> --output <zip> [--os target --arch target] -- <command> [args...]
        ext package test <directory> [--os target --arch target]
        ext package doctor <installed-id>
+       ` + serveUsage + `
        ext package index <output> <archive>...`
 
 // Run executes "ext package ..." with args (without "package") and returns the
@@ -57,6 +58,8 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 		return m.plan(rest, stdout, stderr)
 	}
 	switch sub {
+	case "serve":
+		return m.serve(rest, stdout, stderr)
 	case "available", "add", "refresh":
 		fmt.Fprintln(stderr, "ext: legacy catalog activation has moved: use ext source import-catalog <directory>, ext source list, then ext package install --source <name> and explicit ext package trust <id>; source refresh never installs or trusts")
 		return 2

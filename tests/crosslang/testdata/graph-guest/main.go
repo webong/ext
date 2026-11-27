@@ -4,10 +4,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	"os"
 	"path/filepath"
+
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )
 
 func main() {
@@ -19,9 +20,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	var manifest struct {
-		Descriptor plugin.Descriptor `json:"descriptor"`
-	}
+	var manifest packagekit.Manifest
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		panic(err)
 	}

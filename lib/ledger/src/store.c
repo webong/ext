@@ -163,6 +163,15 @@ static int begin_read(ext_ledger_store *s, const ext_ledger_context *ctx) {
 
 /* ---- writes ---- */
 
+static int register_locked(ext_ledger_store *s, const ll_schema *schema) {
+  int changed;
+  int rc = ll_state_check_register(&s->state, schema, &changed);
+  if (rc || !changed) return rc;
+  rc = ll_state_set_schema(&s->state, schema);
+  if (!rc && s->backend) rc = s->backend->ops->write_schema(s->backend, &s->state, schema);
+  return rc;
+}
+
 int ext_ledger_store_register(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len) {
   if (!s) return EXT_LEDGER_INVALID;
   int rc = ll_ctx_check(ctx);
@@ -182,12 +191,7 @@ int ext_ledger_store_register(ext_ledger_store *s, const ext_ledger_context *ctx
   if (s->closed) rc = EXT_LEDGER_UNAVAILABLE;
   else if (s->backend) rc = s->backend->ops->begin_write(s->backend, ctx, &s->state);
   if (!rc) {
-    int changed;
-    rc = ll_state_check_register(&s->state, &schema, &changed);
-    if (!rc && changed) {
-      rc = ll_state_set_schema(&s->state, &schema);
-      if (!rc && s->backend) rc = s->backend->ops->write_schema(s->backend, &s->state, &schema);
-    }
+    rc = register_locked(s, &schema);
     if (s->backend) s->backend->ops->end_write(s->backend);
   }
   ll_mutex_unlock(s->mu);
@@ -492,6 +496,120 @@ int ext_ledger_store_query_vertices(ext_ledger_store *s, const ext_ledger_contex
 
 int ext_ledger_store_query_edges(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
   return query_records(s, ctx, text, len, 1, out, out_len);
+}
+
+/* ---- peer registrations ---- */
+
+#define PEER_NAMESPACE "ext.peer"
+#define PEER_KIND "ext.peer/provider"
+#define PEER_CAPACITY 256
+#define PEER_MAX_LEASE_MS 60000
+
+static int peer_active(const ll_record *r, int64_t now) {
+  const lj_value *expires = lj_get(r->attrs, "expires_at_ms"), *registration = lj_get(r->attrs, "registration");
+  const lj_value *digest = lj_get(r->attrs, "binding_digest");
+  return expires && expires->type == LJ_NUMBER && expires->u.number > (double)now &&
+         expires->u.number <= (double)(now + PEER_MAX_LEASE_MS) && registration && registration->type == LJ_OBJECT &&
+         digest && digest->type == LJ_STRING && digest->u.string.len == 64;
+}
+
+int ll_peer_list(ext_ledger_store *s, const ext_ledger_context *ctx, char **out, size_t *out_len) {
+  int rc = begin_read(s, ctx);
+  if (rc) return rc;
+  ll_namespace *ns = ll_state_ns(&s->state, PEER_NAMESPACE, sizeof PEER_NAMESPACE - 1);
+  ll_record *records[PEER_CAPACITY];
+  size_t count = 0;
+  int64_t now = ll_now_unix_ms();
+  if (ns) LL_MAP_EACH(&ns->vertices, slot) {
+    ll_record *r = slot->value;
+    if (!ll_s_eqz(&r->kind, PEER_KIND) || !peer_active(r, now)) continue;
+    if (count >= PEER_CAPACITY) {
+      ll_mutex_unlock(s->mu);
+      return EXT_LEDGER_TOO_LARGE;
+    }
+    records[count++] = r;
+  }
+  qsort(records, count, sizeof *records, ll_record_id_cmp);
+  lj_buf b = {0};
+  write_record_array(&b, records, count);
+  ll_mutex_unlock(s->mu);
+  return finish(&b, out, out_len);
+}
+
+static int update_peer_locked(ext_ledger_store *s, const ext_ledger_context *ctx, ll_s id,
+                              const lj_value *registration, int64_t ttl) {
+  ll_s kind = {PEER_KIND, sizeof PEER_KIND - 1};
+  ll_schema schema = {.ns = {PEER_NAMESPACE, sizeof PEER_NAMESPACE - 1}, .version = {"v1", 2}, .kinds = &kind, .nkinds = 1};
+  if (registration) {
+    int rc = register_locked(s, &schema);
+    if (rc) return rc;
+  }
+  ll_namespace *ns = ll_state_ns(&s->state, LL_S(schema.ns), schema.ns.n);
+  if (!ns) return 0;
+  const ll_record *existing = ll_map_get(&ns->vertices, LL_S(id), id.n);
+  if (existing && !ll_s_eqz(&existing->kind, PEER_KIND)) return EXT_LEDGER_CHANGED;
+
+  char fp[65] = {0}; /* peer updates carry no idempotency key */
+  ll_tx tx = {.ns = schema.ns};
+  ll_ref removed[PEER_CAPACITY];
+  tx.delete_vertices = removed;
+  if (!registration) {
+    if (!existing) return 0;
+    removed[tx.ndelete_vertices++] = (ll_ref){.id = id};
+    return apply_locked(s, ctx, &tx, fp, NULL, NULL);
+  }
+
+  if (existing && !lj_equal(lj_get(existing->attrs, "registration"), registration)) return EXT_LEDGER_CHANGED;
+  size_t live = 0;
+  int64_t now = ll_now_unix_ms();
+  LL_MAP_EACH(&ns->vertices, slot) {
+    const ll_record *r = slot->value;
+    if (r == existing || !ll_s_eqz(&r->kind, PEER_KIND)) continue;
+    if (peer_active(r, now)) live++;
+    else {
+      if (tx.ndelete_vertices >= PEER_CAPACITY) return EXT_LEDGER_TOO_LARGE;
+      removed[tx.ndelete_vertices++] = (ll_ref){.id = r->id};
+    }
+  }
+  if (live >= PEER_CAPACITY) return EXT_LEDGER_TOO_LARGE;
+  ll_record entry = {.id = id, .kind = kind, .attrs = lj_new(LJ_OBJECT)};
+  if (!entry.attrs) return EXT_LEDGER_IO;
+  ll_record *record = &entry;
+  tx.vertices = &record;
+  tx.nvertices = 1;
+  lj_buf canonical = {0};
+  lj_write(&canonical, registration);
+  char digest[65];
+  if (!canonical.oom) ll_sha256_hex(canonical.ptr, canonical.len, digest);
+  int rc = EXT_LEDGER_IO;
+  if (!canonical.oom && !lj_object_set(entry.attrs, "registration", 12, lj_clone(registration)) &&
+      !lj_object_set(entry.attrs, "expires_at_ms", 13, lj_new_number((double)(now + ttl))) &&
+      !lj_object_set(entry.attrs, "binding_digest", 14, lj_new_string(digest, 64))) {
+    rc = ll_check_tx(&tx, &s->options);
+    if (!rc) rc = apply_locked(s, ctx, &tx, fp, NULL, NULL);
+  }
+  lj_buf_free(&canonical);
+  lj_free(entry.attrs);
+  return rc;
+}
+
+int ll_peer_update(ext_ledger_store *s, const ext_ledger_context *ctx, const lj_value *name,
+                   const lj_value *registration, int64_t ttl) {
+  if (!name || name->type != LJ_STRING || ll_check_name(name->u.string.ptr, name->u.string.len) ||
+      (registration && (registration->type != LJ_OBJECT || ttl <= 0 || ttl > PEER_MAX_LEASE_MS))) return EXT_LEDGER_INVALID;
+  int rc = ll_ctx_check(ctx);
+  if (rc) return rc;
+  if (registration && (rc = ll_check_attributes(registration))) return rc;
+  ll_s id = {name->u.string.ptr, name->u.string.len};
+  ll_mutex_lock(s->mu);
+  if (s->closed) rc = EXT_LEDGER_UNAVAILABLE;
+  else if (s->backend) rc = s->backend->ops->begin_write(s->backend, ctx, &s->state);
+  if (!rc) {
+    rc = update_peer_locked(s, ctx, id, registration, ttl);
+    if (s->backend) s->backend->ops->end_write(s->backend);
+  }
+  ll_mutex_unlock(s->mu);
+  return rc;
 }
 
 /* ---- traversal: breadth first along outgoing edges, edges in ID order ---- */

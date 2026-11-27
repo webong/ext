@@ -70,7 +70,11 @@ func Open(home string) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	store, err := lib.OpenStore(context.Background(), "file", filepath.Join(home, Directory), model.Options{})
+	path := os.Getenv("EXT_LEDGER_PATH")
+	if path == "" {
+		path = filepath.Join(home, Directory)
+	}
+	store, err := lib.OpenStore(context.Background(), "file", path, model.Options{})
 	if err != nil {
 		return nil, err
 	}

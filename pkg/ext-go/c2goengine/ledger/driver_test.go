@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestTranslatedLedgerConformance(t *testing.T) {
@@ -48,6 +49,33 @@ func TestTranslatedLedgerMemoryAndFingerprints(t *testing.T) {
 	ledgertest.RunFingerprints(t, func(tx model.Transaction) (json.RawMessage, string, error) {
 		return l.CanonicalTransaction(context.Background(), tx)
 	})
+}
+
+func TestTranslatedLedgerPeers(t *testing.T) {
+	lib, err := native.Bind()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	db, err := lib.OpenStore(ctx, "memory", "", model.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.PublishPeer(ctx, "host/peer", map[string]string{"endpoint": "one"}, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.Peers(ctx)
+	if err != nil || len(rows) != 1 || rows[0].ID != "host/peer" {
+		t.Fatalf("live peers = %+v, %v", rows, err)
+	}
+	if err := db.WithdrawPeer(ctx, "host/peer"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = db.Peers(ctx)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("after withdrawal = %+v, %v", rows, err)
+	}
 }
 
 func TestTranslatedLedgerUnsupported(t *testing.T) {

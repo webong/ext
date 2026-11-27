@@ -134,6 +134,16 @@
         }
       },
       "events": {
+        "backend_connect": {
+          "answer": "result",
+          "data": {"type": "object", "required": ["identity", "request"]},
+          "default_error": {"code": "unavailable", "message": "external provider connection failed"}
+        },
+        "backend_invoke": {
+          "answer": "result",
+          "data": {"type": "object", "required": ["identity", "request"]},
+          "default_error": {"code": "unavailable", "message": "external provider invocation failed"}
+        },
         "reverse_authorize": {
           "answer": "allow",
           "data": {

@@ -249,3 +249,59 @@ additional mechanics through a versioned vtable; unknown kinds are unsupported.
 Native Go consumers can continue using the Go implementation without cgo. A
 central engine service is deferred. See the [C embedding guide](../lib/plugin/README.md)
 for packaging, ABI migration and ownership rules.
+
+## Same-machine peers
+
+On macOS and Linux, Ext processes running as the same OS user share the
+file ledger at `$EXT_HOME/ledger`. To use separate package homes, give both
+processes the same absolute `EXT_LEDGER_PATH`. CTX reads that same path.
+
+On the provider host, install the provider package, approve it, and expose
+one named contract:
+
+```sh
+EXT_HOME="$provider_home" EXT_LEDGER_PATH="$shared_ledger" \
+  ext package trust example/provider
+EXT_HOME="$provider_home" EXT_LEDGER_PATH="$shared_ledger" \
+  ext package serve example/provider example.value@v1
+```
+
+The second command stays running and prints `serving` after registration.
+On the consumer host, the guest's package declares the dependency and its
+reverse contract. Use a grant for the exact provider identity, contract, and
+operation with [`ext resource call`](resource-discovery-design.md#explicit-resource-calls).
+A local installation of the same package ID takes precedence. If several live
+registrations match a granted package ID, the call fails until the selection
+is unambiguous. The provider host rechecks approval of its reviewed packages
+on each handshake and call. It withdraws its registration on shutdown.
+Following a crash the CLI registration expires within three seconds of the last
+renewal.
+
+### Embedded hosts
+
+Any host binding can open the same file ledger and use
+[`lib/ledger`'s described store operations](../lib/ledger/interface.json).
+`peer_publish` takes a unique session ID, an immutable registration object and
+a lease duration in milliseconds. Renew by publishing the same ID and
+registration before expiry. `peer_list` returns active `ext.peer/provider`
+vertices with `attributes.registration`, `attributes.binding_digest` and
+`attributes.expires_at_ms`. The ledger hashes the canonical registration JSON
+and owns expiry and concurrent updates. Use `peer_withdraw` during shutdown.
+
+The CLI writes registrations with `session` (a vertex reference containing
+`namespace` and `id`), `socket` (an absolute Unix socket path) and
+`descriptor` (an `ext.io.pc/v1` descriptor for the exported contract).
+A host using this transport authenticates the socket's OS user, sends the
+session ID in the `Ext-Peer-Session` header, and uses HTTP POST over the Unix
+socket. `/descriptor` returns the descriptor. `/call` takes an
+`ext.io.pc/v1` request and returns its response envelope. Publishing the
+registration supplies discovery metadata. The consuming host applies its
+own policy and verifies the handshake before use.
+
+Pass the selected descriptor as an external package in the
+[`lib/plugin` execution graph](../lib/plugin/services.md), with
+`binding.host` identifying the publishing host and `binding.digest` matching
+the ledger digest. Pass the same digest in the graph's reviewed bindings.
+Serve the graph's `backend_connect` and `backend_invoke` events using the
+selected transport. Guests keep speaking their original Ext contract and can
+be written in any language that implements it.

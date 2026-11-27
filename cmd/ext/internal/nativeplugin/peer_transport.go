@@ -19,6 +19,7 @@ import (
 )
 
 const peerCallLimit = 5 * time.Second
+const peerCallMargin = 2 * time.Second
 const peerSessionHeader = "Ext-Peer-Session"
 
 func peerHandler(ctx context.Context, peers map[plugin.Identity]Peer, invoke bool) library.Handler {
@@ -59,7 +60,9 @@ func (p Peer) exchange(ctx context.Context, path string, body []byte, out any) e
 	}
 	dialer := net.Dialer{}
 	client := http.Client{
-		Timeout: peerCallLimit,
+		// The serving host gives the provider up to peerCallLimit; leave room for
+		// the round trip so a completed call is not reported as a timeout.
+		Timeout: peerCallLimit + peerCallMargin,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
@@ -166,13 +169,7 @@ func (g *Graph) ServePeer(ctx context.Context, descriptor plugin.Descriptor, con
 	}
 	defer func() { resultErr = errors.Join(resultErr, withdrawPeer(db, peer)) }()
 	server := &http.Server{
-		Handler: g.peerEndpoint(peer, checkReview),
-		ConnContext: func(ctx context.Context, conn net.Conn) context.Context {
-			if err := authenticatePeer(conn); err != nil {
-				conn.Close()
-			}
-			return ctx
-		},
+		Handler:           g.peerEndpoint(peer, checkReview),
 		ReadHeaderTimeout: time.Second,
 		ReadTimeout:       peerCallLimit,
 		WriteTimeout:      2 * peerCallLimit,
@@ -180,8 +177,15 @@ func (g *Graph) ServePeer(ctx context.Context, descriptor plugin.Descriptor, con
 		MaxHeaderBytes:    4096,
 	}
 	serving := make(chan error, 1)
-	go func() { serving <- server.Serve(listener) }()
-	defer server.Close()
+	go func() { serving <- server.Serve(peerListener{listener}) }()
+	// Let in-flight calls finish before the caller closes the graph they use.
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), peerCallLimit+peerCallMargin)
+		defer cancel()
+		if server.Shutdown(shutdown) != nil {
+			server.Close()
+		}
+	}()
 	if err := ready(); err != nil {
 		return err
 	}
@@ -265,4 +269,21 @@ func (g *Graph) peerEndpoint(peer Peer, checkReview func() error) http.Handler {
 		response.ID = request.ID
 		_ = json.NewEncoder(w).Encode(response)
 	})
+}
+
+// peerListener drops connections whose kernel credentials name another user
+// before the HTTP server sees them, so rejected peers are not served or logged.
+type peerListener struct{ net.Listener }
+
+func (l peerListener) Accept() (net.Conn, error) {
+	for {
+		conn, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		if authenticatePeer(conn) == nil {
+			return conn, nil
+		}
+		conn.Close()
+	}
 }

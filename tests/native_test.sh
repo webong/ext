@@ -2,8 +2,13 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-# Adapters live in xallet/tab, zip, vat and tip; fetch them before HOME is isolated.
-ADAPTERS=${EXT_ADAPTERS:-$("$ROOT/scripts/adapters.sh")}
+# This test drives ext with real adapters from xallet/tab, zip, vat and tip. Those repositories own
+# it: their workflows export EXT_ADAPTERS (see scripts/adapters.sh), and ext's own CI skips it.
+if [ -z "${EXT_ADAPTERS:-}" ]; then
+  printf 'skip native_test.sh: set EXT_ADAPTERS to a directory from scripts/adapters.sh\n'
+  exit 0
+fi
+ADAPTERS=$EXT_ADAPTERS
 # adapter_build <adapter> <output>: builds the adapter in its repository checkout, where its go.work applies.
 adapter_build() {
   repo=$(awk -v name="$1" '$1 == name { print $2 }' "$ADAPTERS/.repos")

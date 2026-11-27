@@ -154,9 +154,22 @@ func Prepare(o Options) (staging string, m packagekit.Manifest, err error) {
 	return
 }
 
+// A build copies the whole source tree, which holds more than its artifacts
+// (dependency trees, VCS metadata), so it gets larger limits and keeps symlinks.
+const sourceMaxBytes int64 = 4 << 30
+const sourceMaxFiles = 1 << 17
+
 type copyBudget struct {
-	bytes int64
-	files int
+	bytes  int64
+	files  int
+	source bool // a build source copy rather than declared artifacts
+}
+
+func (b *copyBudget) limits() (int64, int) {
+	if b.source {
+		return sourceMaxBytes, sourceMaxFiles
+	}
+	return maxBytes, maxFiles
 }
 
 func (b *copyBudget) copy(source, dest, relative string) error {
@@ -198,12 +211,21 @@ func (b *copyBudget) copy(source, dest, relative string) error {
 		if err != nil {
 			return err
 		}
+		byteLimit, fileLimit := b.limits()
+		b.files++
+		if b.files > fileLimit {
+			return fmt.Errorf("too many package files")
+		}
+		if b.source && info.Mode()&os.ModeSymlink != 0 {
+			// Recreated, never followed; Prepare still refuses symlinked artifacts.
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(link, target)
+		}
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("non-regular package artifact: %s", rel)
-		}
-		b.files++
-		if b.files > maxFiles {
-			return fmt.Errorf("too many package files")
 		}
 		if err = os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			return err
@@ -224,8 +246,8 @@ func (b *copyBudget) copy(source, dest, relative string) error {
 		if err != nil {
 			return err
 		}
-		limit := maxBytes - b.bytes
-		if limit > store.DefaultMaxArtifactBytes {
+		limit := byteLimit - b.bytes
+		if !b.source && limit > store.DefaultMaxArtifactBytes {
 			limit = store.DefaultMaxArtifactBytes
 		}
 		n, copyErr := io.Copy(output, io.LimitReader(input, limit+1))
@@ -237,7 +259,7 @@ func (b *copyBudget) copy(source, dest, relative string) error {
 		if closeErr != nil {
 			return closeErr
 		}
-		if b.bytes > maxBytes || n > limit {
+		if b.bytes > byteLimit || n > limit {
 			return fmt.Errorf("package exceeds size limit")
 		}
 		return nil
@@ -330,7 +352,7 @@ func Build(ctx context.Context, o Options, command []string) error {
 		return err
 	}
 	defer os.RemoveAll(stage)
-	var budget copyBudget
+	budget := copyBudget{source: true}
 	if err = budget.copy(o.Source, stage, "."); err != nil {
 		return err
 	}

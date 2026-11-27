@@ -32,7 +32,8 @@ func (m Manager) author(sub string, args []string, stdout, stderr io.Writer) int
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		compatible := false
+		// A package without artifacts has nothing platform-specific to run.
+		compatible := len(p.Manifest.Artifacts) == 0 && len(p.Manifest.Entrypoints) == 0
 		if len(p.Manifest.Entrypoints) == 0 {
 			for _, a := range p.Manifest.Artifacts {
 				if (a.OS == "" || a.OS == runtime.GOOS) && (a.Arch == "" || a.Arch == runtime.GOARCH) {

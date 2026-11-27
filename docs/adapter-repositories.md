@@ -25,10 +25,11 @@ modules together and pins the ext modules they use.
 
 ## Testing ext against real adapters
 
-ext's own tests and CI still exercise the loader, contracts and products against
-real adapter manifests and binaries. `scripts/adapters.sh` clones the four
-repositories and copies their adapters into one directory, which tests read from
-`EXT_ADAPTERS`:
+Each adapter repository owns its tests, including the checks that run ext against
+its adapters; ext's own CI never fetches them. Those checks read a directory of
+adapters from `EXT_ADAPTERS`, and skip when it is unset. `scripts/adapters.sh`
+clones the four repositories (with your credentials) and copies their adapters
+into one directory:
 
 ```sh
 export EXT_ADAPTERS=$(scripts/adapters.sh)

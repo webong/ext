@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -177,6 +178,42 @@ func TestBuildUsesExplicitCommandInIsolatedCopy(t *testing.T) {
 	}
 	if err := Build(context.Background(), o, nil); err == nil {
 		t.Fatal("accepted implicit build command")
+	}
+}
+
+// A build source holds more than its artifacts: symlinks outside the declared
+// artifacts (node_modules/.bin, for example) are copied as links, not refused.
+func TestBuildKeepsSourceSymlinksOutsideArtifacts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("creating symlinks needs extra privileges on Windows")
+	}
+	root := fixture(t)
+	if err := os.MkdirAll(filepath.Join(root, "node_modules", ".bin"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../tool/cli.js", filepath.Join(root, "node_modules", ".bin", "tool")); err != nil {
+		t.Fatal(err)
+	}
+	o := options(root)
+	o.Output = filepath.Join(t.TempDir(), "built.zip")
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("EXT_AUTHOR_HELPER", "1")
+	if err := Build(context.Background(), o, []string{executable, "-test.run=^TestAuthorBuildHelper$"}); err != nil {
+		t.Fatal(err)
+	}
+	// Declared artifacts still may not be symlinks.
+	if err := os.Remove(filepath.Join(root, "guest")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("node_modules/.bin/tool", filepath.Join(root, "guest")); err != nil {
+		t.Fatal(err)
+	}
+	o.Output = filepath.Join(t.TempDir(), "linked.zip")
+	if err := Pack(o); err == nil {
+		t.Fatal("packed a symlinked artifact")
 	}
 }
 

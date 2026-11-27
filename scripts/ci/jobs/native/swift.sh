@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# native/swift: the iOS builds and Swift tests of native libraries, and the CoreML adapter (from xallet/tab) through CTN.
+# native/swift: the iOS builds and Swift tests of native libraries, and the CoreML adapter (from xallet/tab, when EXT_ADAPTERS is given) through CTN.
 # (Split out of native/native; the steps are unchanged.)
 . "$(dirname "$0")/../lib.sh"
 
@@ -73,9 +73,8 @@ swift test
 ci_import_env
 fi
 
-# Validate native CoreML guest through CTN
-if [ "$RUNNER_OS" = macOS ]; then
-ci_adapters
+# Validate native CoreML guest through CTN (when an adapter repository's workflow supplies EXT_ADAPTERS)
+if [ "$RUNNER_OS" = macOS ] && [ -n "${EXT_ADAPTERS:-}" ]; then
 (
 guest="$(mktemp -d "$RUNNER_TEMP/coreml-adapter.XXXXXX")"
 cp "$EXT_ADAPTERS/coreml/Package.swift" "$EXT_ADAPTERS/coreml/Package.resolved" "$guest/"

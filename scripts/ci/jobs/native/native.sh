@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# native/native: the Go host on each OS: library modules, intelligence contracts, native processes and the graph, ONNX guests through CTN, credential stores, ctx and the Windows source installer.
+# native/native: the Go host on each OS: library modules, intelligence contracts, native processes and the graph, ONNX guests through CTN when EXT_ADAPTERS is given, ctx and the Windows source installer.
 . "$(dirname "$0")/../lib.sh"
 
 # (action actions/checkout@v5)
@@ -31,24 +31,9 @@ done
 )
 ci_import_env
 
-# Test the adapters ext is exercised against, in their own repositories
-ci_adapters
-(
-ci_adapter_go test wasm evm systemd pulseaudio alsa x11 ffmpeg wayland pipewire openai ollama anthropic gemini
-)
-ci_import_env
-
 # Test intelligence contracts with race detector
 (
 go test -race ./res/int/inference/... ./res/int/perception/... ./src/ctn/perception/... ./src/ctn/realtime/... -timeout 5m
-)
-ci_import_env
-
-# Cross-build inference adapters for Windows
-(
-for adapter in openai ollama anthropic gemini; do
-  (cd "$(ci_adapter_repo $adapter)" && GOWORK= GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o "$RUNNER_TEMP/$adapter.exe" "./$adapter")
-done
 )
 ci_import_env
 
@@ -78,11 +63,13 @@ fi
 if [ "$RUNNER_OS" = Windows ]; then
 (
 ci_pwsh <<'PWSH'
-Copy-Item -Recurse "$env:EXT_ADAPTERS/onnxruntime" "$env:RUNNER_TEMP/onnx-source"
-python "$env:RUNNER_TEMP/onnx-source/build.py" win-x64 --output "$env:RUNNER_TEMP/onnx-guest"
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-$env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
-go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
+if ($env:EXT_ADAPTERS) {
+  Copy-Item -Recurse "$env:EXT_ADAPTERS/onnxruntime" "$env:RUNNER_TEMP/onnx-source"
+  python "$env:RUNNER_TEMP/onnx-source/build.py" win-x64 --output "$env:RUNNER_TEMP/onnx-guest"
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  $env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
+  go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
+}
 dotnet publish res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/clipboard-guest"
 $env:EXT_CLIPBOARD_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'clipboard-guest/Ext.System.Clipboard.Guest.exe'
 go test ./src/ctx/internal/app -run '^TestWindowsClipboardGuestHandshake$' -count=1
@@ -98,27 +85,11 @@ fi
 if [ "$RUNNER_OS" = Linux ]; then
 (
 dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
-cp -RL "$EXT_ADAPTERS/onnxruntime" "$RUNNER_TEMP/onnx-source"
-python3 "$RUNNER_TEMP/onnx-source/build.py" linux-x64 --output "$RUNNER_TEMP/onnx-guest"
-EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
-)
-ci_import_env
+if [ -n "${EXT_ADAPTERS:-}" ]; then
+  cp -RL "$EXT_ADAPTERS/onnxruntime" "$RUNNER_TEMP/onnx-source"
+  python3 "$RUNNER_TEMP/onnx-source/build.py" linux-x64 --output "$RUNNER_TEMP/onnx-guest"
+  EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
 fi
-
-# Validate isolated native cookie credentials
-if [ "$RUNNER_OS" = macOS ] || [ "$RUNNER_OS" = Windows ]; then
-(
-export EXT_COOKIE_NATIVE_CREDENTIAL_TESTS="1"
-(cd "$(ci_adapter_repo chromium)" && GOWORK= go test -v ./chromium/engine -run '^TestNativeCookieCredentials' -count=1)
-)
-ci_import_env
-fi
-
-# Validate isolated native credential store
-if [ "$RUNNER_OS" = macOS ] || [ "$RUNNER_OS" = Windows ]; then
-(
-export EXT_CREDENTIAL_NATIVE_TESTS="1"
-(cd "$(ci_adapter_repo keychain)" && GOWORK= go test -v ./keychain/store ./credman/store -run '^TestNative(KeychainCredential|CredentialManager)RoundTrip$' -count=1)
 )
 ci_import_env
 fi

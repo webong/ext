@@ -36,7 +36,7 @@ if [ -f "$ROOT/cmd/ext/main.go" ] && [ "${EXT_INSTALL_SOURCE:-1}" = 1 ]; then
   case "$OS" in darwin) LIBRARY=libext_plugin_host.dylib;; linux) LIBRARY=libext_plugin_host.so;; *) printf 'ext: unsupported source platform %s\n' "$OS" >&2; exit 1;; esac
   mkdir -p "$BUNDLE/bin/ext-lib"
   cp -L "$TMP/engine/$LIBRARY" "$BUNDLE/bin/ext-lib/$LIBRARY"
-  cp "$ROOT/lib/plugin/interface.json" "$BUNDLE/bin/ext-lib/system/interface.json"
+  cp "$ROOT/lib/plugin/interface.json" "$BUNDLE/bin/ext-lib/plugin-interface.json"
   cmake -S "$ROOT/lib/ledger" -B "$TMP/ledger" -DCMAKE_BUILD_TYPE=Release -DEXT_LEDGER_SHARED=ON -DEXT_LEDGER_TESTS=OFF
   cmake --build "$TMP/ledger" --target ext_ledger_shared -j 4
   case "$OS" in darwin) LEDGER=libext_ledger.dylib;; linux) LEDGER=libext_ledger.so;; esac

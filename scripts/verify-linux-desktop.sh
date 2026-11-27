@@ -47,8 +47,11 @@ if [[ -n "${EXT_PIPEWIRE_TEST_BINARY:-}" ]]; then
   "$EXT_PIPEWIRE_TEST_BINARY" -test.v -test.run '^TestNativePipeWire' -test.timeout 45s
   "$EXT_WAYLAND_TEST_BINARY" -test.v -test.run '^TestNativeWayland' -test.timeout 45s
 else
-  # The PipeWire and Wayland adapters live in xallet/tip; test them in that repository's workspace.
-  adapters=${EXT_ADAPTERS:-$(scripts/adapters.sh)}
-  repo=$(awk '$1 == "pipewire" { print $2 }' "$adapters/.repos")
-  (cd "$repo" && GOWORK= go test -v ./pipewire ./wayland -run '^TestNative' -count=1 -timeout=45s)
+  # The PipeWire and Wayland adapters live in xallet/tip, which runs this check with EXT_ADAPTERS.
+  if [[ -z "${EXT_ADAPTERS:-}" ]]; then
+    echo "skip PipeWire and Wayland adapter checks: set EXT_ADAPTERS to a directory from scripts/adapters.sh"
+  else
+    repo=$(awk '$1 == "pipewire" { print $2 }' "$EXT_ADAPTERS/.repos")
+    (cd "$repo" && GOWORK= go test -v ./pipewire ./wayland -run '^TestNative' -count=1 -timeout=45s)
+  fi
 fi

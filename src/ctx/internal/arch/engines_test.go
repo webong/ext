@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -80,15 +79,11 @@ var (
 	roleNames   = map[string]bool{"virtualizer": true, "interpreter": true, "compiler": true, "transpiler": true, "bundler": true, "renderer": true, "installer": true}
 )
 
-// TestEngineAndRoleFields checks that every shipped adapter uses known values in
+// TestEngineAndRoleFields checks that every fetched adapter uses known values in
 // the right field, that a virtualizer provides an engine and the reverse, and that
 // the old flat declaration is gone from "supports".
 func TestEngineAndRoleFields(t *testing.T) {
-	root := repoRoot(t)
-	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "ext.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	manifests := adapterManifests(t)
 	for _, path := range manifests {
 		values := manifestValues(t, path)
 		name := values["name"]
@@ -122,11 +117,7 @@ func TestEngineAndRoleFields(t *testing.T) {
 // TestEvaluatorAdaptersFollowTheContract checks the parts of docs/evaluator-adapters.md
 // that a manifest can show: the declaration and the required operations.
 func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
-	root := repoRoot(t)
-	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "ext.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	manifests := adapterManifests(t)
 	var evaluators []string
 	for _, path := range manifests {
 		values := manifestValues(t, path)

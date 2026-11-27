@@ -83,7 +83,7 @@ the shared package never picks a backend by name.
 launchd and Task Scheduler are the operating system's own mechanism and ship in
 `res/system/service/user/launchd` and `res/system/service/user/taskscheduler`. systemd's
 `systemctl --user` is a selectable native tool, so its backend lives in
-`adapters/systemd`. The consumer supplies the service name, executable,
+`xallet.app/tip/systemd`. The consumer supplies the service name, executable,
 arguments, environment, working directory, restart policy, definition
 directory, and an optional readiness callback; the library supplies no product
 name, installation layout, port, or health endpoint.
@@ -91,9 +91,9 @@ name, installation layout, port, or health endpoint.
 ## Linux audio and desktop tools
 
 `res/system/capture/audio` defines device observation and bounded PCM16 capture and
-playback interfaces. `adapters/pulseaudio` implements them with `pactl`,
-`parec`, and `pacat`; `adapters/alsa` implements them with `aplay -L`,
-`arecord -L`, `aplay`, and `arecord`. `adapters/pipewire` implements them with
+playback interfaces. `xallet.app/tip/pulseaudio` implements them with `pactl`,
+`parec`, and `pacat`; `xallet.app/tip/alsa` implements them with `aplay -L`,
+`arecord -L`, `aplay`, and `arecord`. `xallet.app/tip/pipewire` implements them with
 `pw-dump`, `pw-record`, and `pw-play`. Neither selects a device or adds routing,
 mixing, or transport policy. PipeWire and PulseAudio are separate adapters; no
 library selects between them by name.
@@ -104,9 +104,9 @@ use installed `system.surface` resource guests backed by the Swift and .NET
 libraries in `lib/system/act/capture/surface`; the C ledger supplies the
 observed window and process identity. The native libraries also provide
 pointer sessions to their direct language consumers. Recording needs an
-encoder; `adapters/ffmpeg` supplies one for macOS and Windows. The tool-based
-drivers below cover other desktop sessions. `adapters/x11` implements capture, keyboard and pointer input,
-and bounded `ffmpeg` recording with `import` and `xdotool`; `adapters/wayland`
+encoder; `xallet.app/tip/ffmpeg` supplies one for macOS and Windows. The tool-based
+drivers below cover other desktop sessions. `xallet.app/tip/x11` implements capture, keyboard and pointer input,
+and bounded `ffmpeg` recording with `import` and `xdotool`; `xallet.app/tip/wayland`
 implements capture, keyboard input, and optional pointer input through an
 explicitly configured `ydotool` (`ydotoold`/uinput), and optional bounded
 recording through an explicitly configured `wf-recorder`. Wayland window
@@ -136,7 +136,7 @@ ext ctx clipboard write --generation <generation> --format CF_UNICODETEXT --text
 `ctx service` renders every platform and runs the lifecycle on macOS and Windows,
 where launchd and Task Scheduler are the operating system mechanisms. Linux
 lifecycle is intentionally not linked into `ctx`: the `systemctl --user` backend
-is `adapters/systemd`, and a product may depend on it without ctx core choosing
+is `xallet.app/tip/systemd`, and a product may depend on it without ctx core choosing
 a native tool. `ctx desktop` uses window-scoped native capture and input where
 `res/system` implements them; Linux desktop tools are the X11 and Wayland
 adapters. `ctx clipboard` currently has only the Windows Go backend; the Apple

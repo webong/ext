@@ -685,8 +685,8 @@ return an opaque `ref`. Adapters must preserve cookie scope and reject fields
 they cannot map. ctx selects one listed cookie before exporting its value,
 matching the request URL's scheme and host, and its path when supplied, before either operation,
 then delivers a versioned bundle to a file, pipe, or importing adapter. A
-source and target can be different browser providers. The maintained browser
-adapters package their own `ctx-<adapter>-share` executable, built from that
+source and target can be different browser providers. The browser
+adapters in [xallet/tab](https://github.com/xallet/tab) package their own `ctx-<adapter>-share` executable, built from that
 adapter's `native` directory; it is included in the adapter checksum and runs
 as a separate process. External adapters implement the same protocol in their own
 executable. The helper receives the same invocation as every adapter,
@@ -724,14 +724,14 @@ observation JSON.
 
 `res/web/host/manage/guest` contains the portable implementation for serving the
 browser protocol. Native policy sources, executable discovery, and SQLite
-tool execution are owned under `adapters/`.
+tool execution are owned by the browser adapters in [xallet/tab](https://github.com/xallet/tab).
 External Go adapters import the shared types from
 `github.com/webong/ext/res/web/host/contract` and serving helpers from
 `github.com/webong/ext/res/web/host/manage/guest`. A Go browser adapter can handle
 `share <profile> -- <resource> <operation>` in its main executable, parse it with
 `plugin.ParseAdapterInvocation`, and use `guest.RunCookie`; it does not need a separate
 helper executable. The bare Chromium adapter owns the reusable native engine at
-`github.com/webong/ext/adapters/chromium/engine`; Chrome and other
+`xallet.app/tab/chromium/engine`; Chrome and other
 Chromium-based Go adapters can configure and import it through its exported
 `Config`, `Cookie`, `List`, `Query`, `ReadValue`, `Import`, `Probe`, and
 `RunManagement` API. The same engine owns CDP installation and activation, CRX

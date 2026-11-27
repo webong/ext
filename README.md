@@ -103,7 +103,8 @@ supervisor.
 guest entrypoints. Those guests use the native libraries and language SDKs;
 the native libraries do not depend on the guests. Published Go APIs under
 `res/` remain available while their callers migrate. Integrations with
-selectable products and providers belong in `adapters/`, and consuming
+selectable products and providers are adapters, which live outside ext in the
+[adapter repositories](docs/adapter-repositories.md), and consuming
 applications choose policy.
 
 See [package authoring](docs/package-authoring.md) for contract-neutral builds,
@@ -137,7 +138,7 @@ engine and archive support.
 | [`res/`](res) | Ext resource contracts, fixtures and guests; published Go APIs during migration | `system`: local OS capabilities; `web`: web capabilities; `int`: intelligence capabilities |
 | [`src/`](src) | First-class plugins built on Ext, also available as Go libraries | `ctx`: contexts; `ctn`: content; `cto`: containment |
 | [`cmd/ext/`](cmd/ext) | The public CLI | Package discovery, installation and command dispatch |
-| [`adapters/`](adapters/README.md) | Integrations with specific products, providers, browsers and native tools | Native discovery, installation, activation and capability implementations |
+| [Adapter repositories](docs/adapter-repositories.md) | Integrations with specific products, providers, browsers and native tools, kept outside ext | [`xallet/tab`](https://github.com/xallet/tab): browsers and AI; [`zip`](https://github.com/xallet/zip): package managers, runtimes and toolchains; [`vat`](https://github.com/xallet/vat): containers and cloud; [`tip`](https://github.com/xallet/tip): OS and devices |
 | [`tests/`](tests) | Tests spanning libraries and languages | Cross-language conformance and integration checks |
 | [`docs/`](docs) | Guides, contracts and architecture decisions | [Product direction](docs/adr-product-direction.md), [Architecture](docs/adr-architecture.md), [CI](docs/ci.md), [adapter authoring](docs/adapter-authoring.md) |
 

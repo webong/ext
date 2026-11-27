@@ -23,7 +23,7 @@ Ext delivers this as a stack. Each layer is useful on its own, and each is the f
 |---|---|---|---|
 | **5. Experience** | One CLI: `ext commands`, `ext which`, `ext <command>`. Later, agent and IDE integrations | End users, scripts, agents | `cmd/ext` |
 | **4. Machine management** | Inventory, install, update and govern software across package managers, under one trust model | Developers, teams, CI | `ext package` / `source` / `bundle` / `resource`, plus manager adapters |
-| **3. Capability catalog** | Adapters that put browsers, containers, AI providers, keychains, audio, display and SDKs behind contracts | Anyone who needs "a browser" or "a container runtime" without caring which one | `adapters/` |
+| **3. Capability catalog** | Adapters that put browsers, containers, AI providers, keychains, audio, display and SDKs behind contracts | Anyone who needs "a browser" or "a container runtime" without caring which one | [Adapter repositories](adapter-repositories.md): `xallet/tab`, `zip`, `vat`, `tip` |
 | **2. Distribution** | Package format, pinned archives, sources, registry, sealed guests, authoring, provenance | Package authors, hosts | Package store, registry, authoring tooling |
 | **1. Runtime** | Plugin contracts, invocation across languages, dependency resolution, trust and approval, supervision, ledger | App developers embedding ext | C core in `lib/` plus the language bindings |
 

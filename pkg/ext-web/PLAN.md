@@ -20,7 +20,7 @@ and implementations of browser extension APIs. Browser-specific compatibility
 code stays beside that portable contract inside the library. Builders do not
 install adapters to use it.
 
-Existing `adapters/<browser>` continue to own external browser installation,
+The browser adapters in [xallet/tab](https://github.com/xallet/tab) continue to own external browser installation,
 profile discovery, signing, and extension management. `res/web/host/artifact/extension`
 continues to own its artifact inspection and packaging workflows.
 

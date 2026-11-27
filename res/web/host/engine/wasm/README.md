@@ -9,7 +9,7 @@ The Go wazero implementation lives in
 [`pkg/ext-go/wasm/runtime`](../../../../../pkg/ext-go/wasm/runtime). It supports
 core modules and WASI Preview 1. The sibling `pkg/ext-go/wasm` package adapts it
 to Ext plugin sessions. The installed-executable Wasmtime path remains in
-[`adapters/wasm`](../../../../../adapters/wasm); that adapter does not implement
+[`xallet.app/zip/wasm`](https://github.com/xallet/zip/tree/main/wasm); that adapter does not implement
 the in-process `Runtime` interface.
 
 `reactor.js` stays here as page-side glue for the iOS and Android WebView hosts.

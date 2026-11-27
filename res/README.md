@@ -22,7 +22,8 @@ reuse. They do not import CTX internals, product adapters, commands or examples;
 - `web/host/contract` owns browser request, response, cookie, policy, and session
   types and their validation.
 - `web/host/manage/guest` serves portable browser workflows through adapter-provided
-  backends. Native storage, discovery, and tools belong under `adapters/`.
+  backends. Native storage, discovery, and tools belong in the owning adapter,
+  outside ext (see [adapter repositories](../docs/adapter-repositories.md)).
 - `web/host/manage/cookie` (imported by ctx as `browser`) parses and combines cookies. `Get`
   and `Normalize` require an injected `browser.Backend` for source operations.
   `InlineOnly`, parsers, and output helpers work without a backend.

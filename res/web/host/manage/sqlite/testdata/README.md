@@ -16,8 +16,8 @@ shell (the committed files were made with 3.50.4):
 | `altered.db` | Columns added with `ALTER TABLE ... ADD COLUMN ... DEFAULT` |
 | `withoutrowid.db`, `utf16.db`, `generated.db` | Features the reader reports as unsupported |
 
-`adapters/chromium/engine/testdata/Cookies` and
-`adapters/firefox/engine/testdata/cookies.sqlite` are copies of `chromium.db` and
+`xallet.app/tab/chromium/engine/testdata/Cookies` and
+`xallet.app/tab/firefox/engine/testdata/cookies.sqlite` are copies of `chromium.db` and
 `firefox.db` for the adapters' tests.
 
 Fuzz with `go test -run '^$' -fuzz FuzzReader -fuzztime 120s -fuzzminimizetime 0 ./sqlite`

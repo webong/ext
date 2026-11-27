@@ -7,8 +7,9 @@
 # published yet (a release in progress) cannot be checked until that tag
 # exists. Skips fail the release gate by default. Development checks can opt in
 # to allowing skips; explicitly selected modules are always required. The
-# executable-only cmd/ext module and workspace modules under adapters/, tests/
-# and examples/ are not checked.
+# executable-only cmd/ext module and the workspace modules under tests/ and
+# examples/ are not checked. Adapters live in their own repositories; a module
+# under adapters/ is rejected.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"

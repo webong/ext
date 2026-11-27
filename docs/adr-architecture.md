@@ -20,7 +20,7 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 | 3. OS mechanisms | `lib/system`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
 | 4. Resource guests | `res/system`, `res/web`, `res/int`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
 | 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; `ext-ios` and `ext-android` bundle the native `lib/system` code | Every language |
-| 6. Adapters | `adapters/*`: one product, provider, browser or native tool each, loaded as packages | Mostly Go |
+| 6. Adapters | [Adapter repositories](adapter-repositories.md) outside ext (`xallet/tab`, `zip`, `vat`, `tip`): one product, provider, browser or native tool each, loaded as packages | Mostly Go |
 | 7. Products | `ctx`, `ctn`, `ext`; Cymonkey and Xallet outside this repository | Selection, commands, policy |
 
 The layers rest on three principles:

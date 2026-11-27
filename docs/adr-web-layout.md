@@ -19,7 +19,7 @@ for another repository. Ext should own that library, and the layout should say w
 | A way to run web content | `host/engine` (`bundle`, the web engine, and `wasm`) |
 
 Every browser adapter and ctx import the first group. `wasm` defines the host
-contract used by `pkg/ext-go/wasm` and `adapters/wasm`, and `bundle` is used by
+contract used by `pkg/ext-go/wasm` and `xallet.app/zip/wasm`, and `bundle` is used by
 one example. Since 2026-11-26, wazero lives in `pkg/ext-go/wasm/runtime`, so
 the web host module itself has no runtime dependency.
 
@@ -34,7 +34,7 @@ the web host module itself has no runtime dependency.
    module for it and there is no staging link. It is not a plugin SDK (`pkg/ext-ts`
    is) and imports neither the plugin engine nor any Go code.
 2. **It is not an adapter.** Browser installation, profile discovery, signing and
-   activation stay in `adapters/<browser>`. `res/web/host/artifact/extension` inspects
+   activation stay in the browser's adapter in [xallet/tab](https://github.com/xallet/tab). `res/web/host/artifact/extension` inspects
    and packages artifacts.
 3. **It stays private for now,** under the npm name `ext-web`. A registry and a
    version are chosen later, with a release tag of its own like the mobile SDKs.

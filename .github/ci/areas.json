@@ -48,7 +48,6 @@
       ],
       "main_paths": null,
       "pr_paths": [
-        "adapters/**",
         "cmd/**",
         "src/**",
         "pkg/ext-go/**",
@@ -67,7 +66,8 @@
         "tests/windows_native_test.ps1",
         "scripts/build-release*.sh",
         "scripts/ci/jobs/native/native.sh",
-        "scripts/ci/jobs/native/native-integration.sh"
+        "scripts/ci/jobs/native/native-integration.sh",
+        "scripts/adapters.sh"
       ],
       "jobs": {
         "android-package": {
@@ -230,10 +230,9 @@
             "go"
           ],
           "pr_paths": [
-            "adapters/pipewire/**",
-            "adapters/wayland/**",
             "res/system/capture/**",
             "scripts/verify-linux-desktop.sh",
+            "scripts/adapters.sh",
             "scripts/ci/jobs/native/linux-desktop.sh"
           ],
           "cells": [

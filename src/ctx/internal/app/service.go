@@ -224,9 +224,10 @@ func parseServiceOptions(args []string) (serviceOptions, error) {
 }
 
 // currentServiceManager implements the platform's own service mechanism. Linux
-// systemd is a selectable native tool delivered as adapters/systemd, which ctx
-// core does not link; render a unit with --platform linux and register it with
-// that library or the system's own tooling.
+// systemd is a selectable native tool delivered as the systemd adapter
+// (xallet.app/tip/systemd), which ctx core does not link; render a unit with
+// --platform linux and register it with that adapter or the system's own
+// tooling.
 func currentServiceManager(directory string, definitions user.Definitions) (user.Manager, error) {
 	switch runtime.GOOS {
 	case "darwin":
@@ -234,7 +235,7 @@ func currentServiceManager(directory string, definitions user.Definitions) (user
 	case "windows":
 		return taskscheduler.New(taskscheduler.Config{Directory: directory, Definitions: definitions})
 	default:
-		return nil, fmt.Errorf("service lifecycle on %s requires the adapters/systemd library; use ctx service render --platform linux to generate a unit", runtime.GOOS)
+		return nil, fmt.Errorf("service lifecycle on %s requires the systemd adapter (xallet.app/tip/systemd); use ctx service render --platform linux to generate a unit", runtime.GOOS)
 	}
 }
 

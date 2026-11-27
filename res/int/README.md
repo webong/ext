@@ -2,7 +2,7 @@
 
 `res/int` retains its published Go intelligence contracts. Native model
 libraries live in `lib/system/int/model`; provider guests live in
-`adapters/coreml` and `adapters/onnxruntime`.
+`xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`.
 Applications choose providers, models,
 credentials, roots, and authorization policy.
 
@@ -25,6 +25,7 @@ wire names remain stable. CTN owns its verified file catalog in
 `src/ctn/internal/content`; it is private product code and does not require an
 intelligence provider.
 
-Product-specific provider wire mappings belong in `adapters/`. The plugin
+Product-specific provider wire mappings belong in the provider's adapter,
+outside ext (see [adapter repositories](../../docs/adapter-repositories.md)). The plugin
 engine owns package integrity and trust mechanics. CTN selects installed
 providers, explicit models, roots, credentials, and user-facing workflows.

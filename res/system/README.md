@@ -88,8 +88,8 @@ a link-time X11 dependency; monitor partitions are reported as partial. A
 Wayland-only session reports global surface observation as unsupported because
 the compositor does not expose that state to arbitrary clients.
 
-Product-specific provider discovery belongs in the owning adapter under
-`adapters/<name>/`. Calling Core Graphics, ScreenCaptureKit, AVFoundation,
+Product-specific provider discovery belongs in the owning adapter, outside ext
+(see [adapter repositories](../../docs/adapter-repositories.md)). Calling Core Graphics, ScreenCaptureKit, AVFoundation,
 User32, GDI or WASAPI to implement a public system API is a platform
 implementation, not a product adapter.
 

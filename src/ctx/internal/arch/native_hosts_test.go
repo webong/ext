@@ -15,7 +15,7 @@ import (
 // must not silently regain a second admission, routing or lifecycle engine.
 func TestProductionHostsUseCLibraries(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"cmd", "src", "adapters", "pkg"} {
+	for _, dir := range []string{"cmd", "src", "pkg"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err

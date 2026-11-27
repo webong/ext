@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# native/swift: the iOS builds and Swift tests of native libraries, and the CoreML adapter through CTN.
+# native/swift: the iOS builds and Swift tests of native libraries, and the CoreML adapter (from xallet/tab) through CTN.
 # (Split out of native/native; the steps are unchanged.)
 . "$(dirname "$0")/../lib.sh"
 
@@ -75,10 +75,11 @@ fi
 
 # Validate native CoreML guest through CTN
 if [ "$RUNNER_OS" = macOS ]; then
+ci_adapters
 (
 guest="$(mktemp -d "$RUNNER_TEMP/coreml-adapter.XXXXXX")"
-cp adapters/coreml/Package.swift adapters/coreml/Package.resolved "$guest/"
-cp -R adapters/coreml/Sources "$guest/"
+cp "$EXT_ADAPTERS/coreml/Package.swift" "$EXT_ADAPTERS/coreml/Package.resolved" "$guest/"
+cp -RL "$EXT_ADAPTERS/coreml/Sources" "$guest/"
 swift build --product ext-coreml-guest --package-path "$guest"
 EXT_COREML_GUEST_BINARY="$guest/.build/debug/ext-coreml-guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
 cmake -S lib/plugin -B "$RUNNER_TEMP/ext-model-cengine" -DCMAKE_BUILD_TYPE=Release

@@ -47,7 +47,7 @@ func TestAdapterRegistryRelease(t *testing.T) {
 	if err := os.Mkdir(source, 0700); err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := os.ReadFile(filepath.Join(root, "adapters/nvm/ext.json"))
+	manifest, err := os.ReadFile(filepath.Join(root, "cmd/ext/testdata/nvm/ext.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

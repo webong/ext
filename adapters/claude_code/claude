@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-# ctx shim for Claude Code
-set -eu
-BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$BIN_DIR/ext" ctx run claude "$@"

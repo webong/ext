@@ -1,9 +1,6 @@
 package arch_test
 
-import (
-	"path/filepath"
-	"testing"
-)
+import "testing"
 
 // session.endpoint reports a browser-level debugging endpoint read from a marker
 // the browser publishes in its profile. Only adapters whose engine implements
@@ -11,10 +8,7 @@ import (
 // adapter here means its native backend answers the operation and has tests.
 func TestSessionEndpointIsDeclaredOnlyWhereImplemented(t *testing.T) {
 	implemented := map[string]bool{"chrome": true, "chromium": true, "edge": true}
-	manifests, err := filepath.Glob(filepath.Join(repoRoot(t), "adapters", "*", "ext.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	manifests := adapterManifests(t)
 	declared := map[string]bool{}
 	for _, path := range manifests {
 		values := manifestValues(t, path)

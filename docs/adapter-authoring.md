@@ -4,7 +4,7 @@ An ext adapter is a separate process that implements its declared Ext contract.
 It can be written in Go, a shell language, or another language. A ready-to-run
 adapter needs a manifest, an executable for the target OS, and any runtime
 assets or dependencies that executable uses. This guide's command examples use
-the `ext.adapter/2.0` tool contract; a provider such as `adapters/coreml` uses
+the `ext.adapter/2.0` tool contract; a provider such as `xallet.app/tab/coreml` uses
 `model.tensor/v1` and is still a sealed Ext package.
 
 Use `ext` as the main installation entry point. The commands below use
@@ -15,6 +15,10 @@ Adapters belong to Ext, not to the interface that invokes them. CTX and CTN
 consume the declared capabilities they understand and permit, provided the
 adapter is installed, trusted, and available in their configured home. One
 adapter can serve both products. See [adapter management](adr-adapter-management.md).
+
+Adapters live outside ext. The ones maintained alongside it are in the
+[adapter repositories](adapter-repositories.md) and make working examples of
+every contract below.
 
 ## Required pieces
 
@@ -308,5 +312,6 @@ missing dependencies, and the native operations they declare.
   Its index selects the OS and architecture and pins each archive's digest.
   See [registry releases](source-management.md#publish-an-adapter-release).
 
-Third-party adapters use the same contract as maintained adapters. Direct
+Third-party adapters use the same contract as the adapters in the
+[adapter repositories](adapter-repositories.md). Direct
 installation does not require adding the adapter to CTX's optional catalog.

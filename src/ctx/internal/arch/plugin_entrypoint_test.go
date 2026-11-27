@@ -20,7 +20,7 @@ import (
 func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {
 	root := repoRoot(t)
 	const pluginRoot = "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	for _, tree := range []string{"adapters", "examples", "src", "res"} {
+	for _, tree := range []string{"examples", "src", "res"} {
 		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr

@@ -209,7 +209,7 @@ ctx.
 2. Decide `isolation` honestly and apply the defaults for it.
 3. Use the flag names and exit statuses in this page.
 4. Document the selection, its default and the evaluator-specific flags in
-   [the adapter list](../adapters/README.md).
+   the README of the adapter's repository ([xallet/zip](https://github.com/xallet/zip) for the existing evaluators).
 5. Add a test that runs a real program through `run`, covering a success, a
    failure, the timeout and an invalid input.
 

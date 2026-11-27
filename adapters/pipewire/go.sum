@@ -1,6 +1,0 @@
-github.com/webong/ext/pkg/ext-go/cgoengine v0.3.0 h1:YDMIicrchGXSKlnVX297VwZBN5MPbpFTyLe1YlKl1Ns=
-github.com/webong/ext/pkg/ext-go/cgoengine v0.3.0/go.mod h1:93SilXwDjdBzVs1iXpUhXn7QSbmEf9BTejgremkQBS0=
-github.com/webong/ext/pkg/ext-go/engine v0.3.0 h1:BSsdKtqiWKLkhXLQc2dKAPl5fFlQMbH+Enw5qjPlw1o=
-github.com/webong/ext/pkg/ext-go/engine v0.3.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
-github.com/webong/ext/res/system v0.5.0 h1:MC3+yJbI8L2mp/sm7b7QtO0tGXjee7Ph2aXhsv0RcEs=
-github.com/webong/ext/res/system v0.5.0/go.mod h1:ChrugLedXqBaKX9eYWBh9oCUkbTyUec/uV7Df4SF1XA=

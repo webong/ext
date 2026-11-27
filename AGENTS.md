@@ -1,9 +1,11 @@
 # Adapter ownership
 
 Anything specific to a product, provider, browser, or native tool belongs in its
-adapter package under `adapters/<name>/`. This includes native protocols,
-installation and activation, executable and profile discovery conventions,
-storage formats, signing tools, store URLs, settings paths, and diagnostics.
+adapter package, outside ext, in one of the adapter repositories (`xallet/tab`,
+`zip`, `vat` and `tip`; see [adapter repositories](docs/adapter-repositories.md)).
+This includes native protocols, installation and activation, executable and
+profile discovery conventions, storage formats, signing tools, store URLs,
+settings paths, and diagnostics.
 
 Ext libraries own generic adapter contracts, validation, package trust, and
 invocation. CTX, CTN and CTO are products built on Ext and installed as Ext packages; each
@@ -15,13 +17,14 @@ through it. Current adapter management uses `ext package` or `ext ctx adapter`, 
 [adapter management](docs/adr-adapter-management.md).
 
 Adapters may use any language that implements their Ext contract. Release them
-as sealed Ext packages through the package registry. Go modules under `adapters/`
-are for workspace development and carry no new Go release tags. See
+as sealed Ext packages through the package registry. Adapter Go modules are
+named `xallet.app/<repository>/<adapter>`, are not fetched with `go get`, and
+carry no Go release tags. See
 [registry releases](docs/source-management.md#publish-an-adapter-release).
-Build adapter source as though it were in a separate repository: package
-manifests must use published, pinned dependencies, never relative paths into
-this workspace. Verify a release build from an isolated copy with the workspace
-disabled. The Core ML Swift guest is checked this way in native CI.
+Adapter repositories build against published or pinned ext modules, never paths
+into an ext checkout. Do not add adapter code back to ext: ext tests and CI fetch
+the adapter repositories with `scripts/adapters.sh` (exported as `EXT_ADAPTERS`)
+to check ext against real adapters, including the Core ML Swift guest.
 
 Shared libraries may
 implement portable workflows and utilities, but must not choose native behavior
@@ -29,7 +32,7 @@ by adapter name or supply a browser-specific fallback. Adapters provide that
 behavior through declared capabilities and backends.
 
 Related adapters may reuse an engine from the adapter that owns the native
-mechanism, such as `adapters/chromium/engine`. Each product adapter supplies its
+mechanism, such as `xallet.app/tab/chromium/engine`. Each product adapter supplies its
 own paths, identifiers, capabilities, and policy through configuration.
 
 Apply this boundary when bringing code into Ext: move provider-specific behavior
@@ -220,7 +223,7 @@ The reusable libraries are:
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
 - `res/system` for the published Go system APIs during migration. Native Apple, Android and .NET system libraries live under `lib/system/act` and `lib/system/net`; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `res/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
-- `res/int` for the published Go intelligence contracts. Native Core ML, Android model and .NET inference libraries live under `lib/system/int/model`. The Core ML and ONNX Runtime provider guests live in `adapters/coreml` and `adapters/onnxruntime`; CTN chooses providers, models, credentials and policy.
+- `res/int` for the published Go intelligence contracts. Native Core ML, Android model and .NET inference libraries live under `lib/system/int/model`. The Core ML and ONNX Runtime provider guests live in `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`; CTN chooses providers, models, credentials and policy.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
 - `pkg/ext-go/engine` for Go plugin sessions and guest authoring. Shared plugin contracts are aliases of `core/plugin`; shared ledger records live directly in `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; the compatibility ledger aliases have also been removed. The recorder wrapper module, Go recorder implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library and store location; ledger mechanics execute in C.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is not committed: the `tools` module generates it on each platform, the binding beside it (`internal/ccgo`) builds only with `-tags ext_c2go`, the ext-plugin release translates, tests against the pure-Go engine (`engine/plugin/plugintest/enginetest`) and publishes each platform's as the c2go driver's archive, and a project fetches it (`go tool ext bundle fetch -lib ext_plugin -driver c2go`); it depends on `engine` only.
@@ -249,9 +252,9 @@ to plugins. None of them is a product adapter. Keep the shared host/guest contra
 independent of backend choice so existing and future plugin implementations can use it.
 
 Product adapter engines and stores that are reused across adapters
-(`adapters/chromium` module, engine code in `adapters/chromium/engine`, `adapters/firefox/engine`, `adapters/safari/native`,
-`adapters/keychain/store`, `adapters/credman/store`, and
-`adapters/secret_service/store`) live in adapter Go modules listed in `go.work`.
+(`xallet.app/tab/chromium` module, engine code in `xallet.app/tab/chromium/engine`, `xallet.app/tab/firefox/engine`, `xallet.app/tab/safari/native`,
+`xallet.app/tip/keychain/store`, `xallet.app/tip/credman/store`, and
+`xallet.app/tip/secret_service/store`) live in the adapter repositories.
 ctx does not import them: it loads adapters as installed ext packages. Product adapter
 executables use the same plugin library. `pkg/ext-go/engine` owns the
 adapter process protocol and adapter descriptor helpers (`engine/plugin/host/adapter`), and holds the pure-Go package store and host (`engine/plugin/host`, `engine/plugin/host/store`). Adapters and other Go
@@ -349,13 +352,13 @@ the shared directory lock is `res/system/device/dirlock`.
 `res/system/service/user` retains the Go manager contract, while the
 macOS launchd and Windows Task Scheduler backends are platform implementations
 there; `systemctl --user` remains a selectable native tool owned by
-`adapters/systemd`. Managers receive a ledger-backed definition interface.
+`xallet.app/tip/systemd`. Managers receive a ledger-backed definition interface.
 `res/system/capture/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
-and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
-`adapters/alsa`, `adapters/wayland`, and `adapters/x11`; `adapters/ffmpeg` owns recording on
+and `ffmpeg` are selectable native tools owned by `xallet.app/tip/pulseaudio`,
+`xallet.app/tip/alsa`, `xallet.app/tip/wayland`, and `xallet.app/tip/x11`; `xallet.app/tip/ffmpeg` owns recording on
 macOS and Windows, while installed `system.surface` resource guests use the
-native Swift and .NET libraries for selected-window capture and input. `adapters/pipewire`
+native Swift and .NET libraries for selected-window capture and input. `xallet.app/tip/pipewire`
 implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
 by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters

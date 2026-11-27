@@ -9,7 +9,7 @@ the graph.
 ## Problem
 
 A runtime adapter has to answer "which copies of this program are on the machine,
-and which are safe to run?". Today each adapter answers alone. `adapters/php/ctx-php`
+and which are safe to run?". Today each adapter answers alone. `xallet.app/zip/php/ctx-php`
 asks Homebrew (`brew list --formula --versions`), then falls back to the `php` on
 `PATH`. So `php` knows about Homebrew and nothing else: not asdf, phpbrew, MacPorts,
 apt or a hand-built prefix. `python`, `node` and `ruby` would each repeat that work,

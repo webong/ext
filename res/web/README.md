@@ -28,7 +28,8 @@ platform like `pkg/ext-darwin` and `pkg/ext-android`.
 | **Web artifacts on every runtime** | `host/artifact`, `lib/system/web`, and `pkg/ext-web` | The same rules for each place web code runs: the host (Go), inside a native app's WebView, and inside a browser extension (`pkg/ext-web`) |
 | **A way to run web content** | `host/engine` | The web engine serves a bundle to a browser the host opens; `engine/wasm` defines a runtime-neutral WebAssembly host contract implemented with wazero in `pkg/ext-go/wasm/runtime`. Neither manages a browser |
 
-Native storage, discovery and tooling belong under `adapters/<name>/`. Nothing here
+Native storage, discovery and tooling belong in the owning adapter, outside ext
+(see [adapter repositories](../../docs/adapter-repositories.md)). Nothing here
 chooses a browser implementation by name — hosts supply selection and authorization
 policy.
 

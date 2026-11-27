@@ -6,7 +6,8 @@ browser-specific operations. The same adapter can keep display, page, and
 session operations behind a separate runtime and implement the public CTX
 backend interface as a bridge to that runtime.
 
-Browser-specific behavior lives under `adapters/<name>/`. The shared manager
+Browser-specific behavior lives in the browser adapters in
+[xallet/tab](https://github.com/xallet/tab). The shared manager
 handles the protocol, portable package preparation, userscript storage, and
 bookmarklet export. Native discovery, capability reporting, signing, store
 registration, installation, and page execution are supplied by the adapter's

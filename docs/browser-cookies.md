@@ -265,8 +265,9 @@ in-memory cookies.
 Additional opt-in tests exercise the real OS credential API with dummy data:
 
 ```sh
-# Run on macOS or Windows; PowerShell users set $env:EXT_COOKIE_NATIVE_CREDENTIAL_TESTS = '1'.
-EXT_COOKIE_NATIVE_CREDENTIAL_TESTS=1 go test -v ./adapters/chromium/engine \
+# In a checkout of xallet/tab, on macOS or Windows; PowerShell users set
+# $env:EXT_COOKIE_NATIVE_CREDENTIAL_TESTS = '1'.
+EXT_COOKIE_NATIVE_CREDENTIAL_TESTS=1 go test -v ./chromium/engine \
   -run '^TestNativeCookieCredentials' -count=1
 ```
 

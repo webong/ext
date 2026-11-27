@@ -1,41 +1,6 @@
 go 1.26.0
 
 use (
-	./adapters/alsa
-	./adapters/anthropic
-	./adapters/arc
-	./adapters/atlas
-	./adapters/brave
-	./adapters/chrome
-	./adapters/chromium
-	./adapters/comet
-	./adapters/credman
-	./adapters/dia
-	./adapters/edge
-	./adapters/evm
-	./adapters/ffmpeg
-	./adapters/firefox
-	./adapters/floorp
-	./adapters/gemini
-	./adapters/git
-	./adapters/helium
-	./adapters/keychain
-	./adapters/librewolf
-	./adapters/ollama
-	./adapters/openai
-	./adapters/opera
-	./adapters/pipewire
-	./adapters/pulseaudio
-	./adapters/safari
-	./adapters/secret_service
-	./adapters/systemd
-	./adapters/vivaldi
-	./adapters/wasm
-	./adapters/waterfox
-	./adapters/wayland
-	./adapters/whale
-	./adapters/x11
-	./adapters/zen
 	./cmd/ext
 	./examples/ledger/go
 	./examples/plugins/go
@@ -86,5 +51,3 @@ replace github.com/webong/ext/src/ctn/perception v0.1.0 => ./src/ctn/perception
 
 replace github.com/webong/ext/src/ctn/realtime v0.1.0 => ./src/ctn/realtime
 
-// Ollama shares implementation code from the workspace-only OpenAI adapter module.
-replace github.com/webong/ext/adapters/openai v0.3.0 => ./adapters/openai

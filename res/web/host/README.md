@@ -28,7 +28,7 @@ writes the corpus that `scripts/web-differential.sh` uses to compare the Swift a
 modules with Go.
 Browser policy file and native tool reads are owned by the browser adapters.
 Chromium-family Go adapters share an optional helper in
-`adapters/chromium/engine/policy`; Firefox and Safari own their reads. The
+`xallet.app/tab/chromium/engine/policy`; Firefox and Safari own their reads. The
 wire cases are in `res/web/testdata/policy` for adapters in any language.
 
 ## Layering
@@ -50,6 +50,7 @@ this module without the repository around it has no fixtures, so the tests that 
 find them through `internal/fixtures`, which fails in a checkout when they are missing and
 skips outside one.
 
-Native storage, discovery and tooling belong under `adapters/<name>/`. No package here
+Native storage, discovery and tooling belong in the owning adapter, outside ext
+(see [adapter repositories](../../../docs/adapter-repositories.md)). No package here
 chooses a browser implementation by name — hosts supply selection and authorization
 policy.

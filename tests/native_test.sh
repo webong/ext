@@ -2,6 +2,13 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Adapters live in xallet/tab, zip, vat and tip; fetch them before HOME is isolated.
+ADAPTERS=${EXT_ADAPTERS:-$("$ROOT/scripts/adapters.sh")}
+# adapter_build <adapter> <output>: builds the adapter in its repository checkout, where its go.work applies.
+adapter_build() {
+  repo=$(awk -v name="$1" '$1 == name { print $2 }' "$ADAPTERS/.repos")
+  (cd "$repo" && GOWORK= go build -o "$2" "./$1/native")
+}
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT HUP INT TERM
 
@@ -40,19 +47,19 @@ ctx() { "$EXT_BIN_DIR/ext" ctx "$@"; }
 
 mkdir -p "$EXT_HOME/catalog/adapters"
 for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql git; do
-  cp -R "$ROOT/adapters/$adapter" "$EXT_HOME/catalog/adapters/$adapter"
+  cp -RL "$ADAPTERS/$adapter" "$EXT_HOME/catalog/adapters/$adapter"
 done
 GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
-  go build -o "$EXT_HOME/catalog/adapters/git/ctx-git" "$ROOT/adapters/git/native"
+  adapter_build git "$EXT_HOME/catalog/adapters/git/ctx-git"
 case "$(uname -s)" in
   Darwin) credential_adapter=keychain; credential_executable=ctx-keychain ;;
   Linux) credential_adapter=secret_service; credential_executable=ctx-secret-service ;;
   *) credential_adapter= ;;
 esac
 if [ -n "$credential_adapter" ]; then
-  cp -R "$ROOT/adapters/$credential_adapter" "$EXT_HOME/catalog/adapters/$credential_adapter"
+  cp -RL "$ADAPTERS/$credential_adapter" "$EXT_HOME/catalog/adapters/$credential_adapter"
   GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
-    go build -o "$EXT_HOME/catalog/adapters/$credential_adapter/$credential_executable" "$ROOT/adapters/$credential_adapter/native"
+    adapter_build "$credential_adapter" "$EXT_HOME/catalog/adapters/$credential_adapter/$credential_executable"
 fi
 ctx adapter available | grep -Eq '^docker[[:space:]]+manager[[:space:]]+available'
 ctx setup --adapters docker,podman,nerdctl,apple,rancher_desktop,orbstack,docker_desktop,firefox,chrome,kube,aws,gcloud,postgres,mysql,git >/dev/null

@@ -46,7 +46,7 @@ ext ctx browser manage extension update_manifest --target chrome:Default \
 `keyPath` to its caller. CRX3 inspection verifies RSA/SHA-256 or P-256 ECDSA
 proofs, signed extension identity, and the bounded ZIP payload. It is also
 available as `extension.prepare` on a `.crx` file, or through the owning
-`adapters/chromium/engine.InspectCRX` Go API. Inspection is not publisher trust,
+`xallet.app/tab/chromium/engine.InspectCRX` Go API. Inspection is not publisher trust,
 a Chrome Web Store review, or proof that a particular browser will accept the
 extension.
 

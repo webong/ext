@@ -24,7 +24,7 @@ discovery, package distribution, trust decisions, and endpoint authentication.
 The library supplies the generic mechanics around them: `pkg/ext-go/cgoengine/plugin/host/store`
 installs, upgrades, lists, removes and re-verifies packages, and
 `pkg/ext-go/engine/plugin/host/process` launches process plugins (see below).
-Product and native mechanisms selected through Ext belong under `adapters/<name>/`.
+Product and native mechanisms selected through Ext belong in adapters, outside ext (see [adapter repositories](adapter-repositories.md)).
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
 record, matching checksum, or successful handshake never grants authority.

@@ -100,3 +100,27 @@ _ci_powershell() {
 }
 ci_pwsh() { _ci_powershell pwsh; }
 ci_powershell() { _ci_powershell powershell; }
+
+# Exports EXT_ADAPTERS, one directory per adapter fetched from the adapter repositories (xallet/tab,
+# zip, vat and tip). Adapters are not part of ext; jobs that exercise ext against real adapters call this.
+ci_adapters() {
+  if [ -z "${EXT_ADAPTERS:-}" ]; then
+    EXT_ADAPTERS="$(EXT_ADAPTERS_CACHE="$RUNNER_TEMP/ext-adapters" scripts/adapters.sh)"
+    export EXT_ADAPTERS
+  fi
+}
+
+# ci_adapter_repo <adapter>: prints the checkout of the repository that holds the adapter.
+ci_adapter_repo() {
+  awk -v name="$1" '$1 == name { print $2; found = 1 } END { exit !found }' "$EXT_ADAPTERS/.repos"
+}
+
+# ci_adapter_go <go subcommand> <adapter>...: runs a go command on adapters inside their own repository
+# workspace, where its go.work applies.
+ci_adapter_go() {
+  local sub=$1 adapter
+  shift
+  for adapter in "$@"; do
+    (cd "$(ci_adapter_repo "$adapter")" && GOWORK= go "$sub" "./$adapter/...")
+  done
+}

@@ -18,12 +18,19 @@ func TestFirefoxCookieSharingDestinations(t *testing.T) {
 	if _, err := exec.LookPath("sqlite3"); err != nil {
 		t.Skip("sqlite3 is not installed")
 	}
+	// The Firefox adapter lives in xallet/tab; scripts/adapters.sh fetches it.
+	adapters := os.Getenv("EXT_ADAPTERS")
+	if adapters == "" {
+		t.Skip("set EXT_ADAPTERS=$(scripts/adapters.sh) to test against the Firefox adapter")
+	}
+	maintained := filepath.Join(adapters, "firefox")
+	// Build in the repository checkout that holds the adapter, so its go.work applies.
+	repo := adapterRepository(t, adapters, "firefox")
 	root := t.TempDir()
 	adapterSource := filepath.Join(root, "firefox-adapter")
 	if err := os.Mkdir(adapterSource, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	maintained := filepath.Join("..", "..", "..", "..", "adapters", "firefox")
 	entries, err := os.ReadDir(maintained)
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +55,9 @@ func TestFirefoxCookieSharingDestinations(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		helper += ".exe"
 	}
-	command := exec.Command("go", "build", "-o", helper, "../../../../adapters/firefox/native")
+	command := exec.Command("go", "build", "-o", helper, "./firefox/native")
+	command.Dir = repo
+	command.Env = append(os.Environ(), "GOWORK=") // use the adapter repository's workspace, not ext's
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("build browser adapter helper: %v %s", err, output)
 	}
@@ -202,4 +211,21 @@ func TestFirefoxCookieSharingDestinations(t *testing.T) {
 		}
 		_ = opened.Close()
 	}
+}
+
+// adapterRepository reads the .repos index scripts/adapters.sh writes beside the
+// adapters and returns the checkout of the repository that holds name.
+func adapterRepository(t *testing.T, adapters, name string) string {
+	t.Helper()
+	index, err := os.ReadFile(filepath.Join(adapters, ".repos"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(index), "\n") {
+		if adapter, repo, ok := strings.Cut(line, " "); ok && adapter == name {
+			return repo
+		}
+	}
+	t.Fatalf("%s is not in %s", name, filepath.Join(adapters, ".repos"))
+	return ""
 }

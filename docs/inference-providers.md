@@ -10,12 +10,13 @@ ext adapters, CTN inference providers, and Ext commands use separate scopes.
 
 ## Build, install, and trust
 
-The bundled Go guests are `adapters/openai`, `adapters/ollama`,
-`adapters/anthropic`, and `adapters/gemini`. Build one for the machine where it
-will run, then create and install a sealed package:
+The Go guests in [xallet/tab](https://github.com/xallet/tab) are `xallet.app/tab/openai`, `xallet.app/tab/ollama`,
+`xallet.app/tab/anthropic`, and `xallet.app/tab/gemini`. Build one for the machine where it
+will run, then create and install a sealed package. From a checkout of
+[xallet/tab](https://github.com/xallet/tab):
 
 ```sh
-go build -o /tmp/ext-openai ./adapters/openai
+go build -o /tmp/ext-openai ./openai
 ext ctn inference package openai 1.0.0 /tmp/ext-openai /tmp/openai-package
 ext ctn inference install /tmp/openai-package
 ext ctn inference providers

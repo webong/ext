@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-# ctx wrapper for nerdctl/containerd
-set -eu
-
-BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$BIN_DIR/ext" ctx run nerdctl "$@"

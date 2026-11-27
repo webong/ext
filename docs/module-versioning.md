@@ -32,8 +32,11 @@ function. Bump `MAJOR` for a breaking API change, which bumps every module.
 ## Tagging
 
 Tag each published Go module separately at its own version when it changes.
-Existing `adapters/<name>/vX.Y.Z` tags are historical. New adapter releases use
-[the Ext package registry](source-management.md#publish-an-adapter-release).
+Adapters are not ext modules: they moved to the
+[adapter repositories](adapter-repositories.md), which carry no Go tags, and
+adapter releases use
+[the Ext package registry](source-management.md#publish-an-adapter-release). The
+`adapters/...` modules in the release history below are historical.
 
 ```bash
 # fix in one module only

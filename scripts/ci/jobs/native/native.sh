@@ -25,9 +25,16 @@ ci_import_env
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
+)
+ci_import_env
+
+# Test the adapters ext is exercised against, in their own repositories
+ci_adapters
+(
+ci_adapter_go test wasm evm systemd pulseaudio alsa x11 ffmpeg wayland pipewire openai ollama anthropic gemini
 )
 ci_import_env
 
@@ -39,8 +46,8 @@ ci_import_env
 
 # Cross-build inference adapters for Windows
 (
-for module in adapters/openai adapters/ollama adapters/anthropic adapters/gemini; do
-  GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o "$RUNNER_TEMP/$(basename "$module").exe" "./$module"
+for adapter in openai ollama anthropic gemini; do
+  (cd "$(ci_adapter_repo $adapter)" && GOWORK= GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o "$RUNNER_TEMP/$adapter.exe" "./$adapter")
 done
 )
 ci_import_env
@@ -71,7 +78,7 @@ fi
 if [ "$RUNNER_OS" = Windows ]; then
 (
 ci_pwsh <<'PWSH'
-Copy-Item -Recurse adapters/onnxruntime "$env:RUNNER_TEMP/onnx-source"
+Copy-Item -Recurse "$env:EXT_ADAPTERS/onnxruntime" "$env:RUNNER_TEMP/onnx-source"
 python "$env:RUNNER_TEMP/onnx-source/build.py" win-x64 --output "$env:RUNNER_TEMP/onnx-guest"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
@@ -91,7 +98,7 @@ fi
 if [ "$RUNNER_OS" = Linux ]; then
 (
 dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
-cp -R adapters/onnxruntime "$RUNNER_TEMP/onnx-source"
+cp -RL "$EXT_ADAPTERS/onnxruntime" "$RUNNER_TEMP/onnx-source"
 python3 "$RUNNER_TEMP/onnx-source/build.py" linux-x64 --output "$RUNNER_TEMP/onnx-guest"
 EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
 )
@@ -102,7 +109,7 @@ fi
 if [ "$RUNNER_OS" = macOS ] || [ "$RUNNER_OS" = Windows ]; then
 (
 export EXT_COOKIE_NATIVE_CREDENTIAL_TESTS="1"
-go test -v ./adapters/chromium/engine -run '^TestNativeCookieCredentials' -count=1
+(cd "$(ci_adapter_repo chromium)" && GOWORK= go test -v ./chromium/engine -run '^TestNativeCookieCredentials' -count=1)
 )
 ci_import_env
 fi
@@ -111,7 +118,7 @@ fi
 if [ "$RUNNER_OS" = macOS ] || [ "$RUNNER_OS" = Windows ]; then
 (
 export EXT_CREDENTIAL_NATIVE_TESTS="1"
-go test -v ./adapters/keychain/store ./adapters/credman/store -run '^TestNative(KeychainCredential|CredentialManager)RoundTrip$' -count=1
+(cd "$(ci_adapter_repo keychain)" && GOWORK= go test -v ./keychain/store ./credman/store -run '^TestNative(KeychainCredential|CredentialManager)RoundTrip$' -count=1)
 )
 ci_import_env
 fi

@@ -10,7 +10,7 @@ session resources. Output shapes must be fixed so their size can be checked
 before native execution. It does not download models, select devices, authorize
 access, or expose a remote protocol.
 
-The provider guests live in [`adapters/onnxruntime`](../../../../../adapters/onnxruntime).
+The provider guests live in [`xallet.app/tab/onnxruntime`](https://github.com/xallet/tab/tree/main/onnxruntime).
 They consume the published library, serve `model.tensor/v1` over Ext JSON lines,
 and verify model manifests and artifact hashes before inference. See the adapter
 README for standalone builds and installation.

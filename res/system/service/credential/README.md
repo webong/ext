@@ -11,8 +11,8 @@ library, so a host can consume it without a native store implementation.
 
 An adapter executable parses its process envelope and passes an `Invocation` to
 `adapterkit.Run`. The store itself is supplied by the adapter that owns the
-native mechanism, such as `adapters/keychain`, `adapters/credman`, or
-`adapters/secret_service`.
+native mechanism, such as `xallet.app/tip/keychain`, `xallet.app/tip/credman`, or
+`xallet.app/tip/secret_service`.
 
 `client` talks to CTX's credential process protocol and has no dependency on a
 native store; using it requires a CTX host.

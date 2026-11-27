@@ -35,8 +35,17 @@ Tag each published Go module separately at its own version when it changes.
 Adapters are not ext modules: they moved to the
 [adapter repositories](adapter-repositories.md), which carry no Go tags, and
 adapter releases use
-[the Ext package registry](source-management.md#publish-an-adapter-release). The
-`adapters/...` modules in the release history below are historical.
+[the Ext package registry](source-management.md#publish-an-adapter-release). Their
+`adapters/...` tags were deleted on 2026-11-27; the release history below records
+them only as history.
+
+Tags of retired module paths were deleted at the same time: `pkg/plugin`,
+`pkg/plugin-go` and its submodules, `pkg/plugin-wasm`, `pkg/plugin-hashicorp`,
+`pkg/plugin-cshared`, `pkg/graph`, `res/graph`, `res/web` (now `res/web/host`),
+`res/browser`, `res/credential`, and `pkg/ext-go/model`, `perception` and
+`realtime`. The Go module proxy may still serve versions it has cached; nothing
+in git provides them. `pkg/ext-go/inference` keeps its tags while consumers still
+require it.
 
 ```bash
 # fix in one module only
@@ -79,7 +88,8 @@ holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
 
 The public binary release is tagged `ext-vX.Y.Z`; it is not a Go module
 version. It contains the `ext` executable and installed CTX, CTN and CTO
-packages. The old `ctx-v*` and `ctn-v*` standalone binary routes have stopped.
+packages. The old `ctx-v*` and `ctn-v*` standalone binary routes have stopped, and their
+last tags and releases (`ctx-v0.8.0`, `ctn-v0.1.0`) were deleted.
 `install.sh` and `install.ps1` resolve the newest `ext-v*` release rather than
 the repository-wide `latest/download` URL.
 The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
@@ -138,8 +148,8 @@ Library modules never use these tags, and bare `vX.Y.Z` tags are not used. The o
 `pkg/ext-ios` and `pkg/ext-android` were `pkg/plugin-ios` and `pkg/plugin-android` until they
 also carried the web code (cookie, userscript and bookmarklet rules) beside the plugin code. This
 was a hard cut: the tag forms `plugin-ios-vX.Y.Z` and `plugin-android-vX.Y.Z` are retired and the
-release workflow no longer watches them (the one release made under the old form,
-`plugin-android-v0.1.0`, stays as it was published), and the AARs are now
+release workflow no longer watches them (the one tag made under the old form,
+`plugin-android-v0.1.0`, was deleted on 2026-11-27), and the AARs are now
 `ext-android-X.Y.Z.aar` and `ext-android-wamr-X.Y.Z.aar` (were `ext-plugin-…`). The scripts
 `scripts/plugin-ios-*.sh` and `scripts/plugin-android*.sh` are `scripts/ext-ios-*.sh` and
 `scripts/ext-android*.sh`; the SwiftPM package is `Ext` (scheme `Ext-Package`) and its plugin
@@ -547,8 +557,9 @@ separate modules under its product tree:
 
 CTN's `inference`, `model`, and `perception` bridges are separate nested modules
 under `src/ctn`, with independent module versions and tags. The former
-`pkg/ext-go/inference`, `pkg/ext-go/model`, and `pkg/ext-go/perception` module
-tags remain available for consumers of those historical paths.
+`pkg/ext-go/inference` module tags remain available for consumers of that
+historical path; the `pkg/ext-go/model` and `pkg/ext-go/perception` tags were
+deleted.
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle

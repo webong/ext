@@ -113,7 +113,10 @@ impl Store {
     /// Opens packages using a host-selected relative manifest path.
     pub fn open_with_manifest(root: &str, limits: Limits, manifest: &str) -> Result<Self, Error> {
         let manifest = cstring(manifest)?;
-        let layout = ffi::StoreLayout { manifest_path: manifest.as_ptr(), fallback_path: ptr::null() };
+        let layout = ffi::StoreLayout {
+            manifest_path: manifest.as_ptr(),
+            fallback_path: ptr::null(),
+        };
         let root = cstring(root)?;
         let raw = ffi::StoreLimits {
             max_artifact_bytes: limits.max_artifact_bytes,
@@ -121,7 +124,9 @@ impl Store {
             max_tree_bytes: limits.max_tree_bytes,
         };
         let mut handle = ptr::null_mut();
-        check(unsafe { ffi::ext_plugin_store_open_with_layout(root.as_ptr(), &raw, &layout, &mut handle) })?;
+        check(unsafe {
+            ffi::ext_plugin_store_open_with_layout(root.as_ptr(), &raw, &layout, &mut handle)
+        })?;
         Ok(Self {
             handle,
             max_archive_bytes: limits.max_archive_bytes,
@@ -364,9 +369,16 @@ impl Layered {
     pub fn open(roots: &[&str], limits: Limits) -> Result<Self, Error> {
         Self::open_with_manifest(roots, limits, "plugin.json")
     }
-    pub fn open_with_manifest(roots: &[&str], limits: Limits, manifest: &str) -> Result<Self, Error> {
+    pub fn open_with_manifest(
+        roots: &[&str],
+        limits: Limits,
+        manifest: &str,
+    ) -> Result<Self, Error> {
         let manifest = cstring(manifest)?;
-        let layout = ffi::StoreLayout { manifest_path: manifest.as_ptr(), fallback_path: ptr::null() };
+        let layout = ffi::StoreLayout {
+            manifest_path: manifest.as_ptr(),
+            fallback_path: ptr::null(),
+        };
         let owned = roots
             .iter()
             .map(|root| cstring(root))
@@ -379,7 +391,13 @@ impl Layered {
         };
         let mut handle = ptr::null_mut();
         check(unsafe {
-            ffi::ext_plugin_layered_open_with_layout(pointers.as_ptr(), pointers.len(), &raw, &layout, &mut handle)
+            ffi::ext_plugin_layered_open_with_layout(
+                pointers.as_ptr(),
+                pointers.len(),
+                &raw,
+                &layout,
+                &mut handle,
+            )
         })?;
         Ok(Self(handle))
     }

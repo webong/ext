@@ -4,9 +4,9 @@
 //
 // The package owns the contracts only: it never chooses a provider, performs
 // network I/O, loads a model, runs inference, authorizes access, or exposes a
-// remote protocol. Provider adapters (local res/int/model and remote HTTP services)
+// remote protocol. Provider adapters (local src/ctn/contract/model and remote HTTP services)
 // satisfy these interfaces. Concrete adapters live in adapters/<name> or in
-// platform implementations of res/int/model.
+// platform implementations of src/ctn/contract/model.
 //
 // Zero values are safe where practical. Accept interfaces and return concrete
 // values. All operations accept context.Context.

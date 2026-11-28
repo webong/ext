@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"time"
 
-	ml "github.com/webong/ext/res/int/model"
+	ml "github.com/webong/ext/src/ctn/contract/model"
 )
 
 // modelCommand lists, inspects, or runs on-device models through the
-// portable res/int/model contracts. The model store and provider backends are
+// portable src/ctn/contract/model contracts. The model store and provider backends are
 // caller-configured; ctn itself selects no model, device, or provider.
 func modelCommand(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {

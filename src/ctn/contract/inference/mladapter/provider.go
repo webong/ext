@@ -1,13 +1,13 @@
-// Package mladapter adapts res/int/model (low-level tensor inference) into
-// res/int/inference (high-level generation, embeddings, transcription, synthesis).
+// Package mladapter adapts src/ctn/contract/model (low-level tensor inference) into
+// src/ctn/contract/inference (high-level generation, embeddings, transcription, synthesis).
 package mladapter
 
 import (
 	"context"
 	"sync"
 
-	"github.com/webong/ext/res/int/inference"
-	ml "github.com/webong/ext/res/int/model"
+	"github.com/webong/ext/src/ctn/contract/inference"
+	ml "github.com/webong/ext/src/ctn/contract/model"
 )
 
 // MLProvider wraps an ml.Provider as an inference.Provider. Each supported

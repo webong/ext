@@ -5,7 +5,7 @@ package runtime
 import (
 	"context"
 
-	contract "github.com/webong/ext/res/web/host/engine/wasm"
+	contract "github.com/webong/ext/pkg/ext-go/core/wasm"
 )
 
 const MaxModuleBytes = contract.MaxModuleBytes

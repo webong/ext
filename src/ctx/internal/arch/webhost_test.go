@@ -107,16 +107,17 @@ func TestWebHostLayering(t *testing.T) {
 
 func TestWebAssemblyContractDoesNotOwnWazero(t *testing.T) {
 	root := repoRoot(t)
-	host := filepath.Join(root, "res", "web", "host")
-	mod, err := os.ReadFile(filepath.Join(host, "go.mod"))
+	core := filepath.Join(root, "pkg", "ext-go", "core")
+	contract := filepath.Join(core, "wasm")
+	mod, err := os.ReadFile(filepath.Join(core, "go.mod"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(mod), "github.com/tetratelabs/wazero") {
-		t.Fatal("res/web/host must leave wazero to pkg/ext-go/wasm/runtime")
+		t.Fatal("pkg/ext-go/core must leave wazero to pkg/ext-go/wasm/runtime")
 	}
 	for _, dir := range []string{
-		filepath.Join(host, "engine", "wasm"),
+		contract,
 		filepath.Join(root, "pkg", "ext-go", "wasm", "runtime"),
 	} {
 		err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -129,8 +130,8 @@ func TestWebAssemblyContractDoesNotOwnWazero(t *testing.T) {
 			}
 			for _, imp := range file.Imports {
 				name, _ := strconv.Unquote(imp.Path.Value)
-				if dir == filepath.Join(host, "engine", "wasm") && name == "github.com/tetratelabs/wazero" ||
-					dir != filepath.Join(host, "engine", "wasm") && strings.Contains(name, "/plugin") {
+				if dir == contract && name == "github.com/tetratelabs/wazero" ||
+					dir != contract && strings.Contains(name, "/plugin") {
 					t.Errorf("%s imports %s across the WebAssembly contract boundary", path, name)
 				}
 			}

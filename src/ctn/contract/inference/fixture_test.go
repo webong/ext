@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/int/inference"
+	"github.com/webong/ext/src/ctn/contract/inference"
 )
 
 func fixturePath(name string) string {

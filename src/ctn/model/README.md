@@ -1,6 +1,6 @@
 # CTN tensor model plugins
 
-This public CTN library binds the reusable model types in `res/int/model` to
+This public CTN library binds the reusable model types in `src/ctn/contract/model` to
 `model.tensor/v1`. CTN, Cymonkey, and other Ext hosts can each open a sealed
 provider package directly. The application selects the package and model
 store, reviews the package digest, and authorizes calls. The application opens
@@ -21,7 +21,7 @@ implementations can use any language that supports Ext's plugin protocol.
    and install the package with the Ext package store. The executable's entry
    takes the `run` argument. Ext provides native guests for
    [Core ML](https://github.com/xallet/tab/tree/main/coreml/README.md) on macOS and [ONNX Runtime](../../../pkg/ext-windows/int/model/README.md)
-   on Windows and [Linux](../../../res/int/model/linux/README.md).
+   on Windows and [Linux](../../../src/ctn/contract/model/linux/README.md).
 2. Use `store.ResolveEntrypoint` with the package ID, `ContractName`,
    `ContractVersion`, `Protocol`, and the consumer's reviewed package digest.
    Open that executable with the Ext host, pass `run`, and supply the host's

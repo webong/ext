@@ -1,6 +1,6 @@
 # Inference provider packages
 
-`res/int/inference` defines the portable provider contract. CTN's plugin
+`src/ctn/contract/inference` defines the portable provider contract. CTN's plugin
 integration in `src/ctn/inference` serves a provider guest and packages its
 executable. The package store in `pkg/ext-go/engine/plugin/host/store` verifies sealed
 packages, matches contracts, and selects the executable for the current

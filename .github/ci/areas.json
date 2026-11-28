@@ -56,7 +56,7 @@
         "res/**/go.mod",
         "res/**/go.sum",
         "res/**/testdata/**",
-        "res/int/model/linux/**",
+        "src/ctn/contract/model/linux/**",
         "pkg/ext-windows/int/model/**",
         "lib/plugin/**",
         "go.work*",

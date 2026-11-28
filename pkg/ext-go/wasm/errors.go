@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	plugin "github.com/webong/ext/pkg/ext-go/core/plugin"
-	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
+	webwasm "github.com/webong/ext/pkg/ext-go/core/wasm"
 )
 
 func engineError(err error) error {

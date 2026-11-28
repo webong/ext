@@ -9,7 +9,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream"
-	"github.com/webong/ext/res/int/inference"
+	"github.com/webong/ext/src/ctn/contract/inference"
 )
 
 // genReader bridges a push-based generation stream to a pull-based

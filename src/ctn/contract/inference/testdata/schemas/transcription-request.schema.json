@@ -1,26 +1,20 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/webong/ext/res/int/inference/schemas/embedding-request.v1.json",
-  "title": "EmbeddingRequest",
+  "$id": "https://github.com/webong/ext/src/ctn/contract/inference/schemas/transcription-request.v1.json",
+  "title": "TranscriptionRequest",
   "type": "object",
-  "required": ["model"],
-  "oneOf": [
-    { "required": ["inputs"], "not": { "required": ["tokenInputs"] } },
-    { "required": ["tokenInputs"], "not": { "required": ["inputs"] } }
-  ],
+  "required": ["model", "audio"],
   "properties": {
     "model": { "type": "string", "minLength": 1 },
-    "inputs": {
+    "audio": { "type": "string", "contentEncoding": "base64" },
+    "mediaType": { "type": "string", "pattern": "^audio/" },
+    "prompt": { "type": "string", "maxLength": 1048576 },
+    "language": { "type": "string", "maxLength": 128 },
+    "timestamps": {
       "type": "array",
-      "minItems": 1,
-      "maxItems": 4096,
-      "items": { "type": "string" }
-    },
-    "tokenInputs": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 4096,
-      "items": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 0 } }
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["word", "segment"] }
     },
     "options": { "type": "object" },
     "limits": { "$ref": "#/definitions/limits" }

@@ -1,6 +1,6 @@
 # Intelligence resources
 
-`res/int` retains its published Go intelligence contracts. Native model
+`src/ctn/contract` retains its published Go intelligence contracts. Native model
 libraries live in each platform package's `int/model`; provider guests live in
 `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`.
 Applications choose providers, models,
@@ -19,7 +19,7 @@ tensor engines. Other languages can implement the same JSON contract through
 the Ext plugin engine.
 
 The previous `res/ml` and `res/inference` Go modules are combined into this
-module. Their packages are now `res/int/model` and `res/int/inference`; the
+module. Their packages are now `src/ctn/contract/model` and `src/ctn/contract/inference`; the
 existing `model.tensor/v1`, `inference.provider/v1`, and `content.model/v1`
 wire names remain stable. CTN owns its verified file catalog in
 `src/ctn/internal/content`; it is private product code and does not require an

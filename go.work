@@ -14,7 +14,7 @@ use (
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm
 	./pkg/ext-go/yaegi
-	./res/int
+	./src/ctn/contract
 	./res/system
 	./res/system/service/network/linux/guest
 	./res/web/host
@@ -43,6 +43,7 @@ replace github.com/webong/ext/src/cto/sandbox v0.1.0 => ./src/cto/sandbox
 
 // CTN's bridge module tags are not published yet.
 // The workspace resolves their new consumers to the current sources.
+replace github.com/webong/ext/src/ctn/contract v0.1.0 => ./src/ctn/contract
 replace github.com/webong/ext/src/ctn/inference v0.1.0 => ./src/ctn/inference
 
 replace github.com/webong/ext/src/ctn/model v0.1.0 => ./src/ctn/model

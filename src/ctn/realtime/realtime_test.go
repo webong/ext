@@ -11,7 +11,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	bridge "github.com/webong/ext/src/ctn/realtime"
-	domain "github.com/webong/ext/res/int/realtime"
+	domain "github.com/webong/ext/src/ctn/contract/realtime"
 )
 
 func TestLanguageNeutralFixtures(t *testing.T) {

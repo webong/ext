@@ -1,4 +1,4 @@
-// Package model bridges res/int/model tensor providers to the Ext plugin contract.
+// Package model bridges src/ctn/contract/model tensor providers to the Ext plugin contract.
 // The wire contract is language-neutral; this package supplies Go host and
 // guest helpers. A host still chooses and trusts a sealed provider package.
 package model
@@ -11,7 +11,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
-	domain "github.com/webong/ext/res/int/model"
+	domain "github.com/webong/ext/src/ctn/contract/model"
 )
 
 const ContractName = "model.tensor"

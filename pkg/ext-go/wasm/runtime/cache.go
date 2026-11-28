@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/tetratelabs/wazero"
-	contract "github.com/webong/ext/res/web/host/engine/wasm"
+	contract "github.com/webong/ext/pkg/ext-go/core/wasm"
 )
 
 // CompilationCache keeps the compiled form of the modules opened with it, so opening the same

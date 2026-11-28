@@ -1,8 +1,8 @@
-// Package mladapter adapts res/int/model (low-level tensor inference) into
-// res/int/inference (high-level generation, embeddings, transcription, synthesis).
+// Package mladapter adapts src/ctn/contract/model (low-level tensor inference) into
+// src/ctn/contract/inference (high-level generation, embeddings, transcription, synthesis).
 //
-// res/int/model owns raw tensor inference through a caller-selected provider.
-// res/int/inference owns the portable, transport-free inference contract. This
+// src/ctn/contract/model owns raw tensor inference through a caller-selected provider.
+// src/ctn/contract/inference owns the portable, transport-free inference contract. This
 // package bridges them: it wraps an ml.Provider as an inference.Provider,
 // applying explicit preprocessing and postprocessing for each operation.
 //
@@ -14,17 +14,17 @@ package mladapter
 import (
 	"context"
 
-	ml "github.com/webong/ext/res/int/model"
+	ml "github.com/webong/ext/src/ctn/contract/model"
 )
 
-// Preprocessor converts a res/int/inference request into res/int/model tensors. The
+// Preprocessor converts a src/ctn/contract/inference request into src/ctn/contract/model tensors. The
 // implementation is responsible for model-specific encoding (tokenization,
 // feature extraction, etc.) and must honor ctx for cancellation.
 type Preprocessor[Req any] interface {
 	Preprocess(ctx context.Context, req Req) ([]ml.Tensor, error)
 }
 
-// Postprocessor converts res/int/model output tensors into a res/int/inference response.
+// Postprocessor converts src/ctn/contract/model output tensors into a src/ctn/contract/inference response.
 // The implementation is responsible for model-specific decoding (detokenization,
 // embedding normalization, etc.) and must honor ctx for cancellation.
 type Postprocessor[Resp any] interface {

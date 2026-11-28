@@ -53,10 +53,10 @@ and cannot be declared.
 | `content.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/blockade/plugin/adapter.go`; JSON schemas for its documents in `lib/blockade/protocol/v1alpha1/` |
 | `device.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/board/plugin/provider.go` |
 | `display.engine` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/jangolova/plugin/adapter.go` |
-| `inference.provider` | `v1` | CTN | implemented in CTN | Portable schemas and fixtures in `res/int/inference/testdata/`; Go bridge in `src/ctn/inference` |
+| `inference.provider` | `v1` | CTN | implemented in CTN | Portable schemas and fixtures in `src/ctn/contract/inference/testdata/`; Go bridge in `src/ctn/inference` |
 | `model.tensor` | `v1` | CTN | in use | JSON request/response fixtures and public Go bridge in `src/ctn/model` |
 | `intelligence.perception` | `v1` | CTN | implemented in CTN | JSON fixtures and Go bridge in `src/ctn/perception` |
-| `intelligence.realtime` | `v1` | CTN | implemented in CTN | Session types in `res/int/realtime`, JSON fixtures in `src/ctn/realtime/testdata/v1`, and Go bridge in `src/ctn/realtime` |
+| `intelligence.realtime` | `v1` | CTN | implemented in CTN | Session types in `src/ctn/contract/realtime`, JSON fixtures in `src/ctn/realtime/testdata/v1`, and Go bridge in `src/ctn/realtime` |
 
 The owner's repository is `github.com/webong/cymonkey`. Its operations, as
 declared by the owner: `content.provider` has `start`, `observe`, `interpret`,

@@ -91,7 +91,7 @@ lifecycle mechanisms.
 | Expose or consume system capabilities through Ext | [`res/system`](res/system/README.md) |
 | Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) for contracts and guests; each platform package's `web` library for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
 | Build code that runs inside a browser extension | [`pkg/ext-web`](pkg/ext-web/README.md) |
-| Use intelligence capabilities | [`res/int`](res/int/README.md) for contracts and guests; each platform package's `int` library for native mechanisms |
+| Use intelligence capabilities | [`src/ctn/contract`](src/ctn/contract/README.md) for contracts and guests; each platform package's `int` library for native mechanisms |
 
 The portable C libraries (libext) live in `lib/`, and language bindings and platform
 packages live in `pkg/`. Each platform package carries its OS-provided implementations

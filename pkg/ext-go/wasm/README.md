@@ -5,7 +5,7 @@
 the `core/plugin.Backend` implementations, the binding to the existing JSON-line
 transport, plugin reactor ABI, profiles, and shared error mapping.
 
-The runtime-neutral contract stays in `res/web/host/engine/wasm`. Generic
+The runtime-neutral contract stays in `pkg/ext-go/core/wasm`. Generic
 WebAssembly inspection, WASI command execution, persistent byte streams, and
 raw reactor hosting live in `runtime/`, which imports no plugin package.
 Applications that only need WebAssembly can import `runtime/` directly.

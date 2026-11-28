@@ -1,6 +1,6 @@
 # WebAssembly host contract
 
-`github.com/webong/ext/res/web/host/engine/wasm` defines a runtime-neutral
+`github.com/webong/ext/pkg/ext-go/core/wasm` defines a runtime-neutral
 WebAssembly host API. It owns limits, errors, inspection results, WASI command
 options, byte-stream and reactor interfaces, and the `Runtime` interface. It
 does not import wazero or the Ext plugin engine and does not select a runtime.

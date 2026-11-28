@@ -1,35 +1,29 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/webong/ext/res/int/inference/schemas/generation-request.v1.json",
-  "title": "GenerationRequest",
+  "$id": "https://github.com/webong/ext/src/ctn/contract/inference/schemas/generation-response.v1.json",
+  "title": "GenerationResponse",
   "type": "object",
-  "required": ["model", "messages"],
+  "required": ["model", "message"],
   "properties": {
+    "id": { "type": "string" },
     "model": { "type": "string", "minLength": 1 },
-    "messages": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 4096,
-      "items": { "$ref": "#/definitions/message" }
-    },
-    "tools": {
-      "type": "array",
-      "items": { "$ref": "#/definitions/toolDefinition" }
-    },
-    "maxOutputTokens": { "type": "integer", "minimum": 0 },
-    "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
-    "outputSchema": { "type": "object" },
-    "options": { "type": "object" },
-    "limits": { "$ref": "#/definitions/limits" }
+    "message": { "$ref": "#/definitions/message" },
+    "stopReason": { "type": "string", "enum": ["stop", "length", "toolCalls", "contentFilter", "refusal", "paused", "other"] },
+    "providerStopReason": { "type": "string", "maxLength": 256 },
+    "usage": { "$ref": "#/definitions/tokenUsage" },
+    "providerMetadata": {},
+    "reasoningContext": {}
   },
   "additionalProperties": false,
   "definitions": {
-    "limits": {
+    "tokenUsage": {
       "type": "object",
       "properties": {
-        "maxOutputTokens": { "type": "integer", "minimum": 0 },
-        "maxInputTokens": { "type": "integer", "minimum": 0 },
-        "maxBytes": { "type": "integer", "minimum": 0 }
+        "input": { "type": "integer", "minimum": 0 },
+        "output": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "cachedInput": { "type": "integer", "minimum": 0 },
+        "reasoning": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },
@@ -37,12 +31,9 @@
       "type": "object",
       "required": ["role"],
       "properties": {
-        "role": { "type": "string", "enum": ["system", "user", "assistant", "tool"] },
+        "role": { "type": "string", "enum": ["assistant"] },
         "parts": { "type": "array", "items": { "$ref": "#/definitions/part" } },
-        "toolCalls": { "type": "array", "items": { "$ref": "#/definitions/toolCall" } },
-        "toolCallId": { "type": "string" },
-        "toolName": { "type": "string" },
-        "toolError": { "type": "boolean" }
+        "toolCalls": { "type": "array", "items": { "$ref": "#/definitions/toolCall" } }
       },
       "additionalProperties": false
     },
@@ -65,16 +56,6 @@
       "properties": {
         "kind": { "type": "string", "enum": ["url", "file"] },
         "uri": { "type": "string" }
-      },
-      "additionalProperties": false
-    },
-    "toolDefinition": {
-      "type": "object",
-      "required": ["name", "inputSchema"],
-      "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
-        "inputSchema": { "type": "object" }
       },
       "additionalProperties": false
     },

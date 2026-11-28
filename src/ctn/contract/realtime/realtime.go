@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/int/inference"
+	"github.com/webong/ext/src/ctn/contract/inference"
 )
 
 const APIVersion = "intelligence.realtime/v1"

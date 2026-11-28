@@ -14,7 +14,7 @@ module of its own and a program that wants less takes less:
 | [`c2goengine`](c2goengine) | translated-C implementations and bindings (no cgo, no C compiler in the consuming build) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
 | [`yaegi`](yaegi) | independent Go source plugin backend; added separately from the umbrella |
-| [`wasm`](wasm) | the Go wazero runtime and engine-facing WebAssembly backend, implementing the `res/web/host/engine/wasm` contract |
+| [`wasm`](wasm) | the Go wazero runtime and engine-facing WebAssembly backend, implementing the `pkg/ext-go/core/wasm` contract |
 
 CTN owns the `inference.provider/v1`, `intelligence.perception/v1`, and
 `intelligence.realtime/v1` bridges in nested modules under `src/ctn`.

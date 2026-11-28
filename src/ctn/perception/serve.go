@@ -10,7 +10,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
-	domain "github.com/webong/ext/res/int/perception"
+	domain "github.com/webong/ext/src/ctn/contract/perception"
 )
 
 func ServeStdio(ctx context.Context, identity plugin.Identity, provider domain.Provider, authorize func(context.Context, plugin.Request) error) error {

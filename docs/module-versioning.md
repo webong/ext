@@ -229,7 +229,7 @@ crates.io, PyPI and npm); the Zig package is `ext_io`. Each offers one namespace
 behind the Cargo feature `plugin` (on by default), `ext_io.plugin`, and the subpaths `ext-io/plugin`,
 `ext-io/plugin/node` and `ext-io/plugin/engine`. Only `plugin` is built. The names `system`, `web` and
 `int` are reserved for the other areas of ext, but none is scheduled: those libraries (`res/system`,
-`res/web/host`, `res/int`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
+`res/web/host`, `src/ctn/contract`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
 consumers use them through Go, NuGet, SwiftPM and the Android library. An area is added when a Rust,
 Python, TypeScript or Zig consumer needs it, preferably as the Go implementation served over
 `ext.io.pc/v1` with a thin typed wrapper rather than a second implementation or a new C ABI. It would be a
@@ -266,7 +266,7 @@ published.
 ## WebAssembly host contract and Go runtime
 
 The initial split put protocol-neutral WebAssembly inspection, WASI execution,
-byte streams and raw reactor hosting in `res/web/host/engine/wasm` inside the
+byte streams and raw reactor hosting in `pkg/ext-go/core/wasm` inside the
 `github.com/webong/ext/res/web/host` module (previously
 `github.com/webong/ext/res/web`). The later split keeps the public options,
 results, errors and runtime interfaces at that import path and moves the
@@ -278,7 +278,7 @@ with wazero and adapts it to `engine.Backend`, the JSON-line transport and the
 Ext plugin reactor ABI. The first split releases were `res/web/v0.6.0` and
 `pkg/ext-go/wasm/v0.3.0`. Existing plugin callers keep the `pkg/ext-go/wasm`
 import; generic Go execution uses its `runtime` subpackage. The old
-`res/web/host/engine/wasm` execution functions are removed, so consumers of
+`pkg/ext-go/core/wasm` execution functions are removed, so consumers of
 those functions must migrate to `pkg/ext-go/wasm/runtime`.
 
 Clipboard, credential and local network-observation code were consolidated into
@@ -500,7 +500,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/system res/int src/cto/sandbox \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/system src/ctn/contract src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -541,18 +541,18 @@ separate modules under its product tree:
 | `pkg/ext-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
 | `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
-| `src/ctn/inference` | CTN's `inference.provider/v1` bridge and host/guest helpers | `engine`, `res/int` |
-| `src/ctn/model` | CTN’s public `model.tensor/v1` tensor-provider bridge | `engine`, `res/int` |
-| `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `res/int` |
-| `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `res/int` |
+| `src/ctn/inference` | CTN's `inference.provider/v1` bridge and host/guest helpers | `engine`, `src/ctn/contract` |
+| `src/ctn/model` | CTN’s public `model.tensor/v1` tensor-provider bridge | `engine`, `src/ctn/contract` |
+| `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `src/ctn/contract` |
+| `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `src/ctn/contract` |
 | `res/web/host` | portable web tooling and the runtime-neutral WebAssembly host contract | standard library only |
-| `pkg/ext-go/wasm` | wazero implementation of `res/web/host/engine/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `res/web/host`; third-party wazero |
+| `pkg/ext-go/wasm` | wazero implementation of `pkg/ext-go/core/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `res/web/host`; third-party wazero |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
 | `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `res/system`; third-party purego |
 | `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
-| `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
+| `src/ctn/contract` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
 CTN's `inference`, `model`, and `perception` bridges are separate nested modules
@@ -594,7 +594,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
-| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `pkg/ext-go/wasm/runtime` and its contract is `res/web/host/engine/wasm` |
+| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `pkg/ext-go/wasm/runtime` and its contract is `pkg/ext-go/core/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
 | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`, up to v0.8.0) | `pkg/ext-go/engine` and `.../engine/<subpackage>` (`pkg/ext-go/engine`, from v0.1.0); the subpackage paths below `contract` are unchanged below `engine` (`contract/host/store` becomes `engine/host/store`, `contract/package` becomes `engine/package`, and so on) |

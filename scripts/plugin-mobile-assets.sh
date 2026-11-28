@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Embed the shared page assets in the mobile hosts, so Swift and Java cannot drift
 # from the one source of each:
-#   res/web/host/engine/wasm/reactor.js   the page-side reactor glue
+#   pkg/ext-go/core/wasm/reactor.js   the page-side reactor glue
 #   res/web/host/engine/bundle/shim.js            the web engine's page API shim
 # Usage: scripts/plugin-mobile-assets.sh          write the generated files
 #        scripts/plugin-mobile-assets.sh --check  fail if any is out of date
@@ -12,7 +12,7 @@ import sys
 
 check = sys.argv[1] == '--check'
 assets = {
-    'reactorPage': 'res/web/host/engine/wasm/reactor.js',
+    'reactorPage': 'pkg/ext-go/core/wasm/reactor.js',
     'shim': 'res/web/host/engine/bundle/shim.js',
 }
 sources = {name: open(path, encoding='utf-8').read() for name, path in assets.items()}

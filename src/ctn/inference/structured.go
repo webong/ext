@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/jsonschema"
-	domain "github.com/webong/ext/res/int/inference"
+	domain "github.com/webong/ext/src/ctn/contract/inference"
 )
 
 // ValidateStructuredOutput validates completed model output with the Ext

@@ -1,6 +1,6 @@
 # Perception plugin bridge
 
-`src/ctn/perception` exposes the `res/int/perception` domain through the
+`src/ctn/perception` exposes the `src/ctn/contract/perception` domain through the
 language-neutral `intelligence.perception/v1` Ext plugin contract. Go guests
 register a provider with `RegisterProvider` and serve it with `ServeStdio` or
 `ServeCurrentExecutable`. Go hosts call `Info`, `Observe`, and `Interpret`

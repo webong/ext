@@ -22,7 +22,7 @@ import (
 //	engine      legacy Go implementations and shared-contract compatibility exports
 //	cgoengine   the existing plugin API: linked C or the default shared native host
 //	c2goengine  the C engine's portable core translated to Go; needs engine
-//	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
+//	wasm        the engine binding for pkg/ext-go/core/wasm; needs engine and res/web/host
 //	hashicorp   the RPC backend uses core; its examples and tests retain engine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
 //	core        shared plugin/ledger contracts and driver selection; standard library only
@@ -42,11 +42,11 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/yaegi":      {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/core":       {},
 	"pkg/ext-go/cengine":    {"pkg/ext-go/core", "pkg/ext-go/engine"},
-	"src/ctn/inference":     {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine", "res/int"},
-	"src/ctn/model":         {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
-	"src/ctn/perception":    {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
-	"src/ctn/realtime":      {"pkg/ext-go/core", "pkg/ext-go/engine", "res/int"},
-	"res/int":               {},
+	"src/ctn/inference":     {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine", "src/ctn/contract"},
+	"src/ctn/model":         {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
+	"src/ctn/perception":    {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
+	"src/ctn/realtime":      {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
+	"src/ctn/contract":      {},
 	"src/cto/sandbox":       {},
 	"res/web/host":          {},
 	"res/system":            {},

@@ -10,7 +10,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream"
-	"github.com/webong/ext/res/int/inference"
+	"github.com/webong/ext/src/ctn/contract/inference"
 )
 
 // Client calls inference.provider/v1 operations on a plugin session.

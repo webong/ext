@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/webong/ext/pkg/ext-go/core/dirlock"
-	ml "github.com/webong/ext/res/int/model"
+	ml "github.com/webong/ext/src/ctn/contract/model"
 	inferencebridge "github.com/webong/ext/src/ctn/inference"
 	perceptionbridge "github.com/webong/ext/src/ctn/perception"
 )

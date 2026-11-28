@@ -1,7 +1,7 @@
 # Ext plugin SDK
 
 Ext owns the reusable plugin library alongside `res/web` and `res/system`
-(and the ledger supervisor, `pkg/ext-go/cengine/ledger/supervisor`). `res/web/host/engine/wasm` owns the runtime-neutral
+(and the ledger supervisor, `pkg/ext-go/cengine/ledger/supervisor`). `pkg/ext-go/core/wasm` owns the runtime-neutral
 contract; `pkg/ext-go/wasm/runtime` implements it with wazero, and `pkg/ext-go/wasm` binds that implementation to the plugin engine.
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,
@@ -22,7 +22,7 @@ protocols require an explicit binding or domain translation.
 | `pkg/ext-go/engine/plugin/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
 | `pkg/ext-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
 | `pkg/ext-go/engine/plugin/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
-| `res/web/host/engine/wasm` | Runtime-neutral WebAssembly host contract: inspection, WASI execution, byte streams and raw reactors |
+| `pkg/ext-go/core/wasm` | Runtime-neutral WebAssembly host contract: inspection, WASI execution, byte streams and raw reactors |
 | `pkg/ext-go/wasm/runtime` | Go implementation of that contract through wazero |
 | `pkg/ext-go/wasm` | `engine.Backend`, JSON-line and plugin reactor bindings over the Go runtime |
 | `pkg/ext-go/cengine/cguest/backend` | Dynamic C ABI loading with separate guest handles and owned buffers |

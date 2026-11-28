@@ -1,5 +1,5 @@
 // Package perception binds the portable intelligence.perception/v1 contract to
-// Ext plugin sessions. Its wire payloads are defined by res/int/perception.
+// Ext plugin sessions. Its wire payloads are defined by src/ctn/contract/perception.
 package perception
 
 import (
@@ -7,7 +7,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
-	domain "github.com/webong/ext/res/int/perception"
+	domain "github.com/webong/ext/src/ctn/contract/perception"
 )
 
 const ContractName = "intelligence.perception"

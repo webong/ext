@@ -16,7 +16,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
-	ml "github.com/webong/ext/res/int/model"
+	ml "github.com/webong/ext/src/ctn/contract/model"
 	mlplugin "github.com/webong/ext/src/ctn/model"
 )
 

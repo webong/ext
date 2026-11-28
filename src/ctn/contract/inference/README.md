@@ -1,18 +1,18 @@
-# res/int/inference — portable inference resource
+# src/ctn/contract/inference — portable inference resource
 
-`res/int/inference` is the provider-neutral, transport-free inference layer used by
-CTN and available to Cymonkey and future applications. It sits above `res/int/model` (low-level local
+`src/ctn/contract/inference` is the provider-neutral, transport-free inference layer used by
+CTN and available to Cymonkey and future applications. It sits above `src/ctn/contract/model` (low-level local
 model support) and below provider adapters (OpenAI, Anthropic, Gemini, Ollama,
 OpenAI-compatible, ONNX Runtime, etc.).
 
 ```
-res/int/model
+src/ctn/contract/model
    │
    ▼
-res/int/inference
+src/ctn/contract/inference
    │
    ├── public transport-free contracts
-   ├── local res/int/model adaptation
+   ├── local src/ctn/contract/model adaptation
    └── HTTP/client primitives where appropriate
    │
    ▼
@@ -28,7 +28,7 @@ The language-neutral contract is `inference.provider/v1`, recorded in
 [docs/contract-names.md](../../../docs/contract-names.md). It is served through the
 Ext plugin contract (`ext.io.pc/v1`) using the existing plugin host/guest
 mechanics (`pkg/ext-go/engine`). A separate integration package,
-`src/ctn/inference`, bridges `res/int/inference` and the plugin engine so the
+`src/ctn/inference`, bridges `src/ctn/contract/inference` and the plugin engine so the
 core never imports CTX, CTN, Cymonkey, or a concrete provider.
 See [provider packaging and discovery](../../../docs/inference-providers.md) for the
 build, install, trust, and CTN flow.
@@ -72,7 +72,7 @@ errors.
 
 ## Module
 
-- Module path: `github.com/webong/ext/res/int`; package path: `github.com/webong/ext/res/int/inference`
+- Module path: `github.com/webong/ext/src/ctn/contract`; package path: `github.com/webong/ext/src/ctn/contract/inference`
 - Go: 1.25.0
 - No external dependencies (standard library only)
 

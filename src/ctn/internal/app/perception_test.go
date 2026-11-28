@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"testing"
 
-	domain "github.com/webong/ext/res/int/perception"
+	domain "github.com/webong/ext/src/ctn/contract/perception"
 	bridge "github.com/webong/ext/src/ctn/perception"
 )
 

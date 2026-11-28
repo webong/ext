@@ -25,7 +25,7 @@ ci_import_env
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system src/ctn/contract pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )
@@ -33,7 +33,7 @@ ci_import_env
 
 # Test intelligence contracts with race detector
 (
-go test -race ./res/int/inference/... ./res/int/perception/... ./src/ctn/perception/... ./src/ctn/realtime/... -timeout 5m
+go test -race ./src/ctn/contract/inference/... ./src/ctn/contract/perception/... ./src/ctn/perception/... ./src/ctn/realtime/... -timeout 5m
 )
 ci_import_env
 

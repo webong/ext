@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/webong/ext/res/int/inference/schemas/remote-error.v1.json",
+  "$id": "https://github.com/webong/ext/src/ctn/contract/inference/schemas/remote-error.v1.json",
   "title": "RemoteError",
   "type": "object",
   "required": ["code"],

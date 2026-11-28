@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	bridge "github.com/webong/ext/src/ctn/inference"
-	domain "github.com/webong/ext/res/int/inference"
+	domain "github.com/webong/ext/src/ctn/contract/inference"
 )
 
 func TestStructuredOutputRejectsInvalidShapeAndRefusal(t *testing.T) {

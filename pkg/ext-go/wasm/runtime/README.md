@@ -1,6 +1,6 @@
 # Go WebAssembly runtime
 
-This package implements `res/web/host/engine/wasm.Runtime` with wazero. It
+This package implements `pkg/ext-go/core/wasm.Runtime` with wazero. It
 provides module inspection, bounded WASI Preview 1 command execution,
 persistent byte streams, raw reactors, and compilation caches. It assigns no
 Ext protocol to the bytes and imports no plugin package.

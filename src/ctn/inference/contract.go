@@ -1,9 +1,9 @@
-// Package inference bridges the portable res/int/inference contract with the Ext
+// Package inference bridges the portable src/ctn/contract/inference contract with the Ext
 // plugin engine. It declares the inference.provider/v1 plugin contract and
-// supplies host and guest helpers so any res/int/inference Provider can be served
+// supplies host and guest helpers so any src/ctn/contract/inference Provider can be served
 // as an Ext plugin guest and invoked by a host through a plugin session.
 //
-// The package depends only on res/int/inference (the contract) and
+// The package depends only on src/ctn/contract/inference (the contract) and
 // pkg/ext-go/engine/plugin (the plugin mechanics). It knows nothing about CTN command
 // dispatch or any concrete provider.
 package inference
@@ -13,7 +13,7 @@ import (
 	native "github.com/webong/ext/pkg/ext-go/cengine/plugin"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream"
-	"github.com/webong/ext/res/int/inference"
+	"github.com/webong/ext/src/ctn/contract/inference"
 )
 
 // ContractName is the recorded plugin contract name (see docs/contract-names.md).
@@ -75,7 +75,7 @@ func Operations() []plugin.Operation {
 
 // Descriptor builds the plugin Descriptor for an inference provider plugin
 // given its identity. The provider advertises exactly the operations it
-// supports through res/int/inference.ProviderInfo.Capabilities; the descriptor
+// supports through src/ctn/contract/inference.ProviderInfo.Capabilities; the descriptor
 // declares the complete contract surface and the guest enforces support at
 // call time.
 func Descriptor(id plugin.Identity) plugin.Descriptor {
@@ -89,7 +89,7 @@ func Descriptor(id plugin.Identity) plugin.Descriptor {
 	}
 }
 
-// CapabilityOperation maps a res/int/inference capability to its contract
+// CapabilityOperation maps a src/ctn/contract/inference capability to its contract
 // operation. A provider that does not advertise a capability must return
 // ErrUnsupported for that operation.
 func CapabilityOperation(c inference.Capability) (string, bool) {

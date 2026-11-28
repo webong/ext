@@ -1,7 +1,7 @@
 # ml
 
-`github.com/webong/ext/res/int/model` is the local model package in the reusable
-`github.com/webong/ext/res/int` module. It
+`github.com/webong/ext/src/ctn/contract/model` is the local model package in the reusable
+`github.com/webong/ext/src/ctn/contract` module. It
 owns portable contracts for model manifests, verified artifact installation,
 and bounded inference; native model backends (CoreML on Apple platforms,
 optional TensorFlow Lite on Android, and ONNX Runtime CPU on Windows/Linux) stay beside these
@@ -25,9 +25,9 @@ The boundary is local mechanism, not model policy:
 | `windows/` | Optional ONNX Runtime CPU backend and `model.tensor/v1` guest, usable on Windows and Linux |
 | `linux/` | Linux guest build of the shared ONNX Runtime CPU backend |
 
-The shared provider contract and inference schemas live in `res/int/inference`.
+The shared provider contract and inference schemas live in `src/ctn/contract/inference`.
 Product-specific model registries, download policy, and content adapters belong
-to each consumer. `res/int/model` owns none of them.
+to each consumer. `src/ctn/contract/model` owns none of them.
 
 [CTN’s public model bridge](../../../src/ctn/model) exposes `model.tensor/v1`
 for a caller-selected `ml.Provider`. CTN and other Ext hosts each select

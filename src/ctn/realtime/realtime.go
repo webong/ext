@@ -13,7 +13,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
-	domain "github.com/webong/ext/res/int/realtime"
+	domain "github.com/webong/ext/src/ctn/contract/realtime"
 )
 
 const ContractName = "intelligence.realtime"

@@ -17,7 +17,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
-	domain "github.com/webong/ext/res/int/perception"
+	domain "github.com/webong/ext/src/ctn/contract/perception"
 	bridge "github.com/webong/ext/src/ctn/perception"
 )
 

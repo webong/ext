@@ -10,7 +10,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
-	domain "github.com/webong/ext/res/int/model"
+	domain "github.com/webong/ext/src/ctn/contract/model"
 )
 
 // ServeCurrentExecutable binds the guest identity to the running executable.

@@ -12,7 +12,7 @@ import (
 	storetest "github.com/webong/ext/pkg/ext-go/core/ledger/ledgertest"
 )
 
-// Every code a case expects is in the shared vocabulary of res/system.
+// Every code a case expects is in the shared vocabulary of src/ctx/system.
 func TestCasesUseTheSharedCodes(t *testing.T) {
 	dir, err := storetest.Dir()
 	if err != nil {
@@ -21,7 +21,7 @@ func TestCasesUseTheSharedCodes(t *testing.T) {
 	codesPath := filepath.Join(dir, "..", "..", "..", "..", "..", "res", "system", "testdata", "codes.json")
 	data, err := os.ReadFile(codesPath)
 	if err != nil {
-		t.Skipf("res/system codes not beside this module: %v", err)
+		t.Skipf("src/ctx/system codes not beside this module: %v", err)
 	}
 	var vocabulary struct {
 		Codes []string `json:"codes"`

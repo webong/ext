@@ -256,7 +256,7 @@ reference. CTX invokes `share "" -- credential get <item>` to receive up to
 `--replace` is present and must not print the value in diagnostics. Its item
 syntax and native lookup behavior are adapter-owned. See
 [native credentials](credentials.md) for the CLI and security contract.
-Browser adapters can use `res/system/service/credential/client.GetDeclared` to request an item
+Browser adapters can use `src/ctx/system/service/credential/client.GetDeclared` to request an item
 through CTX rather than importing a store implementation package. The host
 checks the installed adapter's trust and API before dispatching.
 
@@ -294,7 +294,7 @@ next successful graph scan. `observe` works for any runtime; no provider name
 is built into the graph collector. Adapters without `observe` retain the
 line-oriented `list` behavior documented below.
 
-The public `github.com/webong/ext/res/system` package exposes
+The public `github.com/webong/ext/src/ctx/system` package exposes
 `ObserveInventory`, `ResolveInventory`, and `Inventory.Find` for other Go
 consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--engine <name>] [--role <name>] [--share <resource.operation>] [--pick]`
 shows the same candidate view as JSON. `ctx graph vertices support` and

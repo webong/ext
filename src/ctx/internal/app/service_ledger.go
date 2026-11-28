@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/webong/ext/pkg/ext-go/cengine/ledger"
-	"github.com/webong/ext/res/system/service/user"
+	"github.com/webong/ext/src/ctx/system/service/user"
 	"github.com/webong/ext/src/ctx/internal/graphapi"
 )
 

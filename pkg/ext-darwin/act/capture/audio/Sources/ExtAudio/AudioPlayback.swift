@@ -8,7 +8,7 @@ public enum SystemAudioPlaybackError: Error, Equatable {
     case closed
     case nativeFailure
 
-    /// The stable error code of `res/system/testdata/codes.json`.
+    /// The stable error code of `tests/fixtures/system/codes.json`.
     public var code: String {
         switch self {
         case .invalidPacket: return "invalid"

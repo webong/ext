@@ -228,7 +228,7 @@ The Rust, TypeScript and Python SDKs are one package each, named `ext-io` (the b
 crates.io, PyPI and npm); the Zig package is `ext_io`. Each offers one namespace per area: `ext_io::plugin`
 behind the Cargo feature `plugin` (on by default), `ext_io.plugin`, and the subpaths `ext-io/plugin`,
 `ext-io/plugin/node` and `ext-io/plugin/engine`. Only `plugin` is built. The names `system`, `web` and
-`int` are reserved for the other areas of ext, but none is scheduled: those libraries (`res/system`,
+`int` are reserved for the other areas of ext, but none is scheduled: those libraries (`src/ctx/system`,
 `res/web/host`, `src/ctn/contract`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
 consumers use them through Go, NuGet, SwiftPM and the Android library. An area is added when a Rust,
 Python, TypeScript or Zig consumer needs it, preferably as the Go implementation served over
@@ -282,14 +282,14 @@ import; generic Go execution uses its `runtime` subpackage. The old
 those functions must migrate to `pkg/ext-go/wasm/runtime`.
 
 Clipboard, credential and local network-observation code were consolidated into
-the `res/system` module as the platform packages' `act/clipboard` libraries, `res/system/service/credential` and
-`res/system/service/network`. The historical `res/clipboard`, `res/credential` and
+the `src/ctx/system` module as the platform packages' `act/clipboard` libraries, `src/ctx/system/service/credential` and
+`src/ctx/system/service/network`. The historical `res/clipboard`, `res/credential` and
 `res/network` module paths are retired rather than reused. Clipboard and
 network Apple and Android source sets still reach applications through
 `pkg/ext-darwin` and `pkg/ext-android`, so native-source changes are included in
 the corresponding mobile SDK releases. `ExtNetwork` and the Java
 `io.github.webong.ext.network` namespace remain stable even though their source
-is owned by `res/system/service/network`.
+is owned by `src/ctx/system/service/network`.
 
 The Apple SDK's engine and WAMR archives are released under the `ext-ios-vX.Y.Z` and `ext-macos-vX.Y.Z` tags; see
 [`pkg/ext-darwin`](../pkg/ext-darwin/README.md) and `scripts/ext-darwin-release.sh`. They are
@@ -500,7 +500,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/system src/ctn/contract src/cto/sandbox \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine src/ctx/system src/ctn/contract src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -513,10 +513,10 @@ done
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. Most light libraries
 (`pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the `res/*`
-modules other than `res/system`) declare `go 1.23.0`; `pkg/ext-go/wasm`
-pins wazero at a version with that floor. `res/system` declares `go 1.25.0` because its bounded
+modules other than `src/ctx/system`) declare `go 1.23.0`; `pkg/ext-go/wasm`
+pins wazero at a version with that floor. `src/ctx/system` declares `go 1.25.0` because its bounded
 volume operations use `os.Root`; `pkg/ext-go/engine` now also declares Go 1.25
-because its C-backed ledger API requires `cengine` and `res/system`. adapters that import its credential packages
+because its C-backed ledger API requires `cengine` and `src/ctx/system`. adapters that import its credential packages
 therefore declare at least Go 1.25. Four modules declare `go 1.26.0` because
 `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/ext-go/hashicorp` (gRPC), the umbrella `pkg/ext-go` (it requires `hashicorp`), `src/ctx`
@@ -550,8 +550,8 @@ separate modules under its product tree:
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
-| `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `res/system`; third-party purego |
-| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
+| `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `src/ctx/system`; third-party purego |
+| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `src/ctx/system`, `res/web`; no CTN modules |
 | `src/ctn/contract` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
@@ -605,24 +605,24 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/ext-go/core` (the engine selection package of the umbrella, up to v0.12.0) | removed: Go reaches lib/plugin through its description (`cengine/library.Describe`, `ext bundle bind`); the switcher's names (`Name`, `Choose`, `FromEnvironment`, `EXT_ENGINE`) are `pkg/ext-go/core/driver`'s |
 | `pkg/ext-go/cguest` and `pkg/ext-go/cguest/guest` (former standalone module) | `pkg/ext-go/cengine/cguest/backend` and `pkg/ext-go/cengine/cguest/guest`, both in `pkg/ext-go/cengine`. Update imports and remove the old module requirement. The existing raw loader at `pkg/ext-go/cengine/cguest` keeps its API. |
 | `pkg/ext-go/runtime/library`, `pkg/ext-go/runtime/cshared` (module `pkg/ext-go/runtime`, never tagged) | `pkg/ext-go/cengine/library` (module `pkg/ext-go/cengine`) `pkg/ext-go/cengine/cguest` and `.../abi` (the raw loader, same module), and `pkg/ext-go/cengine/cguest/backend` and `pkg/ext-go/cengine/cguest/guest` (the plugin backend and Go guest export, both in module `pkg/ext-go/cengine`). The module has no root package, so the import path `pkg/ext-go/core`, which the umbrella published up to v0.12.0, belongs to no other module: a program that still requires an old umbrella and the new `core` module builds without an ambiguous import |
-| `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), then `res/graph/store` in module `res/graph` (v0.2.0 to v0.3.0), now `pkg/ext-go/engine/ledger` (see below) |
-| `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `res/system/graph`, and `res/graph/supervisor` became `res/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
-| `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |
+| `pkg/graph` (v0.1.0) | the generic store, first `src/ctx/system/graph` in module `src/ctx/system` (v0.1.0 to v0.2.1), then `res/graph/store` in module `res/graph` (v0.2.0 to v0.3.0), now `pkg/ext-go/engine/ledger` (see below) |
+| `res/graph` (v0.1.0, published for a short time) | `src/ctx/system` (module `src/ctx/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `src/ctx/system/graph`, and `res/graph/supervisor` became `src/ctx/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
+| `src/ctx/system/graph`, `src/ctx/system/supervisor` and the recorder in the root package of `src/ctx/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`src/ctx/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |
 | `res/graph/store` (package `store`), `res/graph/store/storetest`, `res/graph/supervisor` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger` (package `ledger`), `pkg/ext-go/engine/ledger/ledgertest` (package `ledgertest`), `pkg/ext-go/engine/ledger/supervisor`, in module `pkg/ext-go/engine`: the pure-Go fallback of `lib/ledger`, standard library only |
-| the root package `res/graph` (package `graph`) and `res/graph/store/sqlite` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger/recorder` (package `recorder`) and `.../recorder/sqlite`, the module `pkg/ext-go/engine/ledger/recorder` (from v0.1.0), which requires `pkg/ext-go/engine` and `res/system`. Historical layout: the Go recorder and SQLite store have since been removed; use `cengine/ledger` |
-| the collectors in the root package of `res/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | historically `res/system/service/host`, `.../service/process`, `.../capture/surface` (`res/system`, from v0.3.0); host, process and surface observation now execute in `lib/ledger` through `pkg/ext-go/cengine/ledger`, while `capture/surface` retains portable contracts and native action APIs |
-| `res/system/audio`, `res/system/clipboard`, `res/system/share`, `res/system/media` | `res/system/capture/audio`, `.../clipboard`, `.../share`, `.../media` (`res/system`, from v0.3.0) |
-| `res/system/network`, `res/system/program`, `res/system/credential/...`, `res/system/service` | `res/system/service/network`, `.../program`, `.../credential/...`, `.../user` (`res/system`, from v0.3.0) |
-| `res/system/volume` | historically `res/system/device/volume` for private directories; that Go implementation is removed and `pkg/ext-go/cengine/ledger` binds ledger's native volume operations. Snapshot archives remain `res/system/device/image` (`res/system`, from v0.3.0) |
+| the root package `res/graph` (package `graph`) and `res/graph/store/sqlite` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger/recorder` (package `recorder`) and `.../recorder/sqlite`, the module `pkg/ext-go/engine/ledger/recorder` (from v0.1.0), which requires `pkg/ext-go/engine` and `src/ctx/system`. Historical layout: the Go recorder and SQLite store have since been removed; use `cengine/ledger` |
+| the collectors in the root package of `src/ctx/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | historically `src/ctx/system/service/host`, `.../service/process`, `.../capture/surface` (`src/ctx/system`, from v0.3.0); host, process and surface observation now execute in `lib/ledger` through `pkg/ext-go/cengine/ledger`, while `capture/surface` retains portable contracts and native action APIs |
+| `src/ctx/system/audio`, `src/ctx/system/clipboard`, `src/ctx/system/share`, `src/ctx/system/media` | `src/ctx/system/capture/audio`, `.../clipboard`, `.../share`, `.../media` (`src/ctx/system`, from v0.3.0) |
+| `src/ctx/system/network`, `src/ctx/system/program`, `src/ctx/system/credential/...`, `src/ctx/system/service` | `src/ctx/system/service/network`, `.../program`, `.../credential/...`, `.../user` (`src/ctx/system`, from v0.3.0) |
+| `src/ctx/system/volume` | historically `src/ctx/system/device/volume` for private directories; that Go implementation is removed and `pkg/ext-go/cengine/ledger` binds ledger's native volume operations. Snapshot archives remain `src/ctx/system/device/image` (`src/ctx/system`, from v0.3.0) |
 
 `res/graph` is the one path of this repository that is reused by a different module. Its tags v0.1.0
-and v0.1.1 (v0.1.1 carries `// Deprecated: use github.com/webong/ext/res/system.`) belong to a module that was
-renamed to `res/system` before anyone used it, which is why the rule that a published path is not reused
+and v0.1.1 (v0.1.1 carries `// Deprecated: use github.com/webong/ext/src/ctx/system.`) belong to a module that was
+renamed to `src/ctx/system` before anyone used it, which is why the rule that a published path is not reused
 protects no consumer here. The new module starts at v0.2.0, above the old tags, and its `go.mod` carries no
 `Deprecated` line (Go reads deprecation from the latest version). The same happened to `pkg/plugin-go`, whose
 v0.2.0 is the umbrella. `res/graph` v0.2.0 and `res/system` v0.3.0 (the regrouped packages; breaking import
 paths) are not tagged yet; until they are, `go.work` resolves those two versions to the workspace copies.
-`res/graph` requires `res/system` and `res/system` never requires `res/graph`, so the layers are `res/system`
+`res/graph` requires `src/ctx/system` and `src/ctx/system` never requires `res/graph`, so the layers are `src/ctx/system`
 first, then `res/graph`, and `release-layers.sh` stops on a cycle.
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
@@ -665,7 +665,7 @@ untrusted manifests in the C engine and in `contract/package`: a 4 MB manifest t
 artifacts) now takes a tenth of a second, and a directory digest stops at 250,000 files or 64 MiB of path
 text. Only the modules whose own files changed are tagged: `contract` and `cengine` (which also carries the
 engine's C sources in `_csrc`), plus the umbrella, whose `go.mod` now requires both at v0.3.0 so a consumer
-of the umbrella takes the fixed engine and the new API. `wasm`, `hashicorp`, `res/system` and the adapters
+of the umbrella takes the fixed engine and the new API. `wasm`, `hashicorp`, `src/ctx/system` and the adapters
 have the same bytes as before and are not retagged. They still require `contract` v0.2.1, which is
 fine: a build that also requires v0.3.0 (the umbrella does) resolves to it. A consumer that wants the
 bounds in an adapter's binary requires `contract` v0.3.0 itself. A manifest whose tree overlaps another
@@ -859,8 +859,8 @@ the `module` line, then no further tags:
 | `pkg/plugin-cshared` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/cengine.` | `pkg/plugin-go/cengine` |
 | `pkg/plugin-wasm` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/wasm.` | `pkg/plugin-go/wasm` |
 | `pkg/plugin-hashicorp` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/hashicorp.` | `pkg/plugin-go/hashicorp` |
-| `pkg/graph` | `// Deprecated: use github.com/webong/ext/res/system.` (v0.1.2; v0.1.1 named `res/graph`, which was then renamed) | `res/system` |
-| `res/graph` | `// Deprecated: use github.com/webong/ext/res/system.` (v0.1.1) | `res/system` |
+| `pkg/graph` | `// Deprecated: use github.com/webong/ext/src/ctx/system.` (v0.1.2; v0.1.1 named `res/graph`, which was then renamed) | `src/ctx/system` |
+| `res/graph` | `// Deprecated: use github.com/webong/ext/src/ctx/system.` (v0.1.1) | `src/ctx/system` |
 | `res/graph` (the graph module, v0.2.0 to v0.3.0) | `// Deprecated: use github.com/webong/ext/pkg/ext-go/engine/ledger.` (v0.3.1) | `pkg/ext-go/engine/ledger` and `pkg/ext-go/engine/ledger/recorder` |
 
 The old `pkg/plugin-go` v0.1.x keeps resolving for existing consumers; its replacement

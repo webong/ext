@@ -11,7 +11,7 @@
 # Validate Windows system library
 if [ "$RUNNER_OS" = Windows ]; then
 (
-go test -v ./res/system/... ./pkg/ext-go/cengine/ledger/... -timeout 5m
+go test -v ./src/ctx/system/... ./pkg/ext-go/cengine/ledger/... -timeout 5m
 )
 ci_import_env
 fi
@@ -25,7 +25,7 @@ ci_import_env
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system src/ctn/contract pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox src/ctx/system src/ctn/contract pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )
@@ -53,7 +53,7 @@ if [ "$RUNNER_OS" = Linux ]; then
 cmake -S pkg/ext-linux/net -B "$RUNNER_TEMP/ext-system-net"
 cmake --build "$RUNNER_TEMP/ext-system-net"
 ctest --test-dir "$RUNNER_TEMP/ext-system-net" --output-on-failure
-(cd res/system/service/network/linux/guest && go build -o "$RUNNER_TEMP/network-linux" .)
+(cd pkg/ext-linux/net/guest && go build -o "$RUNNER_TEMP/network-linux" .)
 EXT_NETWORK_GUEST_BINARY="$RUNNER_TEMP/network-linux" go test ./tests/crosslang -run '^TestNetworkResourceGuest$' -count=1
 )
 ci_import_env
@@ -70,10 +70,10 @@ if ($env:EXT_ADAPTERS) {
   $env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
   go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
 }
-dotnet publish res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/clipboard-guest"
+dotnet publish pkg/ext-windows/act/clipboard/Guest/Ext.System.Clipboard.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/clipboard-guest"
 $env:EXT_CLIPBOARD_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'clipboard-guest/Ext.System.Clipboard.Guest.exe'
 go test ./src/ctx/internal/app -run '^TestWindowsClipboardGuestHandshake$' -count=1
-dotnet publish res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/network-guest"
+dotnet publish pkg/ext-windows/net/Guest/Ext.System.Network.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/network-guest"
 $env:EXT_NETWORK_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'network-guest/Ext.System.Network.Guest.exe'
 go test ./tests/crosslang -run '^TestNetworkResourceGuest$' -count=1
 PWSH

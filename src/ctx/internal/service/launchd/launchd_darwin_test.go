@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/system/service/user"
-	"github.com/webong/ext/res/system/service/user/testdefinitions"
+	"github.com/webong/ext/src/ctx/system/service/user"
+	"github.com/webong/ext/src/ctx/system/service/user/testdefinitions"
 )
 
 type call struct {

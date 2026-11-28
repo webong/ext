@@ -107,7 +107,7 @@ own Go module, except `res/web`, which is a container too. Nothing lives at the
 root of `res/`. Keep container directories free of shared logic
 and keep repo-wide tests in `src/ctx/internal/arch`. `res/web/host` defines
 the protocol-neutral WebAssembly host contract without wazero or the plugin engine;
-`res/system` depends on `golang.org/x/sys`. The Go ledger binds C and uses ledger-owned wire records; it never requires `res/system` (`src/ctx/internal/arch` enforces it).
+`src/ctx/system` depends on `golang.org/x/sys`. The Go ledger binds C and uses ledger-owned wire records; it never requires `src/ctx/system` (`src/ctx/internal/arch` enforces it).
 
 `res/web` has no Go code at its top. Its Go module is `res/web/host`
 (`github.com/webong/ext/res/web/host`, tagged `res/web/host/vX.Y.Z`); the module path
@@ -225,7 +225,7 @@ The reusable libraries are:
 - `res/web/host` for the published Go web contracts and workflows during migration. Native WKWebView, Android WebView and WebView2 libraries live in `pkg/ext-darwin/web`, `pkg/ext-android/web` and `pkg/ext-windows/web`; `res/web` owns the Ext-facing web capability and shared fixtures.
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
-- `res/system` for the published Go system APIs during migration. Native Apple, Android, .NET and Linux system libraries live under `act` and `net` in their platform packages; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `res/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
+- `src/ctx/system` for the published Go system APIs during migration. Native Apple, Android, .NET and Linux system libraries live under `act` and `net` in their platform packages; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `src/ctx/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
 - `src/ctn/contract` for the published Go intelligence contracts. Native Core ML, Android model and .NET inference libraries live under `int/model` in `pkg/ext-darwin`, `pkg/ext-android` and `pkg/ext-windows`. The Core ML and ONNX Runtime provider guests live in `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`; CTN chooses providers, models, credentials and policy.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
@@ -327,19 +327,19 @@ portable and Android Java source sets in `pkg/ext-android/act/clipboard` are com
 the `pkg/ext-android` AAR. `net` follows that ownership model too: `pkg/ext-darwin/net` is
 linked into `pkg/ext-darwin`, and the Java source sets in `pkg/ext-android/net` are
 compiled into the `pkg/ext-android` AAR.
-`res/system/capture/clipboard` retains the portable Go contract; CTX on Windows
+`src/ctx/system/capture/clipboard` retains the portable Go contract; CTX on Windows
 invokes the installed `system.clipboard.windows` Ext resource guest backed by
 `pkg/ext-windows/act/clipboard`, with no Go Win32 fallback.
 `pkg/ext-linux/net` owns Linux native network observation in C. The
 private-volume creation, inspection and removal live in `lib/ledger` and are
-reached from Go through `pkg/ext-go/cengine/ledger`; `res/system/device/volume`
+reached from Go through `pkg/ext-go/cengine/ledger`; `src/ctx/system/device/volume`
 has no Go implementation or fallback.
-The Windows network resource guest in `res/system/service/network/windows/Guest`
+The Windows network resource guest in `pkg/ext-windows/net/Guest`
 serves `ext.system.network/v1` using `pkg/ext-windows/net`.
 The private Linux network guest is a nested, unpublished Go module at
-`res/system/service/network/linux/guest`; it uses Go only for Ext transport
+`pkg/ext-linux/net/guest`; it uses Go only for Ext transport
 and links the C mechanism from `pkg/ext-linux/net`.
-`res/system/service/network` exposes local state only.
+`src/ctx/system/service/network` exposes local state only.
 `act/share` follows the same ownership model for mobile share and
 keyboard extensions: its Swift target ships through `pkg/ext-darwin` as `ExtShare`, and its Java source sets compile into the `pkg/ext-android` AAR.
 The Android share and keyboard binding classes live in
@@ -350,14 +350,14 @@ The C ledger owns host inventory, exact filesystem and access checks, named
 executable checks, and per-user service definition rendering and safe
 publication. CTX binds these through `pkg/ext-go/cengine/ledger` and keeps
 installer declaration expansion and candidate merging in `src/ctx/internal/program`.
-`res/system/service/host`, `res/system/service/program` and
-`res/system/service/process` have no Go package;
+`src/ctx/system/service/host`, `src/ctx/system/service/program` and
+`src/ctx/system/service/process` have no Go package;
 the shared directory lock is `pkg/ext-go/core/dirlock`.
-`res/system/service/user` retains the Go manager contract; CTX, its only user, owns the
+`src/ctx/system/service/user` retains the Go manager contract; CTX, its only user, owns the
 macOS launchd and Windows Task Scheduler backends in `src/ctx/internal/service`;
 `systemctl --user` remains a selectable native tool owned by
 `xallet.app/tip/systemd`. Managers receive a ledger-backed definition interface.
-`res/system/capture/audio` owns portable device observation and bounded PCM stream
+`src/ctx/system/capture/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
 and `ffmpeg` are selectable native tools owned by `xallet.app/tip/pulseaudio`,
 `xallet.app/tip/alsa`, `xallet.app/tip/wayland`, and `xallet.app/tip/x11`; `xallet.app/tip/ffmpeg` owns recording on
@@ -365,12 +365,12 @@ macOS and Windows, while installed `system.surface` resource guests use the
 native Swift and .NET libraries for selected-window capture and input. `xallet.app/tip/pipewire`
 implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
-by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters
+by name. `src/ctx/system/capture/surface.DesktopDriver` is the portable seam those adapters
 implement, and the shared library never selects a driver by name.
-`src/cto/internal/confine` confines one local process to a `src/cto/sandbox` grant and then becomes the guest; its drivers (Seatbelt on macOS and Landlock with seccomp on Linux now, AppContainer and a job object on Windows next) are CTO platform implementations, not adapters. It never chooses a policy. `res/system` has no CTO dependency.
+`src/cto/internal/confine` confines one local process to a `src/cto/sandbox` grant and then becomes the guest; its drivers (Seatbelt on macOS and Landlock with seccomp on Linux now, AppContainer and a job object on Windows next) are CTO platform implementations, not adapters. It never chooses a policy. `src/ctx/system` has no CTO dependency.
 `src/cto/internal/app` owns `ext cto exec|check` and its `ext sandbox` alias, dispatched
 through the installed CTO package. Each product's private `plugin/` entrypoint serves its command through the Ext guest SDK; Ext's host dispatch lives in `cmd/ext/internal/pkgcmd`. Product dispatch is not part of `pkg/ext-go`.
-`res/system` may also perform bounded local shell mechanisms such as capture,
+`src/ctx/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, and volume snapshot/restore; process
 supervision is `pkg/ext-go/cengine/ledger/supervisor` (and `ext_ledger_supervisor_*` in `lib/ledger`). Remote clients, service discovery, routing services, authorization,
 approval UI and consumer policy belong to consumers.

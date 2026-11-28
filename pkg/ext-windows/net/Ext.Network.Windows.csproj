@@ -11,5 +11,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Tests/**/*.cs" />
+    <Compile Remove="Guest/**/*.cs" />
   </ItemGroup>
 </Project>

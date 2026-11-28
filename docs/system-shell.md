@@ -1,6 +1,6 @@
 # Local system shell library
 
-`res/system` is ext's base layer for extending a machine's graphical and
+`src/ctx/system` is ext's base layer for extending a machine's graphical and
 textual shell. It owns portable contracts and native implementations for local
 OS mechanisms. It is not restricted to observation.
 
@@ -10,7 +10,7 @@ The ownership test is:
   capture, accessibility, atomic input, image/media processing and playback,
   clipboard access, local interface/address/route/resolver observation,
   filesystem or volume mechanics, process lifecycle, permission state, or
-  shell discovery—it belongs in `res/system`.
+  shell discovery—it belongs in `src/ctx/system`.
 - If behavior selects a product, provider, browser, or native service, it
   belongs in that product's adapter.
 - If behavior grants authority, asks for approval, exposes a remote interface,
@@ -19,7 +19,7 @@ The ownership test is:
 
 Calling an OS framework does not make a platform implementation an adapter.
 Core Graphics, Accessibility, ScreenCaptureKit, AVFoundation, User32, GDI and
-WASAPI implementations of `res/system` contracts stay beside those contracts.
+WASAPI implementations of `src/ctx/system` contracts stay beside those contracts.
 Likewise, application-owned WKWebView, Android WebView and WebView2
 implementations stay in `res/web`; browser-profile discovery and product
 installation stay in browser adapters.
@@ -73,7 +73,7 @@ without maintaining another copy of the native implementation.
 
 ## Per-user services
 
-`res/system/service/user` renders and publishes per-user launchd property lists,
+`src/ctx/system/service/user` renders and publishes per-user launchd property lists,
 systemd units, and Task Scheduler XML. Publication stages a complete file and
 links it into place, so an existing file is never replaced silently and a
 filesystem without hard links fails closed. Registration, unregistration,
@@ -90,7 +90,7 @@ name, installation layout, port, or health endpoint.
 
 ## Linux audio and desktop tools
 
-`res/system/capture/audio` defines device observation and bounded PCM16 capture and
+`src/ctx/system/capture/audio` defines device observation and bounded PCM16 capture and
 playback interfaces. `xallet.app/tip/pulseaudio` implements them with `pactl`,
 `parec`, and `pacat`; `xallet.app/tip/alsa` implements them with `aplay -L`,
 `arecord -L`, `aplay`, and `arecord`. `xallet.app/tip/pipewire` implements them with
@@ -98,7 +98,7 @@ playback interfaces. `xallet.app/tip/pulseaudio` implements them with `pactl`,
 mixing, or transport policy. PipeWire and PulseAudio are separate adapters; no
 library selects between them by name.
 
-`res/system/capture/surface.DesktopDriver` is the portable seam for desktop-scoped operations by
+`src/ctx/system/capture/surface.DesktopDriver` is the portable seam for desktop-scoped operations by
 external tools. CTX's selected-window capture and input on macOS and Windows
 use installed `system.surface` resource guests backed by the Swift and .NET
 libraries in `pkg/ext-darwin/act/capture/surface` and `pkg/ext-windows/act/capture/surface`; the C ledger supplies the
@@ -116,7 +116,7 @@ enforces `MaxDuration`/`MaxBytes` while reading, and stops gracefully with
 SIGINT followed by a bounded forced kill. Only webm is supported for piped
 output; mp4 is explicitly rejected because it requires a seekable output. No
 desktop portal or approval flow is used. Window-scoped
-capture and input remain in `res/system` because command-line tools cannot
+capture and input remain in `src/ctx/system` because command-line tools cannot
 address its opaque window identities.
 
 ## Commands
@@ -138,7 +138,7 @@ where launchd and Task Scheduler are the operating system mechanisms. Linux
 lifecycle is intentionally not linked into `ctx`: the `systemctl --user` backend
 is `xallet.app/tip/systemd`, and a product may depend on it without ctx core choosing
 a native tool. `ctx desktop` uses window-scoped native capture and input where
-`res/system` implements them; Linux desktop tools are the X11 and Wayland
+`src/ctx/system` implements them; Linux desktop tools are the X11 and Wayland
 adapters. `ctx clipboard` currently has only the Windows Go backend; the Apple
 and Android bindings ship in the SDKs.
 

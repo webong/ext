@@ -1,5 +1,5 @@
 /* Host inventory: observe_host and read_host (recorder/v1). The inventory
- * kinds are those of res/system: shells, filesystems, webviews, the desktop,
+ * kinds are those of src/ctx/system: shells, filesystems, webviews, the desktop,
  * surfaces (displays and windows), accessibility, resources and permissions.
  * An absent kind keeps what was recorded of it; an empty list removes it. */
 #include "recorder.h"
@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ---- the res/system rules the projection uses ---- */
+/* ---- the src/ctx/system rules the projection uses ---- */
 
 /* Whether a host path is absolute by the rules of the recorder's OS (filepath.IsAbs). */
 static int host_abs(const rec *r, const char *p) {
@@ -26,7 +26,7 @@ static char *path_key(const rec *r, const char *path) {
   return k;
 }
 
-/* A filesystem source without URL credentials, as res/system's RedactSource. */
+/* A filesystem source without URL credentials, as src/ctx/system's RedactSource. */
 char *rec_redact_source(const char *s) {
   size_t n = strlen(s), start;
   const char *sep = strstr(s, "://");

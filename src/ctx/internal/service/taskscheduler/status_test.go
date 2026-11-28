@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/webong/ext/res/system/service/user/testdefinitions"
+	"github.com/webong/ext/src/ctx/system/service/user/testdefinitions"
 )
 
 func TestTaskStatusParsesNativeListOutput(t *testing.T) {

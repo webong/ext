@@ -181,7 +181,7 @@ public enum NetworkObservationError: Error, Equatable {
     /// The task running the observation was canceled.
     case canceled
 
-    /// The stable error code of `res/system/testdata/codes.json`.
+    /// The stable error code of `tests/fixtures/system/codes.json`.
     public var code: String {
         switch self {
         case .invalidLimit, .invalidAddress, .invalidStatus: return "invalid"

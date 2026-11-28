@@ -97,19 +97,19 @@ Successful browser opens add the provider, profile, and URL origin. URL paths,
 query strings, fragments, arbitrary environment values, and shell history are
 not collected. Host shell executables, mounted filesystems, and shared webview
 runtimes, local surfaces, accessibility structure, and permission state are
-discovered directly by the `res/system` collectors, which the
+discovered directly by the `src/ctx/system` collectors, which the
 `res/graph` recorder stores, independently of adapters.
 `ctx graph shells`, `ctx graph filesystems`, `ctx graph webviews`,
 `ctx graph surfaces`, `ctx graph accessibility`, and `ctx graph permissions` refresh and
 expose those host inventories, including executable paths, mounted filesystem
 space, shared web rendering runtimes, and bounded native observations. Native
-host discovery stays in `res/system`; product-specific provider discovery
+host discovery stays in `src/ctx/system`; product-specific provider discovery
 stays in adapters. `ctx graph scan` records all host inventories and installed
 adapters, their declared capabilities and surfaces, and versioned observations
 from trusted adapters.
 `ctx graph processes` enumerates caller-visible processes; `ctx graph process <pid>`
 collects targeted file, mapping, socket, IPC, and usage evidence. The native
-collectors live in `res/system`, and operate without adapters. Process IDs
+collectors live in `src/ctx/system`, and operate without adapters. Process IDs
 include boot and start identity; coverage and observation timestamps distinguish
 missing resources from denied, partial, or unsupported inspection. Product
 protocols and capabilities remain adapter-owned. See [host discovery](host-discovery.md)

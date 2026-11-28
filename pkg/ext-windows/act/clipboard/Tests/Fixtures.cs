@@ -1,8 +1,8 @@
-// The shared clipboard fixtures (res/system/testdata/clipboard/v1), which the Go, Swift and Java
+// The shared clipboard fixtures (tests/fixtures/system/clipboard/v1), which the Go, Swift and Java
 // bindings run as well: the policy section through ClipboardPolicy.Validate and the items section
 // through ClipboardValidation.ValidateItems, each case's code against ClipboardException.Code.
 // capability/v1 runs through the ClipboardStatus constructor, the clipboard's capability report.
-// The testdata is EXT_SYSTEM_TESTDATA when set, else the res/system/testdata found by walking up.
+// The testdata is EXT_SYSTEM_TESTDATA when set, else the tests/fixtures/system found by walking up.
 using System.Text;
 using System.Text.Json.Nodes;
 using Webong.Ext.System.Windows;
@@ -15,10 +15,10 @@ static class Fixtures
         if (!string.IsNullOrEmpty(overridden)) return overridden;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            var candidate = Path.Combine(dir.FullName, "res", "system", "testdata");
+            var candidate = Path.Combine(dir.FullName, "tests", "fixtures", "system");
             if (File.Exists(Path.Combine(candidate, "codes.json"))) return candidate;
         }
-        throw new Exception("res/system/testdata was not found above " + AppContext.BaseDirectory +
+        throw new Exception("tests/fixtures/system was not found above " + AppContext.BaseDirectory +
             ": run from a checkout or set EXT_SYSTEM_TESTDATA");
     }
 

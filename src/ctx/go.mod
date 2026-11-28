@@ -6,7 +6,7 @@ require (
 	github.com/webong/ext/pkg/ext-go/core v0.1.0
 	github.com/webong/ext/pkg/ext-go/cengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1
-	github.com/webong/ext/res/system v0.5.1
+	github.com/webong/ext/src/ctx/system v0.1.0
 	github.com/webong/ext/res/web/host v0.1.0
 )
 

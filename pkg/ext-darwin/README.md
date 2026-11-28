@@ -94,7 +94,7 @@ routing or approval UI.
 ## System observation
 
 `ExtSystem` ships the local display and window observation model from
-[`res/system/capture/surface`](../../pkg/ext-darwin/act/capture/surface). It also observes read-only native UI
+[`src/ctx/system/capture/surface`](../../pkg/ext-darwin/act/capture/surface). It also observes read-only native UI
 structure and accessibility/screen-recording permission state. macOS reports the
 focused accessible application and visible desktop windows; iOS reports only the
 calling application's views and windows. Text is opt-in. Neither binding exposes
@@ -103,7 +103,7 @@ native handles, captures pixels, sends input, prompts, opens settings, or routes
 ### Share and keyboard extensions
 
 `ExtShare` ships the bounded share model from
-[`res/system/capture/share`](../../res/system/capture/share) and its iOS bindings:
+[`src/ctx/system/capture/share`](../../src/ctx/system/capture/share) and its iOS bindings:
 `ShareExtensionLoader` normalizes `NSExtensionItem` text, links, and file
 attachments, and `KeyboardEditor` reads selection and context, inserts and
 deletes text, submits the editor action, and advances keyboards. Attachment
@@ -121,7 +121,7 @@ product, built from the package that owns it.
 
 ## Network observation
 
-`ExtNetwork` ships [`res/system/service/network`](../../res/system/service/network/README.md)'s bounded local
+`ExtNetwork` ships [`src/ctx/system/service/network`](../../src/ctx/system/service/network/README.md)'s bounded local
 interface and assigned-address observation. On macOS, route-table observation
 uses `netstat -rn` and DNS resolver observation uses `scutil --dns`; both are
 local-only and report `unsupported` when the system binary is unavailable. On

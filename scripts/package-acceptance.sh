@@ -103,7 +103,7 @@ go test ./cmd/ext/internal/bundlecmd -count=1 -json -timeout=2m | python3 script
 
 go test ./src/ctx/internal/adapterenv -count=1 -json | python3 scripts/check-go-test-results.py TestDeclaredDependenciesReplaceInheritedHints TestHostDispatcherReplacesInheritedHints
 if [[ "$(go env GOOS)" != windows ]]; then
-  go test ./res/system/service/credential/client -count=1 -json | python3 scripts/check-go-test-results.py TestGetDeclaredUsesHostProtocol TestGetDeclaredUsesProductPrefix
+  go test ./src/ctx/system/service/credential/client -count=1 -json | python3 scripts/check-go-test-results.py TestGetDeclaredUsesHostProtocol TestGetDeclaredUsesProductPrefix
 fi
 # Browser fixtures execute POSIX shell guests; require every selected case there.
 if [[ "$(go env GOOS)" != windows ]]; then

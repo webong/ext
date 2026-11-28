@@ -70,7 +70,7 @@ public sealed class ClipboardException : Exception
 {
     public ClipboardErrorKind Kind { get; }
 
-    /// <summary>The stable error code of res/system/testdata/codes.json.</summary>
+    /// <summary>The stable error code of tests/fixtures/system/codes.json.</summary>
     public string Code => Kind switch
     {
         ClipboardErrorKind.Denied => "denied",
@@ -108,7 +108,7 @@ public sealed class ClipboardException : Exception
 }
 
 /// <summary>
-/// Whether this session has a clipboard, in the collection-status vocabulary every res/system
+/// Whether this session has a clipboard, in the collection-status vocabulary every src/ctx/system
 /// package shares (testdata/capability/v1, docs/adr-architecture.md rule 2). <c>complete</c>: there
 /// is a clipboard, though another process may hold it for a moment (a read or write then fails
 /// <c>busy</c>). <c>unavailable</c> with <c>no_device</c>: the process runs on a window station with

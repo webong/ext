@@ -14,7 +14,7 @@ import (
 	hostprocess "github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
-	"github.com/webong/ext/res/system/capture/surface"
+	"github.com/webong/ext/src/ctx/system/capture/surface"
 )
 
 func TestSurfaceResourceGuest(t *testing.T) {
@@ -79,7 +79,7 @@ func TestSurfaceResourceGuest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Abort()
-	data, err := os.ReadFile(filepath.Join("..", "..", "res", "system", "testdata", "surface", "v1", "control.json"))
+	data, err := os.ReadFile(filepath.Join("..", "fixtures", "system", "surface", "v1", "control.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -44,7 +44,7 @@ ci_import_env
 # The native surface mechanism also ships as a private Ext resource guest.
 (
 set -euo pipefail
-guest="res/system/capture/surface/ios/Guest"
+guest="pkg/ext-darwin/act/capture/surface/Guest"
 swift build --disable-sandbox --package-path "$guest" -c release
 binary="$(swift build --disable-sandbox --package-path "$guest" -c release --show-bin-path)/ExtSurfaceGuest"
 out="dist/ext-macos-$VERSION/system.surface.darwin"

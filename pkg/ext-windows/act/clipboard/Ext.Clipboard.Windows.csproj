@@ -13,5 +13,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Ext.Clipboard.Windows.Tests" />
     <Compile Remove="Tests/**/*.cs" />
+    <Compile Remove="Guest/**/*.cs" />
   </ItemGroup>
 </Project>

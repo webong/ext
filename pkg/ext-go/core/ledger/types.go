@@ -37,7 +37,7 @@ var (
 )
 
 // Code returns the contract code of err: one of the codes in
-// res/system/testdata/codes.json, or "" for a nil error. An error the store does
+// tests/fixtures/system/codes.json, or "" for a nil error. An error the store does
 // not recognize is "io".
 func Code(err error) string {
 	switch {

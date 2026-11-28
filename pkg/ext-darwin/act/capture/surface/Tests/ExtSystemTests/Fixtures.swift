@@ -3,7 +3,7 @@ import Foundation
 @testable import ExtSystem
 #endif
 
-/// The language-neutral vectors of `res/system/testdata`, which the Go, Java and C# tests run too.
+/// The language-neutral vectors of `tests/fixtures/system`, which the Go, Java and C# tests run too.
 /// Set `EXT_SYSTEM_TESTDATA` to use a copy elsewhere.
 enum Fixtures {
     static let directory: URL = {
@@ -13,7 +13,7 @@ enum Fixtures {
         // pkg/ext-darwin/act/capture/surface/Tests/ExtSystemTests/Fixtures.swift -> repository root.
         var url = URL(fileURLWithPath: #filePath)
         for _ in 0..<8 { url.deleteLastPathComponent() }
-        return url.appendingPathComponent("res/system/testdata")
+        return url.appendingPathComponent("tests/fixtures/system")
     }()
 
     static func load<T: Decodable>(_ path: String, as type: T.Type = T.self) throws -> T {

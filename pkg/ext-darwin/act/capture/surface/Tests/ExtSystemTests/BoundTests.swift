@@ -1,7 +1,7 @@
 import XCTest
 @testable import ExtSystem
 
-/// The shared time bound (Bound.swift, one copy in each res/system Swift package).
+/// The shared time bound (Bound.swift, one copy in each src/ctx/system Swift package).
 final class BoundTests: XCTestCase {
     func testValidTimeouts() {
         XCTAssertTrue(ObservationBound.valid(1e-9))

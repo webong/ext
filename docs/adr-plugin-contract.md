@@ -6,7 +6,7 @@ wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-Ext supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `res/system`.
+Ext supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `src/ctx/system`.
 Its implementations include `pkg/ext-go/engine/plugin/transport/inprocess`, `pkg/ext-go/engine/plugin/transport/jsonline`,
 `pkg/ext-go/hashicorp`, `pkg/ext-go/engine/plugin/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/cengine/cguest/backend`, with
 additional backends able to implement the same public interface. HashiCorp

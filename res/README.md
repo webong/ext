@@ -9,7 +9,7 @@ that have not yet been moved behind Ext guests. Nothing lives at the `res/` root
 | Module | Import path | Contents |
 | --- | --- | --- |
 | [`web`](web/README.md) | `github.com/webong/ext/res/web/host` | Existing Go web contracts and workflows, Ext-facing fixtures and guides; native web libraries are in each platform package's `web` |
-| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Existing Go system APIs, contracts and fixtures; native platform libraries are in each platform package's `act` and `net` |
+| [`system`](system/README.md) | `github.com/webong/ext/src/ctx/system` | Existing Go system APIs, contracts and fixtures; native platform libraries are in each platform package's `act` and `net` |
 | [`int`](int/README.md) | `github.com/webong/ext/src/ctn/contract` | Existing Go intelligence contracts and Ext model guests; native model libraries are in each platform package's `int/model` |
 
 All resource modules are listed in the root `go.work`, so the repository still builds as one
@@ -45,4 +45,4 @@ provider automatically, so command-line behavior is unchanged.
 
 Each resource is already an independently versioned module. Packages nested
 under `system/`, including clipboard, credential and network integration, share the
-`res/system` module and release tag without depending back on the CTX CLI.
+`src/ctx/system` module and release tag without depending back on the CTX CLI.

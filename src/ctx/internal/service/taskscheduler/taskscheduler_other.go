@@ -5,7 +5,7 @@ package taskscheduler
 import (
 	"context"
 
-	"github.com/webong/ext/res/system/service/user"
+	"github.com/webong/ext/src/ctx/system/service/user"
 )
 
 type Config struct {

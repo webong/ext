@@ -3,7 +3,7 @@ import Foundation
 
 /// The time bound and cancellation of one call (docs/adr-architecture.md rule 4), as Go's context
 /// deadline: the call stops at its deadline, and when the task that runs it is canceled. Each
-/// package of res/system keeps its own copy, since the Swift targets share no module.
+/// package of src/ctx/system keeps its own copy, since the Swift targets share no module.
 struct ObservationBound {
     /// Why a call stopped early: the codes `timeout` and `canceled` of `testdata/codes.json`.
     enum Stop: Equatable { case timeout, canceled }

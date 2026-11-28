@@ -13,7 +13,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
-	"github.com/webong/ext/res/system/capture/surface"
+	"github.com/webong/ext/src/ctx/system/capture/surface"
 )
 
 func TestSurfaceBackendRequiresTrustedInstalledGuest(t *testing.T) {

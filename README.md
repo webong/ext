@@ -88,7 +88,7 @@ lifecycle mechanisms.
 | Use another language or a mobile platform | [SDKs and bindings](pkg/README.md#plugin-language-sdks-and-bindings) |
 | Store a graph, record observations or supervise processes | [`lib/ledger`](lib/ledger/README.md) |
 | Use native OS mechanisms | The platform packages [`ext-darwin`](pkg/ext-darwin/README.md), [`ext-android`](pkg/ext-android/README.md), [`ext-windows`](pkg/ext-windows/README.md) and [`ext-linux`](pkg/ext-linux/README.md); host-resource collection and private volumes in [`lib/ledger`](lib/ledger/README.md) |
-| Expose or consume system capabilities through Ext | [`res/system`](res/system/README.md) |
+| Expose or consume system capabilities through Ext | [`src/ctx/system`](src/ctx/system/README.md) |
 | Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) for contracts and guests; each platform package's `web` library for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
 | Build code that runs inside a browser extension | [`pkg/ext-web`](pkg/ext-web/README.md) |
 | Use intelligence capabilities | [`src/ctn/contract`](src/ctn/contract/README.md) for contracts and guests; each platform package's `int` library for native mechanisms |

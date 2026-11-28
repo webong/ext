@@ -133,7 +133,7 @@ isolated `EXT_HOME`. Product guests require local socket access.
 - [x] Add receipt-verified native upgrades and interruption recovery; exercise a
       mixed bundle with a real C engine and executable packages.
 - [x] Coordinate CTX adapter mutations and catalog setup/refresh with the
-      package writer; share the directory-lock mechanism through res/system.
+      package writer; share the directory-lock mechanism through src/ctx/system.
 - [x] Expose a native C `package_writer` handle interoperable with CLI locks;
       verify cross-process exclusion, abandoned locks and ownership-safe release.
 - [x] Use the C writer handle in the staged standalone provider consumer,

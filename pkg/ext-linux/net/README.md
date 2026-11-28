@@ -8,6 +8,6 @@ caller's options. Missing native sources are reported in the corresponding
 collection state.
 
 Build and test on Linux with CMake and CTest. The tests run the shared
-`res/system/testdata/network/v1` option and address cases as well as live
+`tests/fixtures/system/network/v1` option and address cases as well as live
 bounded observation. The API is independent of Go and of Ext guests; a
 resource guest can expose this library through Ext.

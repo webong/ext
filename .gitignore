@@ -24,7 +24,7 @@
 .DS_Store
 __pycache__/
 /pkg/ext-darwin/int/model/.build/
-/res/system/capture/surface/ios/Guest/.build/
-/res/system/capture/surface/ios/Guest/.swiftpm/
-/res/system/capture/surface/windows/Guest/bin/
-/res/system/capture/surface/windows/Guest/obj/
+/pkg/ext-darwin/act/capture/surface/Guest/.build/
+/pkg/ext-darwin/act/capture/surface/Guest/.swiftpm/
+/pkg/ext-windows/act/capture/surface/Guest/bin/
+/pkg/ext-windows/act/capture/surface/Guest/obj/

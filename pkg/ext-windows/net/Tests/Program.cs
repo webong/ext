@@ -29,7 +29,7 @@ static string FixturePath()
 {
     for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
     {
-        var path = Path.Combine(directory.FullName, "res", "system", "testdata", "network", "v1", "cases.json");
+        var path = Path.Combine(directory.FullName, "tests", "fixtures", "system", "network", "v1", "cases.json");
         if (File.Exists(path)) return path;
     }
     throw new FileNotFoundException("network fixtures are unavailable");

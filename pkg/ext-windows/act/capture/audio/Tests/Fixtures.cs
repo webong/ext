@@ -1,8 +1,8 @@
-// The shared audio fixtures (res/system/testdata/audio/v1): the playback section, the packet rule the
+// The shared audio fixtures (tests/fixtures/system/audio/v1): the playback section, the packet rule the
 // Go, Swift and Java playback sinks share, through SystemAudioPlayback.CheckPacket (what Write runs),
 // each case's code against AudioPacketException.Code, and capability/v1 through the AudioStatus
 // constructor, the capability report. The other sections are Go's (the README of
-// audio/v1). The testdata is EXT_SYSTEM_TESTDATA when set, else the res/system/testdata found by
+// audio/v1). The testdata is EXT_SYSTEM_TESTDATA when set, else the tests/fixtures/system found by
 // walking up.
 using System.Text.Json.Nodes;
 using Webong.Ext.System.Windows;
@@ -15,10 +15,10 @@ static class Fixtures
         if (!string.IsNullOrEmpty(overridden)) return overridden;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            var candidate = Path.Combine(dir.FullName, "res", "system", "testdata");
+            var candidate = Path.Combine(dir.FullName, "tests", "fixtures", "system");
             if (File.Exists(Path.Combine(candidate, "codes.json"))) return candidate;
         }
-        throw new Exception("res/system/testdata was not found above " + AppContext.BaseDirectory +
+        throw new Exception("tests/fixtures/system was not found above " + AppContext.BaseDirectory +
             ": run from a checkout or set EXT_SYSTEM_TESTDATA");
     }
 

@@ -13,8 +13,8 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 dotnet build pkg/ext-windows/act/clipboard/Ext.Clipboard.Windows.csproj
 dotnet run --project pkg/ext-windows/act/clipboard/Tests/Ext.Clipboard.Windows.Tests.csproj
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-dotnet build res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj
-dotnet build res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj
+dotnet build pkg/ext-windows/act/clipboard/Guest/Ext.System.Clipboard.Guest.csproj
+dotnet build pkg/ext-windows/net/Guest/Ext.System.Network.Guest.csproj
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 dotnet run --project pkg/ext-windows/act/capture/surface/Tests/Ext.System.Windows.Tests.csproj
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

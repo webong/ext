@@ -15,10 +15,10 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 
 | Layer | What it is | Language |
 | --- | --- | --- |
-| 1. Contracts | `ext.io.pc/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
+| 1. Contracts | `ext.io.pc/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `src/ctx/system` and `res/graph` will get) | Data |
 | 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
 | 3. OS mechanisms | The platform packages `pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` and `pkg/ext-linux`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
-| 4. Resource guests | `res/system`, `res/web`, `src/ctn/contract`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
+| 4. Resource guests | `src/ctx/system`, `res/web`, `src/ctn/contract`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
 | 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; the platform packages also carry their platform's OS mechanisms (layer 3) | Every language |
 | 6. Adapters | [Adapter repositories](adapter-repositories.md) outside ext (`xallet/tab`, `zip`, `vat`, `tip`): one product, provider, browser or native tool each, loaded as packages | Mostly Go |
 | 7. Products | `ctx`, `ctn`, `ext`; Cymonkey and Xallet outside this repository | Selection, commands, policy |
@@ -52,16 +52,16 @@ design obligation.
 2. **Report capability, never branch on an OS name.** Each package can say what this platform
    supports and why something is missing. The reasons are fixed: unsupported on this platform,
    permission not granted, no device, or the native tool is not installed. A consumer asks once and
-   never writes `if ios`. `res/system/capture/surface.DesktopDriver` is the model. A missing native
+   never writes `if ios`. `src/ctx/system/capture/surface.DesktopDriver` is the model. A missing native
    tool is reported by the adapter that owns the tool. A collection status keeps its state
    (`complete`, `partial`, `permission-denied`, `unsupported`, `unavailable`) and adds a `reason`
    where something is missing: `unsupported`, `permission`, `no_device` or `tool_missing`
-   (`res/system/testdata/capability`).
+   (`tests/fixtures/system/capability`).
 3. **One vocabulary of error codes.** Errors that cross a language boundary carry a stable code. The
    codes start from the engine's statuses (`ext_plugin_status` in `lib/plugin/include/ext_plugin_host.h`) and
    remote error codes, in lowercase: `invalid`, `denied`, `unsupported`, `not_found`, `exists`,
    `timeout`, `canceled`, `expired`, `busy` and `too_large`. A module adds a code only through a
-   fixture. `res/system/testdata/codes.json` lists the codes the fixtures use, and adds three:
+   fixture. `tests/fixtures/system/codes.json` lists the codes the fixtures use, and adds three:
    `changed` (a compare-and-swap failed because the generation or state moved on, and the caller
    retries), `unavailable` (supported here but not usable now; the capability reason says why) and
    `io` (a native call failed; the engine's `EXT_PLUGIN_IO`).
@@ -131,7 +131,7 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 
 ## Consequences
 
-- Fixtures for `res/system` and tests for `Ext.Audio.Windows` and `Ext.Clipboard.Windows` are the
+- Fixtures for `src/ctx/system` and tests for `Ext.Audio.Windows` and `Ext.Clipboard.Windows` are the
   first work under rules 1 and 4. Each later `res/` change brings its package in line with rules 2
   and 3.
 - The `res/graph` store contract (`lib/ledger/testdata/store/v1`) and the SQLite store

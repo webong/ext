@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/capture/clipboard"
+	"github.com/webong/ext/src/ctx/system/capture/clipboard"
 )
 
 func clipboardCommand(args []string, stdout, stderr io.Writer) int {

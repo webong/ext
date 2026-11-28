@@ -58,7 +58,7 @@ func TestCTXGraphUsesNativeLedger(t *testing.T) {
 				if pkg == "github.com/webong/ext/pkg/ext-go/engine/ledger" && sel.Sel.Name == "NewMemory" {
 					t.Errorf("%s opens the compatibility Go store", path)
 				}
-				if strings.HasPrefix(entry.Name(), "graph") && strings.HasPrefix(pkg, "github.com/webong/ext/res/system/") && strings.HasPrefix(sel.Sel.Name, "Discover") {
+				if strings.HasPrefix(entry.Name(), "graph") && strings.HasPrefix(pkg, "github.com/webong/ext/src/ctx/system/") && strings.HasPrefix(sel.Sel.Name, "Discover") {
 					t.Errorf("%s collects graph inventory outside the C ledger", path)
 				}
 				return true
@@ -72,7 +72,7 @@ func TestCTXGraphUsesNativeLedger(t *testing.T) {
 func TestLedgerCollectorsHaveNoGoFallback(t *testing.T) {
 	root := repoRoot(t)
 	for _, name := range []string{"host", "program", "process"} {
-		dir := filepath.Join(root, "res/system/service", name)
+		dir := filepath.Join(root, "src/ctx/system/service", name)
 		entries, err := os.ReadDir(dir)
 		if os.IsNotExist(err) {
 			continue
@@ -86,7 +86,7 @@ func TestLedgerCollectorsHaveNoGoFallback(t *testing.T) {
 			}
 		}
 	}
-	dir := filepath.Join(root, "res/system/capture/surface")
+	dir := filepath.Join(root, "src/ctx/system/capture/surface")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)

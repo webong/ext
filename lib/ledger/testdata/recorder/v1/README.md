@@ -24,7 +24,7 @@ input, so the projection is a function of the case:
 | `working_directory` | The directory a shell observation without one, or with a relative one, is in |
 | `variables` | Environment variables: `SHELL` (or `ComSpec`), `TERM_PROGRAM`, `PATH`, `LD_LIBRARY_PATH` |
 | `paths` | The paths that exist. A project is the nearest directory, from the working directory up, that holds `.git`, `.ctx`, `go.mod` or `package.json`; without one it is the directory itself |
-| `host_environment` | The opaque digest that `res/system` computes for the host (`host.Environment`), which marks inventory collected in another environment as stale |
+| `host_environment` | The opaque digest that `src/ctx/system` computes for the host (`host.Environment`), which marks inventory collected in another environment as stale |
 
 Every v1 case uses POSIX paths.
 
@@ -36,7 +36,7 @@ Each case runs its steps in order on a new, empty store with the vocabulary regi
 | --- | --- | --- |
 | `observe_shell` | `cwd`, `profile`, `selections` (an object of strings) | nothing |
 | `observe_web` | `provider`, `profile`, `scheme`, `host` | nothing |
-| `observe_host` | the host inventory: `shells`, `filesystems`, `webviews`, `permissions` and the other kinds of `res/system`, in their JSON form. An absent kind keeps what was observed of it; an empty list removes it | nothing |
+| `observe_host` | the host inventory: `shells`, `filesystems`, `webviews`, `permissions` and the other kinds of `src/ctx/system`, in their JSON form. An absent kind keeps what was observed of it; an empty list removes it | nothing |
 | `observe_processes` | a C ledger process snapshot in the shared observation JSON form | nothing |
 | `observe_inventory` | `adapters`, `aliases`, `installers` (below) | nothing |
 | `snapshot` | none | the store snapshot of `ext.system` |

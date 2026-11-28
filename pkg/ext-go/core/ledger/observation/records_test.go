@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// The shared recorder fixtures are the wire contract, not res/system's Go structs.
+// The shared recorder fixtures are the wire contract, not src/ctx/system's Go structs.
 func TestRecorderWireRecords(t *testing.T) {
 	dir, err := ledgertest.Dir()
 	if err != nil {

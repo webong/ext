@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	systemsurface "github.com/webong/ext/res/system/capture/surface"
+	systemsurface "github.com/webong/ext/src/ctx/system/capture/surface"
 )
 
 func TestParseDesktopInputShapes(t *testing.T) {

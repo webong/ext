@@ -12,8 +12,8 @@ lang_cmd_test() {
   dotnet run --project pkg/ext-windows/net/Tests/Ext.Network.Windows.Tests.csproj
   dotnet run --project pkg/ext-windows/int/model/Tests/Ext.ML.Windows.Tests.csproj
   dotnet run --project pkg/ext-windows/web/Tests/Ext.Web.Windows.Tests.csproj
-  dotnet build res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj
-  dotnet build res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj
+  dotnet build pkg/ext-windows/act/clipboard/Guest/Ext.System.Clipboard.Guest.csproj
+  dotnet build pkg/ext-windows/net/Guest/Ext.System.Network.Guest.csproj
 }
 
 lang_cmd_pack() {

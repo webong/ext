@@ -1,13 +1,13 @@
 # Ext.Audio.Windows
 
 `Ext.Audio.Windows` is the Windows-native binding of the `capture/audio` contract in
-`res/system`: bounded WASAPI endpoint discovery (`SystemAudio`), system or microphone
+`src/ctx/system`: bounded WASAPI endpoint discovery (`SystemAudio`), system or microphone
 capture (`SystemAudioCapture`), and PCM playback (`SystemAudioPlayback`).
 
-`SystemAudio.Status()` is the capability report (`res/system/testdata/capability/v1`): `complete`
+`SystemAudio.Status()` is the capability report (`tests/fixtures/system/capability/v1`): `complete`
 when the audio service answers (with no endpoint, `Endpoints()` is an empty list), `unsupported`
 with `unsupported` when there is no audio service, and `unavailable` when it failed to answer. Every
-error carries a `Code` from `res/system/testdata/codes.json`, the codes Swift's
+error carries a `Code` from `tests/fixtures/system/codes.json`, the codes Swift's
 `SystemAudioPlaybackError.code` uses:
 
 - `AudioArgumentException` (an `ArgumentException`) is `invalid`: an empty endpoint id, or an endpoint

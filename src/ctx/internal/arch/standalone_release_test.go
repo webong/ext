@@ -84,7 +84,7 @@ func TestGoReleaseRejectsAdapters(t *testing.T) {
 	cmd := exec.Command(bash, "scripts/release-layers.sh", versions)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
-	if err == nil || !strings.Contains(string(output), "adapter adapters/chrome ships through the Ext package registry") || strings.Contains(string(output), "0 res/system") {
+	if err == nil || !strings.Contains(string(output), "adapter adapters/chrome ships through the Ext package registry") || strings.Contains(string(output), "0 src/ctx/system") {
 		t.Fatalf("release layers: error %v, output %s", err, output)
 	}
 }

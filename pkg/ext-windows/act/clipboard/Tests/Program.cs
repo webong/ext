@@ -282,7 +282,7 @@ Test("the fake clipboard round trips, so the seam carries the real flow", () =>
     Check(fake.Closes == fake.Opens, "the clipboard was left open");
 });
 
-// ---- the shared fixtures (res/system/testdata/clipboard/v1 and capability/v1), which need no clipboard ----
+// ---- the shared fixtures (tests/fixtures/system/clipboard/v1 and capability/v1), which need no clipboard ----
 
 Fixtures.Clipboard(Test);
 Fixtures.Capability(Test);

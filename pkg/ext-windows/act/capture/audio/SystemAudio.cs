@@ -15,13 +15,13 @@ public sealed record AudioEndpoint(string Id, string Name, AudioEndpointDirectio
 
 /// <summary>
 /// An argument the audio library refuses, with the stable code <c>invalid</c> of
-/// res/system/testdata/codes.json: an empty endpoint id, or an endpoint of the other direction.
+/// tests/fixtures/system/codes.json: an empty endpoint id, or an endpoint of the other direction.
 /// With <see cref="AudioException"/> it is the library's one coded error family: every error the
 /// library raises is one of the two and carries a <c>Code</c>.
 /// </summary>
 public class AudioArgumentException : ArgumentException
 {
-    /// <summary>The stable error code of res/system/testdata/codes.json.</summary>
+    /// <summary>The stable error code of tests/fixtures/system/codes.json.</summary>
     public string Code { get; }
 
     public AudioArgumentException(string code, string message, string? paramName = null)
@@ -32,7 +32,7 @@ public class AudioArgumentException : ArgumentException
 }
 
 /// <summary>
-/// A playback packet that breaks the packet rule of res/system/testdata/audio/v1. It is an
+/// A playback packet that breaks the packet rule of tests/fixtures/system/audio/v1. It is an
 /// <see cref="ArgumentException"/>, as Write threw before, and carries the rule's stable code.
 /// </summary>
 public sealed class AudioPacketException : AudioArgumentException
@@ -46,7 +46,7 @@ public sealed class AudioPacketException : AudioArgumentException
 
 /// <summary>
 /// A failure of the audio service, an endpoint or a stream, with the stable code of
-/// res/system/testdata/codes.json that Swift <c>SystemAudioPlaybackError.code</c> uses for the same
+/// tests/fixtures/system/codes.json that Swift <c>SystemAudioPlaybackError.code</c> uses for the same
 /// failure: <c>busy</c> (the playback buffer is full), <c>canceled</c> (the sink or capture is
 /// closed, or the caller's token was canceled), <c>timeout</c> (a listing ran past its timeout),
 /// <c>io</c> (a WASAPI call failed), <c>unavailable</c> (the endpoint is unknown or not active) or
@@ -54,7 +54,7 @@ public sealed class AudioPacketException : AudioArgumentException
 /// </summary>
 public sealed class AudioException : Exception
 {
-    /// <summary>The stable error code of res/system/testdata/codes.json.</summary>
+    /// <summary>The stable error code of tests/fixtures/system/codes.json.</summary>
     public string Code { get; }
 
     public AudioException(string code, string message, Exception? inner = null)
@@ -66,7 +66,7 @@ public sealed class AudioException : Exception
 
 /// <summary>
 /// Whether this session can list and open audio endpoints, in the collection-status vocabulary every
-/// res/system package shares (testdata/capability/v1, docs/adr-architecture.md rule 2), as Go's
+/// src/ctx/system package shares (testdata/capability/v1, docs/adr-architecture.md rule 2), as Go's
 /// <c>audio.Status</c>. <c>complete</c>: the audio service answered; it may have no endpoint, which
 /// is an empty <see cref="SystemAudio.Endpoints"/>. <c>unsupported</c> with <c>unsupported</c>:
 /// there is no audio service. <c>unavailable</c>: the service is there but failed to answer. The

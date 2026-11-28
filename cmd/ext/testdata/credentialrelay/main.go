@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/webong/ext/res/system/service/credential/client"
+	"github.com/webong/ext/src/ctx/system/service/credential/client"
 )
 
 func run() error {

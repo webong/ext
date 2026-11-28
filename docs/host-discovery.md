@@ -2,7 +2,7 @@
 
 Host inventory collection and recording execute in `lib/ledger`, exposed to Go
 through `github.com/webong/ext/pkg/ext-go/cengine/ledger`.
-`res/system` provides separate operating-system APIs for consumers.
+`src/ctx/system` provides separate operating-system APIs for consumers.
 It works through the installed CTX package without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 
@@ -141,14 +141,14 @@ err := lib.Collect(ctx, "host", nil, &inventory)
 inventory, err = g.ScanHost(ctx) // g is a *ledger.Graph
 ```
 
-The independent `res/system` APIs remain available to applications; their records
+The independent `src/ctx/system` APIs remain available to applications; their records
 are not the Go ledger's input types. Convert explicitly when supplying observations.
 `Graph.ObserveHost` accepts a `HostInventory`; a nil slice or pointer preserves
 that part of the existing inventory, while a non-nil empty slice removes its old entries.
 The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`,
 `accessibility-element`, `permission`, `host-resource`, and `host-inventory`
 vertices linked to `machine/local`. The generic graph store owns persistence and transactions;
-`res/system` owns host discovery; the ledger recorder owns the `ext.system` vocabulary that records it.
+`src/ctx/system` owns host discovery; the ledger recorder owns the `ext.system` vocabulary that records it.
 
 Resource discovery is a local, read-only observation of OS and architecture,
 logical CPUs, effective CPU and memory capacity, container markers, and uptime
@@ -156,7 +156,7 @@ or boot time. Linux applies cgroup v2 and v1 CPU and memory quotas; a missing or
 malformed cgroup file leaves the host value in place with an explicit
 `complete` or `partial` status. A platform that exposes no safe source reports
 `unsupported` instead of inventing a value. Network shape stays in
-`res/system/service/network` and is not repeated in the resource projection.
+`src/ctx/system/service/network` and is not repeated in the resource projection.
 
 Desktop discovery is a local, read-only observation. It reports whether this process can see an
 interactive native desktop, local X11 or Wayland endpoints, and recording prerequisites. It does
@@ -435,7 +435,7 @@ layout. Real PID reuse is not forced, and a passing build is not a native test.
 Run ordinary contract/parser tests with:
 
 ```sh
-(cd res/system && go test ./...) && (cd pkg/ext-go/cengine && go test ./ledger/...) && (cd src/ctx && go test ./internal/app)
+(cd src/ctx/system && go test ./...) && (cd pkg/ext-go/cengine && go test ./ledger/...) && (cd src/ctx && go test ./internal/app)
 ```
 
 Run the native C process collector test (the shell must permit subprocess

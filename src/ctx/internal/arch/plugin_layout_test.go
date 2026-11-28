@@ -49,8 +49,8 @@ var pluginRequires = map[string][]string{
 	"src/ctn/contract":      {},
 	"src/cto/sandbox":       {},
 	"res/web/host":          {},
-	"res/system":            {},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "res/web/host", "res/system"},
+	"src/ctx/system":            {},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "res/web/host", "src/ctx/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -413,7 +413,7 @@ func TestEngineLayersHaveNoBackEdges(t *testing.T) {
 			}
 			for _, imp := range f.Imports {
 				name, _ := strconv.Unquote(imp.Path.Value)
-				if strings.HasPrefix(name, "github.com/webong/ext/res/system") {
+				if strings.HasPrefix(name, "github.com/webong/ext/src/ctx/system") {
 					t.Errorf("%s imports OS substrate %s; SDK bindings use ledger wire records", path, name)
 				}
 				forbidden := []string{}

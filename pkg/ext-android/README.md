@@ -320,7 +320,7 @@ event schema, extension registry, application identity, or launch policy.
 
 The AAR ships `io.github.webong.ext.network` and
 `io.github.webong.ext.network.android.SystemNetworkObserver` from
-[`res/system/service/network`](../../res/system/service/network/README.md). It reads interfaces and assigned
+[`src/ctx/system/service/network`](../../src/ctx/system/service/network/README.md). It reads interfaces and assigned
 addresses through the runtime, and reads local routes and DNS configuration
 through `ConnectivityManager` when `ACCESS_NETWORK_STATE` is granted. It does
 not use `INTERNET`, perform a lookup, or open a connection.

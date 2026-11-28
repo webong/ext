@@ -1,0 +1,272 @@
+// Package audio defines bounded, transport-free audio device observation and
+// caller-selected capture or playback. It opens no device, process, or
+// connection itself: a backend such as the PulseAudio or ALSA adapter implements the
+// interfaces, and the consumer selects the device and grants access.
+package audio
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/webong/ext/src/ctx/system/capture/media"
+	"github.com/webong/ext/src/ctx/system/internal/capability"
+)
+
+const (
+	// DefaultMaxDevices bounds one observation.
+	DefaultMaxDevices = 64
+	// MaxDevices is the library ceiling for MaxDevices.
+	MaxDevices = 1024
+	// DefaultMaxPacketBytes bounds one read or written PCM packet.
+	DefaultMaxPacketBytes = 192_000
+	// MaxPacketBytes is the library ceiling for MaxPacketBytes.
+	MaxPacketBytes = 1 << 20
+)
+
+// Kind classifies a device without exposing a native endpoint or routing rule.
+type Kind string
+
+const (
+	KindOutput  Kind = "output"
+	KindInput   Kind = "input"
+	KindMonitor Kind = "monitor"
+)
+
+// Device is one observed endpoint. ID is backend-local and opaque to the
+// library; Name is display metadata. Sample values are zero when the backend
+// does not know them.
+type Device struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Kind         Kind   `json:"kind"`
+	State        string `json:"state,omitempty"`
+	SampleFormat string `json:"sample_format,omitempty"`
+	SampleRate   int    `json:"sample_rate,omitempty"`
+	Channels     int    `json:"channels,omitempty"`
+}
+
+// Status distinguishes an empty device list from an unavailable backend. State is complete,
+// partial or unsupported; an unsupported status says why in Reason, from the set every package
+// shares (testdata/capability/v1): unsupported on this platform, or tool_missing when the native
+// tool is not installed (the adapter that owns the tool reports that).
+type Status struct {
+	State  string `json:"state"`
+	Reason string `json:"reason,omitempty"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// Snapshot is one bounded observation. Backend names the selected native
+// mechanism for diagnostics; the library never chooses it.
+type Snapshot struct {
+	Backend    string    `json:"backend"`
+	ObservedAt time.Time `json:"observed_at"`
+	Devices    []Device  `json:"devices"`
+	Status     Status    `json:"status"`
+}
+
+// Limits bound an observation and one PCM packet. Every field is explicit and a zero is invalid
+// (testdata/audio/v1); start from DefaultLimits and change what differs. In the JSON form a key
+// that is left out takes its default.
+type Limits struct {
+	MaxDevices     int `json:"max_devices"`
+	MaxPacketBytes int `json:"max_packet_bytes"`
+}
+
+// DefaultLimits returns the default of every limit.
+func DefaultLimits() Limits {
+	return Limits{MaxDevices: DefaultMaxDevices, MaxPacketBytes: DefaultMaxPacketBytes}
+}
+
+// Validate checks that every field is between 1 and its ceiling.
+func (l Limits) Validate() error {
+	if l.MaxDevices < 1 || l.MaxDevices > MaxDevices {
+		return fmt.Errorf("%w: device bound must be between 1 and %d", ErrInvalid, MaxDevices)
+	}
+	if l.MaxPacketBytes < 1 || l.MaxPacketBytes > MaxPacketBytes {
+		return fmt.Errorf("%w: packet bound must be between 1 and %d", ErrInvalid, MaxPacketBytes)
+	}
+	return nil
+}
+
+// UnmarshalJSON reads limits in their wire form: a key that is left out takes its default, and a
+// key that is present is explicit, so a zero is invalid.
+func (l *Limits) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		MaxDevices     *int `json:"max_devices"`
+		MaxPacketBytes *int `json:"max_packet_bytes"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return fmt.Errorf("%w: limits are not a JSON object of whole numbers", ErrInvalid)
+	}
+	limits := DefaultLimits()
+	if wire.MaxDevices != nil {
+		limits.MaxDevices = *wire.MaxDevices
+	}
+	if wire.MaxPacketBytes != nil {
+		limits.MaxPacketBytes = *wire.MaxPacketBytes
+	}
+	if err := limits.Validate(); err != nil {
+		return err
+	}
+	*l = limits
+	return nil
+}
+
+var (
+	// ErrInvalid reports a malformed device, snapshot, or packet.
+	ErrInvalid = errors.New("invalid audio value")
+	// ErrLimit reports a value beyond a caller-selected bound.
+	ErrLimit = errors.New("audio limit exceeded")
+	// ErrUnavailable reports a backend that cannot observe or open the device.
+	ErrUnavailable = errors.New("audio backend is unavailable")
+)
+
+// Code is the stable error code of err for another language to match: invalid, too_large or
+// unavailable. It is empty for an error this package does not define.
+func Code(err error) string {
+	switch {
+	case errors.Is(err, ErrInvalid):
+		return "invalid"
+	case errors.Is(err, ErrLimit):
+		return "too_large"
+	case errors.Is(err, ErrUnavailable):
+		return "unavailable"
+	}
+	return ""
+}
+
+// Observer reports caller-visible local audio devices. It sends no audio and
+// starts no stream.
+type Observer interface {
+	Observe(context.Context, Limits) (Snapshot, error)
+}
+
+type ObserverFunc func(context.Context, Limits) (Snapshot, error)
+
+func (f ObserverFunc) Observe(ctx context.Context, limits Limits) (Snapshot, error) {
+	return f(ctx, limits)
+}
+
+// CaptureBackend opens a bounded source for one caller-selected device.
+type CaptureBackend interface {
+	OpenCapture(context.Context, string, Limits) (Source, error)
+}
+
+// PlaybackBackend opens a bounded sink for one caller-selected device.
+type PlaybackBackend interface {
+	OpenPlayback(context.Context, string, Limits) (Sink, error)
+}
+
+// Source produces bounded PCM16 packets. Read must respect the limits supplied
+// when the source was opened and must not block forever after context
+// cancellation.
+type Source interface {
+	Read(context.Context) (media.PCM16, error)
+	Close() error
+}
+
+// Sink consumes bounded PCM16 packets and reports backpressure through Write.
+type Sink interface {
+	Write(context.Context, media.PCM16) error
+	Close() error
+}
+
+// ValidateSnapshot checks identity, kind, format, and device bounds.
+func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
+	if err := limits.Validate(); err != nil {
+		return err
+	}
+	if snapshot.Backend == "" || len(snapshot.Backend) > 64 || snapshot.ObservedAt.IsZero() {
+		return fmt.Errorf("%w: snapshot requires a backend and observation time", ErrInvalid)
+	}
+	if snapshot.Status.State != "complete" && snapshot.Status.State != "partial" && snapshot.Status.State != "unsupported" {
+		return fmt.Errorf("%w: snapshot status must be complete, partial, or unsupported", ErrInvalid)
+	}
+	if !capability.Allowed(snapshot.Status.State, snapshot.Status.Reason) {
+		return fmt.Errorf("%w: status %q does not take reason %q", ErrInvalid, snapshot.Status.State, snapshot.Status.Reason)
+	}
+	if len(snapshot.Devices) > limits.MaxDevices {
+		return fmt.Errorf("%w: device bound exceeded", ErrLimit)
+	}
+	seen := map[string]bool{}
+	for _, device := range snapshot.Devices {
+		if device.ID == "" || len(device.ID) > 256 || !printable(device.ID) {
+			return fmt.Errorf("%w: device ID is required and bounded", ErrInvalid)
+		}
+		if seen[device.ID] {
+			return fmt.Errorf("%w: duplicate device ID %q", ErrInvalid, device.ID)
+		}
+		seen[device.ID] = true
+		if device.Name == "" || len(device.Name) > 256 || !printable(device.Name) {
+			return fmt.Errorf("%w: device name is required and bounded", ErrInvalid)
+		}
+		switch device.Kind {
+		case KindOutput, KindInput, KindMonitor:
+		default:
+			return fmt.Errorf("%w: unknown device kind %q", ErrInvalid, device.Kind)
+		}
+		if len(device.State) > 64 || len(device.SampleFormat) > 64 {
+			return fmt.Errorf("%w: device metadata is too long", ErrInvalid)
+		}
+		if device.SampleRate != 0 && (device.SampleRate < 8_000 || device.SampleRate > 192_000) {
+			return fmt.Errorf("%w: device sample rate is out of range", ErrInvalid)
+		}
+		if device.Channels != 0 && (device.Channels < 1 || device.Channels > 8) {
+			return fmt.Errorf("%w: device channel count is out of range", ErrInvalid)
+		}
+	}
+	return nil
+}
+
+// ValidatePacket checks PCM format, alignment, and the caller's packet ceiling: a packet with no
+// data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, and
+// one over the ceiling is too large. The format is judged first.
+func ValidatePacket(packet media.PCM16, limits Limits) error {
+	if err := limits.Validate(); err != nil {
+		return err
+	}
+	if len(packet.Data) == 0 || packet.SampleRate < 8_000 || packet.SampleRate > 192_000 || packet.Channels < 1 || packet.Channels > 8 ||
+		len(packet.Data)%(2*packet.Channels) != 0 {
+		return fmt.Errorf("%w: PCM16 format or frame alignment", ErrInvalid)
+	}
+	if len(packet.Data) > limits.MaxPacketBytes {
+		return fmt.Errorf("%w: packet exceeds %d bytes", ErrLimit, limits.MaxPacketBytes)
+	}
+	return nil
+}
+
+// Select returns the first device of a kind, or the explicitly named one. It
+// never falls back to a different kind or to a default device.
+func Select(snapshot Snapshot, kind Kind, id string) (Device, error) {
+	if id != "" {
+		for _, device := range snapshot.Devices {
+			if device.ID == id && device.Kind == kind {
+				return device, nil
+			}
+		}
+		return Device{}, fmt.Errorf("%w: device %q is not an observed %s", ErrUnavailable, id, kind)
+	}
+	for _, device := range snapshot.Devices {
+		if device.Kind == kind {
+			return device, nil
+		}
+	}
+	return Device{}, fmt.Errorf("%w: no observed %s device", ErrUnavailable, kind)
+}
+
+func printable(value string) bool {
+	if !utf8.ValidString(value) {
+		return false
+	}
+	for _, character := range value {
+		if character < 0x20 || character == 0x7f {
+			return false
+		}
+	}
+	return strings.TrimSpace(value) == value
+}

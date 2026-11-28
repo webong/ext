@@ -158,7 +158,7 @@ Test("playback is PCM16 stereo 48 kHz", () =>
         $"format {format}");
 });
 
-// The shared fixtures (res/system/testdata/audio/v1, the playback section) need no device.
+// The shared fixtures (tests/fixtures/system/audio/v1, the playback section) need no device.
 Fixtures.Playback(Test);
 
 Test("Write's packet errors are ArgumentExceptions with a code", () =>

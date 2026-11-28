@@ -43,7 +43,7 @@
     "the namespace schema, over the vertices and edges the transaction writes (invalid)"
   ],
   "codes": {
-    "about": "The codes a store returns, from res/system/testdata/codes.json. Error text is not part of the contract.",
+    "about": "The codes a store returns, from tests/fixtures/system/codes.json. Error text is not part of the contract.",
     "invalid": "a malformed name, record or transaction; a limit that is not positive; a schema rule the transaction breaks; deleting a vertex that still has incident edges without delete_incident_edges",
     "not_found": "a record that does not exist; an unregistered namespace; an edge endpoint that does not exist",
     "changed": "expected_revision is not the namespace's current revision",

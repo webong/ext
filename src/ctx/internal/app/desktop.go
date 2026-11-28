@@ -11,7 +11,7 @@ import (
 
 	ledgerbinding "github.com/webong/ext/pkg/ext-go/cengine/ledger"
 	ledgerwire "github.com/webong/ext/pkg/ext-go/core/ledger/observation"
-	systemsurface "github.com/webong/ext/res/system/capture/surface"
+	systemsurface "github.com/webong/ext/src/ctx/system/capture/surface"
 	"github.com/webong/ext/src/ctx/internal/graphapi"
 )
 
@@ -78,7 +78,7 @@ func desktopCommand(args []string, stdout, stderr io.Writer) int {
 }
 
 // collectDesktopSurfaces uses the ledger's native observation. The action
-// contract remains in res/system; CTX does not start a second Go OS scan.
+// contract remains in src/ctx/system; CTX does not start a second Go OS scan.
 func collectDesktopSurfaces(ctx context.Context, lib *ledgerbinding.Library) (ledgerwire.SurfaceSnapshot, error) {
 	ctx, cancel := context.WithTimeout(ctx, systemsurface.DefaultSurfaceOptions().Timeout)
 	defer cancel()

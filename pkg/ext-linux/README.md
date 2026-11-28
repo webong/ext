@@ -9,9 +9,9 @@ counterpart of [`ext-darwin`](../ext-darwin/README.md),
 | --- | --- |
 | [`net`](net/README.md) | Local interface, address, route and resolver observation, without opening a remote connection |
 
-The Linux network resource guest in `res/system/service/network/linux/guest`
+The Linux network resource guest in `pkg/ext-linux/net/guest`
 compiles `net` for its native read, and its tests run the shared
-`res/system/testdata/network/v1` cases. Like the other platform packages, these
+`tests/fixtures/system/network/v1` cases. Like the other platform packages, these
 libraries import no Ext guest or product and choose no policy.
 
 ```sh

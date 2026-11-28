@@ -3,7 +3,7 @@
 The Windows platform package: .NET libraries for the Windows mechanisms ext uses,
 the counterpart of [`ext-darwin`](../ext-darwin/README.md) and
 [`ext-android`](../ext-android/README.md). Each library is usable by a Windows
-application directly and by the Ext resource guests in `res/system`, which build
+application directly and by the Ext resource guests in `src/ctx/system`, which build
 on it.
 
 | Directory | Package | Provides |
@@ -17,7 +17,7 @@ on it.
 
 The packages release together as `ext-windows-vX.Y.Z` (see
 [module versioning](../../docs/module-versioning.md)). Their behaviour is held to
-the shared fixtures in `res/system/testdata` and `res/web/testdata`, which the
+the shared fixtures in `tests/fixtures/system` and `res/web/testdata`, which the
 Swift and Java implementations in the other platform packages run too.
 
 None of these libraries imports an Ext guest or a product, and none chooses a

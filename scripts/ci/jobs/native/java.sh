@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# native/java: the portable and Android Java contracts of res/system and src/ctn/contract (system, network, ML) on the JVM.
+# native/java: the portable and Android Java contracts of src/ctx/system and src/ctn/contract (system, network, ML) on the JVM.
 # (Split out of native/native; the steps are unchanged.)
 . "$(dirname "$0")/../lib.sh"
 

@@ -34,10 +34,10 @@ case "$platform" in
   *) guest_arch= ;;
 esac
 if [ -n "$guest_arch" ]; then
-  (cd res/system/service/network/linux/guest && CGO_ENABLED=1 go build -o "$build/network-linux" .)
+  (cd pkg/ext-linux/net/guest && CGO_ENABLED=1 go build -o "$build/network-linux" .)
   package="release-out/system.network.linux-$guest_arch"
   "$python" scripts/release/pack-resource-guest.py \
-    res/system/service/network/linux/guest/ext.json "$build/network-linux" "$package" linux "$guest_arch"
+    pkg/ext-linux/net/guest/ext.json "$build/network-linux" "$package" linux "$guest_arch"
   rm -rf "$package"
 fi
 )

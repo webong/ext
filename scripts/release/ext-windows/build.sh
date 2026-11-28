@@ -44,34 +44,34 @@ done
 # The clipboard mechanism also ships as a private Ext resource guest. The
 # package has one self-contained executable and no public CLI entry point.
 publish_dir="$out/clipboard-guest-publish"
-dotnet publish res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj \
+dotnet publish pkg/ext-windows/act/clipboard/Guest/Ext.System.Clipboard.Guest.csproj \
   -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -o "$publish_dir"
 python3 scripts/release/pack-resource-guest.py \
-  res/system/capture/clipboard/windows/Guest/ext.json \
+  pkg/ext-windows/act/clipboard/Guest/ext.json \
   "$publish_dir/Ext.System.Clipboard.Guest.exe" "$out/system.clipboard.windows" windows amd64
 rm -rf "$out/system.clipboard.windows"
 rm -rf "$publish_dir"
 
 publish_dir="$out/network-guest-publish"
-dotnet publish res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj \
+dotnet publish pkg/ext-windows/net/Guest/Ext.System.Network.Guest.csproj \
   -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -o "$publish_dir"
 python3 scripts/release/pack-resource-guest.py \
-  res/system/service/network/windows/Guest/ext.json \
+  pkg/ext-windows/net/Guest/ext.json \
   "$publish_dir/Ext.System.Network.Guest.exe" "$out/system.network.windows" windows amd64
 rm -rf "$out/system.network.windows"
 rm -rf "$publish_dir"
 
 publish_dir="$out/surface-guest-publish"
-dotnet publish res/system/capture/surface/windows/Guest/Ext.System.Surface.Guest.csproj \
+dotnet publish pkg/ext-windows/act/capture/surface/Guest/Ext.System.Surface.Guest.csproj \
   -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -o "$publish_dir"
 python3 scripts/release/pack-resource-guest.py \
-  res/system/capture/surface/windows/Guest/ext.json \
+  pkg/ext-windows/act/capture/surface/Guest/ext.json \
   "$publish_dir/Ext.System.Surface.Guest.exe" "$out/system.surface.windows" windows amd64
 rm -rf "$out/system.surface.windows"
 rm -rf "$publish_dir"

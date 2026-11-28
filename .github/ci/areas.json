@@ -131,7 +131,7 @@
           ],
           "pr_paths": [],
           "pr_platform_paths": [
-            "res/system/**/windows/**",
+            "src/ctx/system/**/windows/**",
             "pkg/ext-windows/int/model/**",
             "pkg/ext-windows/web/**",
             "scripts/dotnet/**",
@@ -189,7 +189,7 @@
             "java"
           ],
           "pr_paths": [
-            "res/system/**/android/**",
+            "src/ctx/system/**/android/**",
             "pkg/ext-android/int/model/**",
             "scripts/system-android.sh",
             "scripts/network-android.sh",
@@ -230,7 +230,7 @@
             "go"
           ],
           "pr_paths": [
-            "res/system/capture/**",
+            "src/ctx/system/capture/**",
             "scripts/verify-linux-desktop.sh",
             "scripts/adapters.sh",
             "scripts/ci/jobs/native/linux-desktop.sh"
@@ -357,7 +357,7 @@
           ],
           "pr_paths": [],
           "pr_platform_paths": [
-            "res/system/**/ios/**",
+            "src/ctx/system/**/ios/**",
             "pkg/ext-darwin/int/model/**",
             "scripts/ci/jobs/native/swift.sh"
           ],

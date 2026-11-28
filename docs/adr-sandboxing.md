@@ -157,7 +157,7 @@ The contract is a nested CTO module, **`src/cto/sandbox`** (decision 1). It cont
 - the grant computation;
 - the enforcement check;
 - the fixtures under `src/cto/sandbox/testdata/v1`;
-- its error codes, starting from the shared list in `res/system/testdata/codes.json`.
+- its error codes, starting from the shared list in `tests/fixtures/system/codes.json`.
 
 It uses **only the standard library** and imports nothing else in ext. That lets
 workload, which also uses only the standard library, depend on it without taking on
@@ -327,17 +327,17 @@ Taken by the user on 2026-11-19.
 
 1. **The contract is CTO's nested module, `src/cto/sandbox`,** using only the standard library and
    importing nothing else in ext. Workload can depend on that module without taking
-   `res/system` or the plugin engine.
+   `src/ctx/system` or the plugin engine.
 2. **The launch step is CTO code.** `src/cto/internal/confine`
    exports `confine.Exec` within CTO, and the installed CTO package serves `ext sandbox exec`.
    Linux and Windows need no cgo; macOS calls `sandbox_init` through purego or cgo. A
-   separate `ext-confine` executable in `res/system` was rejected because `res/` holds no
+   separate `ext-confine` executable in `src/ctx/system` was rejected because `res/` holds no
    commands, and C in `lib/` because it would have had no Go reference.
 3. **macOS gets both mechanisms, as drivers:** `seatbelt` and `app-sandbox`, chosen by the
    consumer (section 4). workload's Apple Virtualization or libkrun driver remains the
    `kernel` option.
 4. **The egress proxy lives in `src/cto/internal/confine`.** It exists only as part of a
-   grant and never as a general routing service, so `res/system/service/network` keeps
+   grant and never as a general routing service, so `src/ctx/system/service/network` keeps
    exposing local state only.
 5. **WebAssembly CPU is bounded by wall time only,** stated as non-deterministic, until a
    consumer needs deterministic limits. Instrumenting modules, or another runtime with

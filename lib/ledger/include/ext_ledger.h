@@ -41,7 +41,7 @@ extern "C" {
 
 #define EXT_LEDGER_LAYOUT "ext.graph.ledger/v1"
 
-/* The codes of res/system/testdata/codes.json that a store returns. */
+/* The codes of tests/fixtures/system/codes.json that a store returns. */
 typedef enum {
   EXT_LEDGER_OK = 0,
   EXT_LEDGER_INVALID = 1,

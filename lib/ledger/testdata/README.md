@@ -3,7 +3,7 @@
 The language-neutral contract of the ledger, written as versioned data. Every store
 implementation runs it; where an implementation and a fixture disagree, the fixture is right
 and the implementation changes (`docs/adr-architecture.md`, rule 1). The layout follows
-`res/system/testdata`.
+`tests/fixtures/system`.
 
 ```
 testdata/
@@ -28,7 +28,7 @@ satisfy may join the current version.
 ## Codes
 
 Every step states the error code it expects, or none when it must succeed. The codes are the
-shared vocabulary in `res/system/testdata/codes.json`; the store uses a subset and adds none
+shared vocabulary in `tests/fixtures/system/codes.json`; the store uses a subset and adds none
 (`store/v1/rules.json` says what each one means here). Each implementation keeps its native error
 type and maps it to the code: `store.Code(err)` in Go. Error text is never part of a case.
 

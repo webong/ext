@@ -17,7 +17,7 @@ races between methods. Isolated test stores are not shared production clients.
 | CTO | No installed-plugin store mutation found in its production Go callers | Reaudit if CTO adds management |
 | Standalone provider acceptance consumer | Native `package_writer` held through review and invocation | Acceptance evidence, not a production consumer |
 | Language SDK store/trust APIs | Explicit writer scopes available in C, Python, Ruby, PHP, Lua, .NET, Rust, TypeScript, Swift, Java and Zig | Callers outside this repository remain responsible for adoption |
-| Go compatibility store/trust APIs | Low-level APIs remain explicit; CTX/CTN use `res/system` directory locking and described-host consumers can use native `package_writer` | Do not add new host machinery to the retiring pure-Go engine |
+| Go compatibility store/trust APIs | Low-level APIs remain explicit; CTX/CTN use `src/ctx/system` directory locking and described-host consumers can use native `package_writer` | Do not add new host machinery to the retiring pure-Go engine |
 
 The production callsites inspected are `cmd/ext/internal/{pkgcmd,bundlecmd,
 sourcecmd,resourcecmd}`, `src/ctx/internal/app/{adapters,setup}.go`,

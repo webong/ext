@@ -1,14 +1,14 @@
 # Ext.Clipboard.Windows
 
 `Ext.Clipboard.Windows` is the Windows-native binding of the `capture/clipboard` contract in
-`res/system`: generation-checked Win32 clipboard access (`SystemClipboard`). It accepts an
+`src/ctx/system`: generation-checked Win32 clipboard access (`SystemClipboard`). It accepts an
 explicit format, item, and byte policy (`ClipboardPolicy`), keeps one clipboard item per write
 (as Windows does), and converts UTF-16 text. It has no package dependencies.
 
-`SystemClipboard.Status()` is the capability report (`res/system/testdata/capability/v1`): `complete`
+`SystemClipboard.Status()` is the capability report (`tests/fixtures/system/capability/v1`): `complete`
 when this session has a clipboard, `unavailable` with `no_device` on a window station with no
 interactive desktop (a service session), and `unsupported` off Windows. Every error is a
-`ClipboardException` whose `Code` is in `res/system/testdata/codes.json`: `invalid`, `denied`
+`ClipboardException` whose `Code` is in `tests/fixtures/system/codes.json`: `invalid`, `denied`
 (the policy refuses it, or the clipboard holds none of the allowed formats), `too_large`, `changed`,
 `busy` (another process held the clipboard while it was retried), `unavailable` (there is no
 clipboard to open), `io` (a Win32 call failed; its `Win32Exception` is the inner exception),

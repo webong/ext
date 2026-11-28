@@ -14,7 +14,7 @@ if(BUILD_TESTING)
   add_executable(ext_system_net_test tests/network.c)
   target_link_libraries(ext_system_net_test PRIVATE ext_system_net)
   add_test(NAME ext_system_net_test COMMAND ext_system_net_test)
-  set(NETWORK_FIXTURES ${CMAKE_CURRENT_SOURCE_DIR}/../../../res/system/testdata/network/v1/cases.json)
+  set(NETWORK_FIXTURES ${CMAKE_CURRENT_SOURCE_DIR}/../../../tests/fixtures/system/network/v1/cases.json)
   if(EXISTS ${NETWORK_FIXTURES})
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     add_test(NAME ext_system_net_fixtures

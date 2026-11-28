@@ -6,10 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
+	"github.com/webong/ext/cmd/ext/internal/nativelib"
 	"github.com/webong/ext/pkg/ext-go/cengine/ledger"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
@@ -26,30 +25,7 @@ type publication struct {
 }
 
 func ledgerLibrary() (*ledger.Library, error) {
-	path := os.Getenv("EXT_LEDGER_LIBRARY")
-	var native *library.Library
-	var err error
-	if path == "" {
-		if _, ok := library.Provided("ext_ledger"); ok {
-			native, err = library.OpenProvided("ext_ledger", "")
-		} else {
-			pluginPath, e := Path()
-			if e != nil {
-				return nil, e
-			}
-			name := "libext_ledger.so"
-			if runtime.GOOS == "darwin" {
-				name = "libext_ledger.dylib"
-			}
-			if runtime.GOOS == "windows" {
-				name = "ext_ledger.dll"
-			}
-			path = filepath.Join(filepath.Dir(pluginPath), name)
-		}
-	}
-	if native == nil && err == nil {
-		native, err = library.Open(path)
-	}
+	native, err := nativelib.Open(nativelib.Ledger)
 	if err != nil {
 		return nil, err
 	}

@@ -52,7 +52,8 @@ static void expect(uint64_t h, const char *op, const char *in, const char *conta
 typedef struct {
   uint64_t host;
   volatile int stop, deny_authorize;
-  int verify, authorize, progress, reverse_authorize, reverse, tagged, connects, invokes;
+  volatile int hold; /* events are not taken while set */
+  int verify, authorize, progress, reverse_authorize, reverse, tagged, connects, invokes, dropped;
   const char *descriptor;
 } answerer;
 
@@ -61,6 +62,11 @@ static uint64_t ticket_after(const char *p) { return strtoull(p, NULL, 10); }
 static void *answer_events(void *arg) {
   answerer *a = arg;
   while (!a->stop) {
+    if (a->hold) {
+      struct timespec pause = {0, 1000000};
+      nanosleep(&pause, NULL);
+      continue;
+    }
     char *events = NULL;
     size_t n = 0;
     ext_plugin_status s = ext_plugin_call(a->host, "events", "{\"timeout_ms\":100}", 18, &events, &n);
@@ -69,6 +75,8 @@ static void *answer_events(void *arg) {
         break;
       continue;
     }
+    if (strstr(events, "\"kind\":\"dropped\""))
+      a->dropped++;
     for (const char *p = events; (p = strstr(p, "\"ticket\":")); p++) {
       uint64_t ticket = ticket_after(p + 9);
       const char *kind = strstr(p, "\"kind\":\"") + 8;
@@ -105,6 +113,17 @@ static void *answer_events(void *arg) {
     }
     ext_plugin_free(events);
   }
+  return NULL;
+}
+
+struct release_args {
+  answerer *a;
+  struct timespec after;
+};
+static void *release_after(void *arg) {
+  struct release_args *r = arg;
+  nanosleep(&r->after, NULL);
+  r->a->hold = 0;
   return NULL;
 }
 
@@ -243,6 +262,36 @@ static void hosts(void) {
   CHECK(r.reverse_authorize == 1 && r.reverse == 1, "reverse asked: authorize %d, handle %d", r.reverse_authorize,
         r.reverse);
   CHECK(r.progress == 2 && r.tagged == 2, "progress events: %d, tagged %d", r.progress, r.tagged);
+  /* A call's progress is not dropped when the binding falls behind: with the reader held back
+   * while the guest sends more than the queue holds, every event still arrives, in order. */
+  snprintf(config, sizeof config,
+           "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"process\",\"executable\":\"%s\","
+           "\"arguments\":[\"--guest\",\"flood\"]},\"verify\":\"allow\",\"authorize\":\"allow\"}",
+           REVERSE_DESCRIPTOR, EXT_REVERSE_GUEST);
+  answerer f = {0};
+  f.host = open_json(config, EXT_PLUGIN_OK);
+  f.hold = 1;
+  pthread_create(&t, NULL, answer_events, &f);
+  ext_plugin_free(call(f.host, "start", "{\"timeout_ms\":5000}", EXT_PLUGIN_OK));
+  struct timespec held = {0, 300000000};
+  pthread_t release;
+  pthread_create(&release, NULL, release_after, &(struct release_args){&f, held});
+  expect(f.host, "call",
+         "{\"call\":{\"contract\":{\"name\":\"reverse.test\",\"version\":\"v1\"},\"operation\":\"run\","
+         "\"payload\":{}},\"tag\":\"call-1\",\"progress\":{\"events_per_second\":100000,"
+         "\"bytes_per_second\":16777216},\"timeout_ms\":10000}",
+         "\"done\":true");
+  pthread_join(release, NULL);
+  /* Every event is queued once the call returns; give the reader up to 5 s to take them. */
+  for (int waited = 0; f.progress < 3000 && waited < 5000; waited++) {
+    struct timespec pause = {0, 1000000};
+    nanosleep(&pause, NULL);
+  }
+  CHECK(ext_plugin_close(f.host) == EXT_PLUGIN_OK, "close the flood host");
+  f.stop = 1;
+  pthread_join(t, NULL);
+  CHECK(f.progress == 3000 && f.tagged == 3000 && f.dropped == 0, "flood: %d progress, %d tagged, %d drops",
+        f.progress, f.tagged, f.dropped);
   /* A descriptor that does not meet the host's requirements is refused before anything starts. */
   snprintf(config, sizeof config,
            "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"shared_library\",\"path\":\"%s\"},"

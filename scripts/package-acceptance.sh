@@ -43,7 +43,7 @@ go test ./pkg/ext-go/cengine/plugin -count=1 -json | python3 scripts/check-go-te
 go test ./pkg/ext-go/cgoengine/plugin -run '^TestSharedLibrarySessionServesReverseCallsAndProgress$' -count=1 -json | python3 scripts/check-go-test-results.py TestSharedLibrarySessionServesReverseCallsAndProgress
 go test ./pkg/ext-go/cengine/plugin/host -count=1 -json | python3 scripts/check-go-test-results.py TestRegistryCases
 
-EXT_PLUGIN_BUILD="$build_dir/engine" go test ./pkg/ext-go/cengine/library -run "^TestCommandScopeDescription$" -count=1 -json | python3 scripts/check-go-test-results.py TestCommandScopeDescription
+EXT_PLUGIN_BUILD="$(dirname "$library_path")" go test ./pkg/ext-go/cengine/library -run "^TestCommandScopeDescription$" -count=1 -json | python3 scripts/check-go-test-results.py TestCommandScopeDescription
 EXT_PLUGIN_LIBRARY="$library_path" go test ./pkg/ext-go/cgoengine/plugin/host/commandscope -count=1 -json | python3 scripts/check-go-test-results.py TestNativeCommandScope
 go test ./pkg/ext-go/cengine/ledger/supervisor -run '^TestNativeSupervisor$' -count=1 -json | python3 scripts/check-go-test-results.py TestNativeSupervisor
 # Test the same described ledger through a linked C driver. No fallback allowed.

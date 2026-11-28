@@ -212,6 +212,14 @@ static int guest(const char *mode) {
       printf("{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
              "\"parent\":\"%s\",\"kind\":\"log\",\"text\":\"two\"}\n",
              id);
+    } else if (!strcmp(mode, "flood")) {
+      /* More progress than the interface host's event queue holds (1024), as
+       * a command writing a burst of output does. */
+      for (int i = 0; i < 3000; i++)
+        printf("{\"frame\":\"progress\",\"apiVersion\":\"ext.io.pc/v1\","
+               "\"parent\":\"%s\",\"kind\":\"log\",\"text\":\"line %d\"}\n",
+               id, i);
+      snprintf(reply, sizeof(reply), "true");
     } else if (!strncmp(mode, "bad-", 4)) {
       /* A frame that breaks the rules; the host closes the connection. */
       if (!strcmp(mode, "bad-id"))

@@ -123,4 +123,26 @@ function support.interpreter()
   return exe
 end
 
+--- A command line that hands each argument to the program as it is: sh quoting on POSIX, and on
+--- Windows the Microsoft C runtime's argument rules inside the one pair of quotes cmd /c drops.
+--- string.format("%q") is neither: it doubles every backslash, which the C runtime keeps, so a
+--- path that msvcrt's tmpnam returns, such as \s4j8.1, would reach the program as a UNC path.
+function support.command(...)
+  local windows = package.config:sub(1, 1) == "\\"
+  local parts = {}
+  for i = 1, select("#", ...) do
+    local a = select(i, ...)
+    if windows then
+      a = a:gsub('(\\*)"', function(b) return b .. b .. '\\"' end)
+      a = a:gsub("(\\+)$", function(b) return b .. b end)
+      parts[i] = '"' .. a .. '"'
+    else
+      parts[i] = "'" .. a:gsub("'", "'\\''") .. "'"
+    end
+  end
+  local line = table.concat(parts, " ")
+  if windows then line = '"' .. line .. '"' end
+  return line
+end
+
 return support

@@ -210,8 +210,10 @@ func Call[Out any](o *Object, op string, in any) (Out, error) {
 	return out, err
 }
 
-// Close closes the object and, for one with events, waits for its loop to end. Handle 0 is never
-// closed.
+// Close closes the object and, for one with events, waits for its loop to end and for the answers
+// already being sent, so the library has freed the object (and removed what it owns, such as a
+// command scope's snapshot) when Close returns. A handler still running is not waited for; its
+// answer is not sent. Handle 0 is never closed.
 func (o *Object) Close() error {
 	if o.handle == 0 {
 		return nil
@@ -219,6 +221,7 @@ func (o *Object) Close() error {
 	err := o.d.Interface.Close(o.handle)
 	if o.events != nil {
 		<-o.events.Done()
+		o.events.settle()
 	}
 	return err
 }

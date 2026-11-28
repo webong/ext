@@ -180,6 +180,11 @@ func TestConfinedGuest(t *testing.T) {
 		g.Network = sandbox.Network{Mode: sandbox.NetworkOpen}
 		g.Process = sandbox.ProcessPolicy{Children: true}
 		g.Filesystem = append(g.Filesystem, sandbox.Path{Path: "/bin", Access: []sandbox.Access{sandbox.Read, sandbox.Execute}})
+		// A grant covers what a path resolves to, and /bin/echo may be a link out of /bin (on Ubuntu
+		// 26.04 it is uutils, under /usr/lib/cargo/bin/coreutils): grant the directory it runs from.
+		if echo := resolved(t, "/bin/echo"); filepath.Dir(echo) != resolved(t, "/bin") {
+			g.Filesystem = append(g.Filesystem, sandbox.Path{Path: filepath.ToSlash(filepath.Dir(echo)), Access: []sandbox.Access{sandbox.Read, sandbox.Execute}})
+		}
 		l := Launch{Grant: g, Runner: []string{"lifecycle.fresh"}}
 		if _, out := run(t, l, "connect", listener.Addr().String()); out != "ok" {
 			t.Errorf("connect: %q", out)

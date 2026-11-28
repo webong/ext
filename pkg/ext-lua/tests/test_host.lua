@@ -78,9 +78,7 @@ case("package writer scoped cleanup and ownership", function()
         local code = string.format(
           "package.path=%q..package.path; local h=require('ext_io.host'); local ok,e=pcall(function() h.Engine():package_writer(%q) end); io.write(not ok and h.is_host_error(e) and e.status or 'unexpected')",
           t.ROOT .. "/?.lua;" .. t.ROOT .. "/?/init.lua;", root)
-        local command = string.format("%q -e %q", t.interpreter(), code)
-        if package.config:sub(1, 1) == "\\" then command = '"' .. command .. '"' end
-        local child = assert(io.popen(command))
+        local child = assert(io.popen(t.command(t.interpreter(), "-e", code)))
         local out = child:read("*a")
         child:close()
         t.eq(out, "exists", "cross-process contention")

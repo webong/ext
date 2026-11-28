@@ -6,6 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo 'ext-darwin-objc.sh needs macOS and Xcode' >&2; exit 1; }
 scripts/ext-darwin-xcframework.sh >/dev/null
+scripts/ext-darwin-ledger-xcframework.sh >/dev/null
 sdk=pkg/ext-darwin
 swift build --package-path "$sdk" >/dev/null
 build="$(swift build --package-path "$sdk" --show-bin-path)"

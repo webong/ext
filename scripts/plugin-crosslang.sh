@@ -96,6 +96,7 @@ scripts/plugin-mobile-assets.sh --check
 # the dynamic fixture is checked through the same Go cshared suite as the others.
 if [[ "$(uname -s)" == Darwin ]]; then
   scripts/ext-darwin-xcframework.sh
+  scripts/ext-darwin-ledger-xcframework.sh
   swift test --package-path pkg/ext-darwin --scratch-path "$build_dir/swift"
   swift build --package-path pkg/ext-darwin --scratch-path "$build_dir/swift" --product ExtConformancePlugin
   scripts/ext-darwin-objc.sh

@@ -4,9 +4,10 @@
  * binding takes events with the "events" operation and answers those that ask with "answer", from
  * another thread than the one waiting in "start" or "call", so a binding needs no way to be called
  * from C (purego has none it can rely on). An event that asks and is not answered in time is a
- * denial; progress and observer events never wait, and are dropped (and counted) when the queue is
- * full. Every queued event carries seq, counting from 1, and "sequence" is the seq of the last one
- * queued, so a binding that has handled every event up to it has seen all a finished call caused. */
+ * denial; observer events never wait, and are dropped (and counted) when the queue is full; a call's
+ * progress waits for room, at most the event timeout, before it is dropped. Every queued event
+ * carries seq, counting from 1, and "sequence" is the seq of the last one queued, so a binding that
+ * has handled every event up to it has seen all a finished call caused. */
 #include "interface_host.h"
 #include "progress.h"
 #include "registry.h"
@@ -265,9 +266,24 @@ typedef struct {
   ext_interface_host *h;
   const char *tag;
 } call_progress;
+/* A call's progress waits, at most the host's event timeout, for room in a full queue instead of
+ * being dropped at once: the guest's progress is already held to the call's limits, and a burst
+ * within them (a command's output) must reach the binding whole. The wait holds up only the call
+ * whose progress it is; past it, the event is dropped and counted as before. */
 static void progress_cb(void *user, const uint8_t *json, size_t len) {
   call_progress *c = user;
-  notify_tagged(c->h, "progress", c->tag, json, len);
+  ext_interface_host *h = c->h;
+  int64_t deadline = mono_ms() + h->event_timeout_ms;
+  pthread_mutex_lock(&h->m);
+  while (h->queued >= MAX_QUEUE && !h->closing) {
+    int64_t left = deadline - mono_ms();
+    if (left <= 0)
+      break;
+    wait_for(h, left > 50 ? 50 : left);
+  }
+  if (!h->closing)
+    push(h, 0, "progress", c->tag, json, len);
+  pthread_mutex_unlock(&h->m);
 }
 static int32_t reverse_authorize_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
   ext_interface_host *h = user;
@@ -646,6 +662,8 @@ static ext_plugin_status take_events(ext_interface_host *h, yyjson_val *in, char
   }
   json[at++] = ']';
   json[at] = 0;
+  if (taken)
+    pthread_cond_broadcast(&h->c); /* room in the queue for progress waiting on it */
   pthread_mutex_unlock(&h->m);
   *out = json, *out_len = at;
   return EXT_PLUGIN_OK;

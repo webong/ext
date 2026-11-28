@@ -48,6 +48,9 @@ type Events struct {
 	cond   sync.Cond
 	seen   uint64 // the seq of the last event handled
 	done   chan struct{}
+	// answering counts answers being sent; once closed is set, no new one starts.
+	answering int
+	closed    bool
 }
 
 // ServeEvents takes handle's events until the object is closed. An event that asks goes to answer on a
@@ -120,10 +123,34 @@ func (e *Events) reply(ev Event, answer func(Event) map[string]any) {
 		fields = map[string]any{"allow": false}
 	}
 	fields["ticket"] = ev.Ticket
-	if raw, err := json.Marshal(fields); err == nil {
-		// The library may have stopped waiting (its time ran out, the object closed): nothing to do.
-		_, _ = e.caller.Call(e.handle, "answer", raw)
+	raw, err := json.Marshal(fields)
+	if err != nil {
+		return
 	}
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		return // the object is closed: there is no one to answer
+	}
+	e.answering++
+	e.mu.Unlock()
+	// The library may have stopped waiting (its time ran out, the object closed): nothing to do.
+	_, _ = e.caller.Call(e.handle, "answer", raw)
+	e.mu.Lock()
+	e.answering--
+	e.cond.Broadcast()
+	e.mu.Unlock()
+}
+
+// settle stops new answers and waits for those being sent. The library frees a closed object only
+// when its last call returns, so after settle nothing of the object outlives Close.
+func (e *Events) settle() {
+	e.mu.Lock()
+	e.closed = true
+	for e.answering > 0 {
+		e.cond.Wait()
+	}
+	e.mu.Unlock()
 }
 
 // Fence returns once every event queued before it was called has been handled (an event that asks

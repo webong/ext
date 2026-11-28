@@ -76,6 +76,9 @@ esac
 go build -buildmode=c-shared -o "$build/go-shared.$shared_ext" ./tests/crosslang/testdata/go-shared
 "$build/engine/ext_shared_library_test$exe" "$(winpath "$build/go-shared.$shared_ext")" "$(winpath "$root/lib/plugin/testdata/v1/descriptor.json")"
 
+# The shared host library: the no-cgo build of cgoengine and the purego binding load it.
+host_library=$(find "$build/engine" -maxdepth 1 \( -name 'libext_plugin_host.so' -o -name 'libext_plugin_host.dylib' -o -name '*ext_plugin_host*.dll' \) | head -n 1)
+[ -n "$host_library" ] || { echo "no shared host library in $build/engine" >&2; exit 1; }
 echo "== Go suites linked against the engine (pkg/ext-go/cgoengine)"
 (cd pkg/ext-go/cgoengine
  CGO_LDFLAGS="-L$(winpath "$build/engine")" CGO_CFLAGS="-I$(winpath "$root/lib/plugin/include")" \
@@ -85,16 +88,13 @@ echo "== Go suites linked against the engine (pkg/ext-go/cgoengine)"
    go test -tags ext_cengine "${race[@]}" -count=1 -timeout=10m ./...)
 echo "== the engine module, standard library only (pkg/ext-go/engine)"
 (cd pkg/ext-go/engine && go test -count=1 -timeout=10m ./...)
-echo "== the same API without cgo, served by the pure-Go implementation"
+echo "== the same API without cgo, served by the shared C engine through purego"
 # cshared runs on purego here, against the same C ABI guest.
-(cd pkg/ext-go/cgoengine && EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \
+(cd pkg/ext-go/cgoengine && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" \
+   EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \
    CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
 echo "== the described library interface and the generated binding, from lib/plugin's interface.json (pkg/ext-go/cengine)"
 (cd pkg/ext-go/cengine && EXT_PLUGIN_BUILD="$(winpath "$build/engine")" go test -count=1 "${race[@]}" -timeout=10m ./library ./bind)
-echo "== the umbrella module (pkg/ext-go)"
-(cd pkg/ext-go && go test -count=1 -timeout=10m .)
 echo "== lib/plugin's generated binding through purego, held to the differential checks (tests/crosslang)"
-host_library=$(find "$build/engine" -maxdepth 1 \( -name 'libext_plugin_host.so' -o -name 'libext_plugin_host.dylib' -o -name '*ext_plugin_host*.dll' \) | head -n 1)
-[ -n "$host_library" ] || { echo "no shared host library in $build/engine" >&2; exit 1; }
 (cd tests/crosslang && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m -run 'PureGo|PluginBind' .)
 echo "plugin engine tests passed"

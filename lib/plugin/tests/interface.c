@@ -1,6 +1,7 @@
 /* The library interface: the pure services and the stores behind open, call and close. */
 #include "ext_plugin_host.h"
 #include "sync.h"
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,8 +53,9 @@ static void expect(uint64_t h, const char *op, const char *in, const char *conta
 typedef struct {
   uint64_t host;
   volatile int stop, deny_authorize;
-  volatile int hold; /* events are not taken while set */
-  int verify, authorize, progress, reverse_authorize, reverse, tagged, connects, invokes, dropped;
+  atomic_int hold;     /* events are not taken while set */
+  atomic_int progress; /* also read by the thread waiting for a call's events */
+  int verify, authorize, reverse_authorize, reverse, tagged, connects, invokes, dropped;
   const char *descriptor;
 } answerer;
 
@@ -62,7 +64,7 @@ static uint64_t ticket_after(const char *p) { return strtoull(p, NULL, 10); }
 static void *answer_events(void *arg) {
   answerer *a = arg;
   while (!a->stop) {
-    if (a->hold) {
+    if (atomic_load(&a->hold)) {
       struct timespec pause = {0, 1000000};
       nanosleep(&pause, NULL);
       continue;
@@ -123,7 +125,7 @@ struct release_args {
 static void *release_after(void *arg) {
   struct release_args *r = arg;
   nanosleep(&r->after, NULL);
-  r->a->hold = 0;
+  atomic_store(&r->a->hold, 0);
   return NULL;
 }
 
@@ -261,7 +263,7 @@ static void hosts(void) {
   pthread_join(t, NULL);
   CHECK(r.reverse_authorize == 1 && r.reverse == 1, "reverse asked: authorize %d, handle %d", r.reverse_authorize,
         r.reverse);
-  CHECK(r.progress == 2 && r.tagged == 2, "progress events: %d, tagged %d", r.progress, r.tagged);
+  CHECK(atomic_load(&r.progress) == 2 && r.tagged == 2, "progress events: %d, tagged %d", atomic_load(&r.progress), r.tagged);
   /* A call's progress is not dropped when the binding falls behind: with the reader held back
    * while the guest sends more than the queue holds, every event still arrives, in order. */
   snprintf(config, sizeof config,
@@ -270,7 +272,7 @@ static void hosts(void) {
            REVERSE_DESCRIPTOR, EXT_REVERSE_GUEST);
   answerer f = {0};
   f.host = open_json(config, EXT_PLUGIN_OK);
-  f.hold = 1;
+  atomic_store(&f.hold, 1);
   pthread_create(&t, NULL, answer_events, &f);
   ext_plugin_free(call(f.host, "start", "{\"timeout_ms\":5000}", EXT_PLUGIN_OK));
   struct timespec held = {0, 300000000};
@@ -283,15 +285,15 @@ static void hosts(void) {
          "\"done\":true");
   pthread_join(release, NULL);
   /* Every event is queued once the call returns; give the reader up to 5 s to take them. */
-  for (int waited = 0; f.progress < 3000 && waited < 5000; waited++) {
+  for (int waited = 0; atomic_load(&f.progress) < 3000 && waited < 5000; waited++) {
     struct timespec pause = {0, 1000000};
     nanosleep(&pause, NULL);
   }
   CHECK(ext_plugin_close(f.host) == EXT_PLUGIN_OK, "close the flood host");
   f.stop = 1;
   pthread_join(t, NULL);
-  CHECK(f.progress == 3000 && f.tagged == 3000 && f.dropped == 0, "flood: %d progress, %d tagged, %d drops",
-        f.progress, f.tagged, f.dropped);
+  CHECK(atomic_load(&f.progress) == 3000 && f.tagged == 3000 && f.dropped == 0, "flood: %d progress, %d tagged, %d drops",
+        atomic_load(&f.progress), f.tagged, f.dropped);
   /* A descriptor that does not meet the host's requirements is refused before anything starts. */
   snprintf(config, sizeof config,
            "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"shared_library\",\"path\":\"%s\"},"

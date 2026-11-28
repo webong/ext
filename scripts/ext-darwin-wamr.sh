@@ -6,6 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo 'ext-darwin-wamr.sh needs macOS and Xcode' >&2; exit 1; }
 scripts/ext-darwin-xcframework.sh >/dev/null
+scripts/ext-darwin-ledger-xcframework.sh >/dev/null
 scripts/ext-darwin-wamr-xcframework.sh >/dev/null
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-ios-wamr.XXXXXX")"
 trap 'rm -rf "$work"' EXIT

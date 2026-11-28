@@ -1,7 +1,7 @@
 // Command plugin-webview runs a WASI plugin guest inside a browser or webview
 // and talks ext.io.pc/v1 to it. It is a proof of concept for hosting
 // WebAssembly plugins in the system web engine, driven by the web engine in
-// res/web/host/engine/bundle. See README.md.
+// src/ctx/web/engine/bundle. See README.md.
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/webong/ext/res/web/host/engine/bundle"
+	"github.com/webong/ext/src/ctx/web/engine/bundle"
 )
 
 func sh(ctx context.Context, name string, args ...string) error {

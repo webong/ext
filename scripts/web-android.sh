@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Compile and test the Android module of res/web (pkg/ext-android/web, package
+# Compile and test the Android module of src/ctx/web (pkg/ext-android/web, package
 # io.github.webong.ext.web): the cookie, userscript and bookmarklet rules, against the
-# language-neutral fixtures in res/web/testdata. It needs a JDK only: no CMake, no NDK and no
+# language-neutral fixtures in tests/fixtures/web. It needs a JDK only: no CMake, no NDK and no
 # engine build, and it compiles nothing but its own sources, so it cannot use the plugin code.
 # pkg/ext-android ships the same classes in its AAR.
 # EXT_WEB_DIFF=<corpus.json> also compares the port with a corpus the Go implementation wrote

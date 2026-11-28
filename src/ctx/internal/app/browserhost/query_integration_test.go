@@ -13,8 +13,8 @@ import (
 	"time"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	browsercontract "github.com/webong/ext/res/web/host/contract"
-	browser "github.com/webong/ext/res/web/host/manage/cookie"
+	browsercontract "github.com/webong/ext/src/ctx/web/contract"
+	browser "github.com/webong/ext/src/ctx/web/manage/cookie"
 )
 
 func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priority int, auto bool, query string, legacy bool, dependencies ...string) {

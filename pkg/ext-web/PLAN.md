@@ -21,7 +21,7 @@ code stays beside that portable contract inside the library. Builders do not
 install adapters to use it.
 
 The browser adapters in [xallet/tab](https://github.com/xallet/tab) continue to own external browser installation,
-profile discovery, signing, and extension management. `res/web/host/artifact/extension`
+profile discovery, signing, and extension management. `src/ctx/web/artifact/extension`
 continues to own its artifact inspection and packaging workflows.
 
 Consumers choose permitted peers and capabilities, persistence policy, UI,

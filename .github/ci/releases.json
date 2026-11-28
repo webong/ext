@@ -61,7 +61,7 @@
       ],
       "workflow": "runtime",
       "version_default": "0.0.0",
-      "publishes": "Windows .NET libraries of res/ (GitHub release; NuGet when EXT_NUGET_SOURCE is set)",
+      "publishes": "Windows .NET libraries of pkg/ext-windows (GitHub release; NuGet when EXT_NUGET_SOURCE is set)",
       "build": [
         {
           "name": "ext-windows build (windows-latest)",

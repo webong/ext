@@ -16,7 +16,7 @@ final class ManagementTests {
     private static String repeat(char c, int n) { char[] chars = new char[n]; java.util.Arrays.fill(chars, c); return new String(chars); }
     static void run() throws Exception {
         String root = System.getenv("EXT_WEB_TESTDATA");
-        Map<String, Object> f = Json.object(Json.parse(new String(Files.readAllBytes(Paths.get(root == null ? "res/web/testdata" : root, "management/v1/protocol.json")), StandardCharsets.UTF_8)), "fixture");
+        Map<String, Object> f = Json.object(Json.parse(new String(Files.readAllBytes(Paths.get(root == null ? "tests/fixtures/web" : root, "management/v1/protocol.json")), StandardCharsets.UTF_8)), "fixture");
         WebTests.eq(f.get("operations"), BrowserManagement.operations(), "operation vocabulary");
         for (Object status : (List<?>) f.get("statuses")) WebTests.eq("installed".equals(status), BrowserManagement.persistent((String) status), "persistence");
         for (Object raw : (List<?>) f.get("cases")) {

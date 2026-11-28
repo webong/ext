@@ -29,7 +29,7 @@ The shared provider contract and inference schemas live in `src/ctn/contract/inf
 Product-specific model registries, download policy, and content adapters belong
 to each consumer. `src/ctn/contract/model` owns none of them.
 
-[CTN’s public model bridge](../../../src/ctn/model) exposes `model.tensor/v1`
+[CTN’s public model bridge](../../model) exposes `model.tensor/v1`
 for a caller-selected `ml.Provider`. CTN and other Ext hosts each select
 and trust provider packages directly. The Swift CoreML and .NET ONNX guests
 serve the same contract. The Android SDK includes a

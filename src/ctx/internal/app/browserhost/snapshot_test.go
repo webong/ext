@@ -11,7 +11,7 @@ import (
 
 	"github.com/webong/ext/pkg/ext-go/core/dirlock"
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	browser "github.com/webong/ext/res/web/host/manage/cookie"
+	browser "github.com/webong/ext/src/ctx/web/manage/cookie"
 )
 
 func TestBrowserInvocationSnapshotAndReadmission(t *testing.T) {

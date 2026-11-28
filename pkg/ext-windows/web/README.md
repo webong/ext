@@ -1,7 +1,7 @@
 # Ext.Web.Windows
 
 `Ext.Web.Windows` binds an application-owned `CoreWebView2` to the portable
-`res/web` workflows. `WebView2Workspace` registers and executes source already
+`src/ctx/web` workflows. `WebView2Workspace` registers and executes source already
 prepared by the reviewed-userscript tooling, and exposes WebView2 profile
 extension mechanics.
 

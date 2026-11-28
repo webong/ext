@@ -41,7 +41,7 @@ them only as history.
 
 Tags of retired module paths were deleted at the same time: `pkg/plugin`,
 `pkg/plugin-go` and its submodules, `pkg/plugin-wasm`, `pkg/plugin-hashicorp`,
-`pkg/plugin-cshared`, `pkg/graph`, `res/graph`, `res/web` (now `res/web/host`),
+`pkg/plugin-cshared`, `pkg/graph`, `res/graph`, `src/ctx/web` (now `src/ctx/web`),
 `res/browser`, `res/credential`, and `pkg/ext-go/model`, `perception` and
 `realtime`. The Go module proxy may still serve versions it has cached; nothing
 in git provides them. `pkg/ext-go/inference` keeps its tags while consumers still
@@ -169,8 +169,8 @@ first four have since become `ext-io` (see [the `ext-io` language packages](#the
 `pkg/plugin-go` keeps its name for now, because renaming it changes published Go module paths.
 
 `pkg/ext-darwin/web` (the SwiftPM package `ExtWeb`) and `pkg/ext-android/web` (the Java package
-`io.github.webong.ext.web`) sit beside the Go module `res/web/host`, not inside it: its module zip does
-not carry them, and a change to them needs no `res/web/host/vX.Y.Z` tag.
+`io.github.webong.ext.web`) sit beside the Go module `src/ctx/web`, not inside it: its module zip does
+not carry them, and a change to them needs no `src/ctx/web/vX.Y.Z` tag.
 They reach apps through `pkg/ext-darwin` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z`, `ext-macos-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
@@ -229,7 +229,7 @@ crates.io, PyPI and npm); the Zig package is `ext_io`. Each offers one namespace
 behind the Cargo feature `plugin` (on by default), `ext_io.plugin`, and the subpaths `ext-io/plugin`,
 `ext-io/plugin/node` and `ext-io/plugin/engine`. Only `plugin` is built. The names `system`, `web` and
 `int` are reserved for the other areas of ext, but none is scheduled: those libraries (`src/ctx/system`,
-`res/web/host`, `src/ctn/contract`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
+`src/ctx/web`, `src/ctn/contract`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
 consumers use them through Go, NuGet, SwiftPM and the Android library. An area is added when a Rust,
 Python, TypeScript or Zig consumer needs it, preferably as the Go implementation served over
 `ext.io.pc/v1` with a thin typed wrapper rather than a second implementation or a new C ABI. It would be a
@@ -267,8 +267,8 @@ published.
 
 The initial split put protocol-neutral WebAssembly inspection, WASI execution,
 byte streams and raw reactor hosting in `pkg/ext-go/core/wasm` inside the
-`github.com/webong/ext/res/web/host` module (previously
-`github.com/webong/ext/res/web`). The later split keeps the public options,
+`github.com/webong/ext/src/ctx/web` module (previously
+`github.com/webong/ext/src/ctx/web`). The later split keeps the public options,
 results, errors and runtime interfaces at that import path and moves the
 wazero implementation to `pkg/ext-go/wasm/runtime`. The web host module now
 depends on neither wazero nor the plugin engine.
@@ -324,9 +324,9 @@ paths so each one resolves to a `go.mod` that matches its own module path.
 
 The `v0.1.0` tags were pushed to `origin` and are immutable.
 
-## `res/browser` became `res/web`
+## `res/browser` became `src/ctx/web`
 
-The browser resources module was renamed `res/web`, because web is the broader
+The browser resources module was renamed `src/ctx/web`, because web is the broader
 concept: browsers today and the web engine that runs web content through them.
 A module path and its tags are a pair, so this is a new module, not a new version:
 
@@ -335,37 +335,37 @@ A module path and its tags are a pair, so this is a new module, not a new versio
   tag that path will ever have. Never move or delete it, and cut no further
   `res/browser` tags.
 - `res/web/v0.1.0` is the first tag of the new path, cut on a tree whose `go.mod`
-  declares `github.com/webong/ext/res/web`.
-- A module that requires `res/web` cannot resolve it from the proxy until that tag is
+  declares `github.com/webong/ext/src/ctx/web`.
+- A module that requires `src/ctx/web` cannot resolve it from the proxy until that tag is
   pushed. The published `v0.1.0` tags of the adapters still require `res/browser`
-  and remain valid; their next release requires `res/web`.
+  and remain valid; their next release requires `src/ctx/web`.
 
-## `res/web` became a container; its Go module is `res/web/host`
+## `src/ctx/web` became a container; its Go module is `src/ctx/web`
 
-`res/web` is no longer a Go module. The Go module is `res/web/host`, with the module path
-`github.com/webong/ext/res/web/host`. `ios`, `android` and `windows` stay beside it as non-Go
+`src/ctx/web` is no longer a Go module. The Go module is `src/ctx/web`, with the module path
+`github.com/webong/ext/src/ctx/web`. `ios`, `android` and `windows` stay beside it as non-Go
 modules. `testdata` at the top holds the fixtures every runtime runs, and `docs` the guides
 for the mobile modules. As with the
 earlier renames, a module path and its tags are a pair, so this is a new module, not a new version:
 
 - `res/web/v0.1.0` to `res/web/v0.6.0` are immutable, stay resolvable, and are the last tags
-  `github.com/webong/ext/res/web` will ever have. Cut no further `res/web` tags. That path cannot be
+  `github.com/webong/ext/src/ctx/web` will ever have. Cut no further `src/ctx/web` tags. That path cannot be
   marked deprecated either, because that needs a new tag of it.
 - `res/web/host/v0.1.0` is the first tag of the new path, and the version every `go.mod` that
   requires it already recorded before it was cut. It is cut on a tree whose `go.mod` declares
-  `github.com/webong/ext/res/web/host`. A module that requires it cannot resolve it from the proxy until
-  that tag is pushed. `res/web/host` requires no other module of ext, so it is in layer 0 of the round;
+  `github.com/webong/ext/src/ctx/web`. A module that requires it cannot resolve it from the proxy until
+  that tag is pushed. `src/ctx/web` requires no other module of ext, so it is in layer 0 of the round;
   the adapters, `pkg/ext-go/wasm` and `pkg/ext-go` come after it, and the product modules `src/ctx` and
   `cmd/ext` (which build with `replace` directives) already pin `v0.1.0`, so they needed no bump.
-- The published tags of the adapters still require `res/web` and remain valid; the round below
-  releases them against `res/web/host`. The release scripts take a module as a directory, so a round
-  lists `res/web/host` in its versions file and the scripts need no change.
+- The published tags of the adapters still require `src/ctx/web` and remain valid; the round below
+  releases them against `src/ctx/web`. The release scripts take a module as a directory, so a round
+  lists `src/ctx/web` in its versions file and the scripts need no change.
 
 The round that follows the move has four layers:
 
 | Layer | Modules | Version |
 | --- | --- | --- |
-| 0 | `res/web/host` | `v0.1.0`, new |
+| 0 | `src/ctx/web` | `v0.1.0`, new |
 | 1 | `adapters/chromium` | `v0.4.3` |
 | 1 | `adapters/wasm` | `v0.2.3` |
 | 1 | `pkg/ext-go/wasm` | `v0.4.0` |
@@ -383,7 +383,7 @@ workspace modules required at versions that had no tag yet; a commit after the l
 
 The packages moved with it, and their import paths changed:
 
-| Before (in `res/web`) | After (in `res/web/host`) |
+| Before (in `src/ctx/web`) | After (in `src/ctx/web`) |
 | --- | --- |
 | the root package, `package web`, imported by ctx as `browser` | `manage/cookie`, `package cookie` |
 | `contract` | `contract` |
@@ -394,7 +394,7 @@ The packages moved with it, and their import paths changed:
 
 `contract` imports nothing else in the module, so `ProgressPrefix`, `MaxProgressLineBytes`,
 `ProgressLine` and `ParseProgress` moved from `contract` to `artifact/extension`, next to the
-`InstallResult` they encode. The fixtures in `res/web/testdata` are outside the `host` module zip, so
+`InstallResult` they encode. The fixtures in `tests/fixtures/web` are outside the `host` module zip, so
 its Go tests find them by walking up and skip when the repository is absent.
 
 ## `pkg/plugin-go` became `pkg/ext-go`
@@ -478,10 +478,10 @@ The pure-Go module is the oracle the other two engines are held against, and the
 | Release | Modules | Why |
 | --- | --- | --- |
 | `v0.2.0` | `pkg/plugin`, `pkg/plugin-wasm` | additive: the adapter package, the reactor host, components and `Inspect` |
-| `v0.1.0` (first tag) | `res/web`, `adapters/wasm`, `adapters/evm` | new modules; `res/web` was the renamed `res/browser` |
-| `v0.1.1` | `res/web` | console output from a page is delivered in order, and an exit no longer overtakes it |
+| `v0.1.0` (first tag) | `src/ctx/web`, `adapters/wasm`, `adapters/evm` | new modules; `src/ctx/web` was the renamed `res/browser` |
+| `v0.1.1` | `src/ctx/web` | console output from a page is delivered in order, and an exit no longer overtakes it |
 | `v0.1.1` | `pkg/plugin-hashicorp` | only its `go` line: it now declares `go 1.26.0`, which its dependencies already required |
-| `v0.1.1` | `adapters/chromium`, `adapters/firefox`, `adapters/safari` and the other 15 browser adapters | they now require `res/web` instead of `res/browser` |
+| `v0.1.1` | `adapters/chromium`, `adapters/firefox`, `adapters/safari` and the other 15 browser adapters | they now require `src/ctx/web` instead of `res/browser` |
 
 Modules that did not change in that release kept `v0.1.0`: `pkg/graph`,
 `pkg/plugin-go`, `pkg/plugin-cshared`, the former `res/credential` module, and the `credman`, `git`, `keychain` and
@@ -503,7 +503,7 @@ for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception
               pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine src/ctx/system src/ctn/contract src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
-              adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+              adapters/ollama adapters/anthropic adapters/gemini src/ctx/web; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```
@@ -545,13 +545,13 @@ separate modules under its product tree:
 | `src/ctn/model` | CTN’s public `model.tensor/v1` tensor-provider bridge | `engine`, `src/ctn/contract` |
 | `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `src/ctn/contract` |
 | `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `src/ctn/contract` |
-| `res/web/host` | portable web tooling and the runtime-neutral WebAssembly host contract | standard library only |
-| `pkg/ext-go/wasm` | wazero implementation of `pkg/ext-go/core/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `res/web/host`; third-party wazero |
+| `src/ctx/web` | portable web tooling and the runtime-neutral WebAssembly host contract | standard library only |
+| `pkg/ext-go/wasm` | wazero implementation of `pkg/ext-go/core/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `src/ctx/web`; third-party wazero |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
 | `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `src/ctx/system`; third-party purego |
-| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `src/ctx/system`, `res/web`; no CTN modules |
+| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `src/ctx/system`, `src/ctx/web`; no CTN modules |
 | `src/ctn/contract` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 

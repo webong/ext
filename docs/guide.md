@@ -16,9 +16,9 @@ depend on only what you use:
 | You want to | Module (version used here) |
 | --- | --- |
 | host or write a plugin | `github.com/webong/ext/pkg/ext-go` (v0.2.0) |
-| run WebAssembly in a sandbox | `github.com/webong/ext/res/web/host` (v0.1.0) |
+| run WebAssembly in a sandbox | `github.com/webong/ext/src/ctx/web` (v0.1.0) |
 | extend or inspect the local system shell, including local network state | `github.com/webong/ext/src/ctx/system` (next release) |
-| run web content in a browser | `github.com/webong/ext/res/web/host` (v0.1.0) |
+| run web content in a browser | `github.com/webong/ext/src/ctx/web` (v0.1.0) |
 
 ```sh
 go get github.com/webong/ext/pkg/ext-go@v0.12.0
@@ -188,7 +188,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/webong/ext/res/web/host/engine/bundle"
+	"github.com/webong/ext/src/ctx/web/engine/bundle"
 )
 
 func main() {

@@ -1,7 +1,7 @@
 // The page side of hosting a WebAssembly reactor (docs/plugin-reactor-abi.md) in a
 // web engine: a hidden WKWebView, an Android WebView, or a browser. It instantiates
 // the module and answers handshake and invoke messages, and talks to the native host
-// only through window.ext.host, the transport-neutral page API of res/web/host/engine/bundle
+// only through window.ext.host, the transport-neutral page API of src/ctx/web/engine/bundle
 // (shim.js). This file is the single source: scripts/plugin-mobile-assets.sh embeds
 // it in the Swift and Java hosts, and fails its --check when they drift.
 //

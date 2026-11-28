@@ -52,10 +52,7 @@
         "src/**",
         "pkg/ext-go/**",
         "examples/plugins/go/**",
-        "res/**/*.go",
-        "res/**/go.mod",
-        "res/**/go.sum",
-        "res/**/testdata/**",
+        "tests/fixtures/**",
         "src/ctn/contract/model/linux/**",
         "pkg/ext-windows/int/model/**",
         "lib/plugin/**",
@@ -81,7 +78,6 @@
           ],
           "pr_platform_paths": [
             "pkg/ext-android/**",
-            "res/**/android/**",
             "scripts/ext-android-release.sh",
             "scripts/release/ext-android/**",
             "scripts/ci/jobs/native/android-package.sh"
@@ -164,7 +160,6 @@
           ],
           "pr_platform_paths": [
             "pkg/ext-darwin/**",
-            "res/**/ios/**",
             "scripts/ext-darwin-release.sh",
             "scripts/release/apple.sh",
             "scripts/release/ext-ios/**",
@@ -1305,7 +1300,7 @@
             "scripts/ci/jobs/plugin-sdk/sdk.sh",
             "pkg/ext-go/**",
             "examples/plugins/go/**",
-            "res/web/host/**",
+            "src/ctx/web/**",
             "examples/web/go/**",
             "examples/ledger/go/**"
           ],
@@ -1332,11 +1327,11 @@
             "swift"
           ],
           "pr_paths": [
-            "res/web/host/**",
+            "src/ctx/web/**",
             "examples/web/go/**",
             "pkg/ext-android/web/**",
             "pkg/ext-darwin/web/**",
-            "res/web/testdata/**",
+            "tests/fixtures/web/**",
             "scripts/web-*.sh",
             "scripts/ci/jobs/plugin-sdk/web-ports.sh"
           ],

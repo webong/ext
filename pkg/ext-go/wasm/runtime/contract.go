@@ -1,4 +1,4 @@
-// Package runtime implements the res/web WebAssembly host contract with
+// Package runtime implements the src/ctx/web WebAssembly host contract with
 // wazero. It does not assign an Ext plugin protocol to guest byte streams.
 package runtime
 

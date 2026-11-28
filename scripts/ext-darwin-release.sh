@@ -142,7 +142,7 @@ if wamr_checksum:
     text = text.replace(block.group(0), pinned)
 else:
     text = text.replace(block.group(0), '')
-# Drop what only the repository's own tree can use: the tests, which read res/web and the
+# Drop what only the repository's own tree can use: the tests, which read src/ctx/web and the
 # engine, and the conformance fixture, which is not part of the SDK.
 text = re.sub(r'\n\s*\.testTarget\([^\n]*\),', '', text)
 text = re.sub(r'\n\s*// Test fixture for the cross-language conformance suite\.\n\s*\.library\(name: "ExtConformancePlugin"[^\n]*\n', '\n', text)

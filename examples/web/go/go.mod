@@ -2,4 +2,4 @@ module github.com/webong/ext/examples/web/go
 
 go 1.26.0
 
-require github.com/webong/ext/res/web/host v0.2.0
+require github.com/webong/ext/src/ctx/web v0.1.0

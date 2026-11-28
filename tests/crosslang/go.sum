@@ -6,5 +6,3 @@ github.com/webong/ext/pkg/ext-go/engine v0.2.0 h1:PNx1wogQMNP/SPGrNma8tXTsqwu3eY
 github.com/webong/ext/pkg/ext-go/engine v0.2.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
 github.com/webong/ext/pkg/ext-go/wasm v0.5.0 h1:AZ9MqZL9qLIi6xOWTBDT8nQpGi6uWjJ0U64xloa43LQ=
 github.com/webong/ext/pkg/ext-go/wasm v0.5.0/go.mod h1:M3zf4qok3iETiJAU/IkI4CEtlU74/qsZ2O6CFt0LaJg=
-github.com/webong/ext/res/web/host v0.2.0 h1:BjYx3iSS/mIrJZcDIVm+8J5uGMw9eXcd8FEh+oNYO/k=
-github.com/webong/ext/res/web/host v0.2.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=

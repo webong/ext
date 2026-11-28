@@ -30,10 +30,10 @@ observations through `lib/ledger`. Cross-language conformance lives in
 `tests/crosslang`. Ext-go is a library and ships no public executable; the
 transport bridge runs as `ext bridge --config …`, owned by `cmd/ext`.
 
-The `wasm` module requires `res/web/host` for protocol-neutral WebAssembly inspection,
+The `wasm` module requires `src/ctx/web` for protocol-neutral WebAssembly inspection,
 WASI execution and reactor hosting, then binds those mechanisms to
 `core/plugin.Backend` (also available through the existing `engine/plugin` alias).
-`res/web/host` never imports the plugin engine.
+`src/ctx/web` never imports the plugin engine.
 
 Drivers describe how Go accesses canonical C libraries: cgo linking, translated C,
 or purego shared-library loading. Plugin backends describe how guests execute:

@@ -31,7 +31,7 @@ ci_import_env
 # Package the examples with the Go tooling
 (
 export EXT_WEB_DIST="$GITHUB_WORKSPACE/examples/web/extensions/dist"
-cd res/web/host
+cd src/ctx/web
 go test ./artifact/extension -run TestExtWebExamplesPackage -count=1 -v
 )
 ci_import_env

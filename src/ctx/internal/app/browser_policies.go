@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	browsershare "github.com/webong/ext/res/web/host/contract"
+	browsershare "github.com/webong/ext/src/ctx/web/contract"
 	"github.com/webong/ext/src/ctx/internal/config"
 )
 

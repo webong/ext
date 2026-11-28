@@ -29,7 +29,7 @@ the SDK supplies R8 consumer rules. AndroidX is not bundled or required for othe
 SDK features. Unsupported registration throws; there is no late-injection fallback.
 See the official [WebViewCompat API](https://developer.android.com/reference/androidx/webkit/WebViewCompat).
 
-`res/web` validates reviewed revisions, target identity, duplicate IDs and scope
+`src/ctx/web` validates reviewed revisions, target identity, duplicate IDs and scope
 before registrations change. Only enabled records run. Replay source checks full
 URL matches/exclusions in every frame and prevents per-document duplicate execution.
 Replacing/removing registrations affects future documents, not the current page;
@@ -78,7 +78,7 @@ close. These operations affect future documents. Navigation and destruction
 remain with the host. Current-page source is limited to 1 MiB, with up to 64
 concurrent evaluations and a 30-second completion deadline.
 
-See [profiled scripts](../docs/WORKSPACE_MANAGEMENT.md#profiled-scripts-on-attached-views)
+See [profiled scripts](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md#profiled-scripts-on-attached-views)
 for `userscriptProfiles()` and reviewed v1 registration.
 
 `scripts/web-workspace-android.sh` builds and runs tests on a running device
@@ -112,9 +112,9 @@ Verified on an Android 14 (API 34) arm64 emulator using the generated SDK AAR:
 all eight document-start/lifecycle checks passed with R8 and AndroidX WebKit
 1.9.0, and all four checks passed with R8 and no AndroidX dependency.
 
-See [mobile cookie workflows](../docs/COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
+See [mobile cookie workflows](../../../src/ctx/web/docs/COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
 
-`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../docs/WORKSPACE_MANAGEMENT.md).
+`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md).
 
 Stored scripts can stay synchronized through `activateUserscripts`; the workspace owns
-the subscription until close or explicit replacement. See [live reconciliation](../docs/WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).
+the subscription until close or explicit replacement. See [live reconciliation](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).

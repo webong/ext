@@ -1,5 +1,5 @@
 # Sourced by scripts/release/ext-ios/*.sh and scripts/release/ext-macos/*.sh: the steps the two
-# Apple releases share. Both are built from the same sources (pkg/ext-darwin and the res/ links it
+# Apple releases share. Both are built from the same sources (pkg/ext-darwin and the source links it
 # holds) by scripts/ext-darwin-release.sh, which stages one platform's slices and manifest; ext-ios
 # ships iOS and the iOS Simulator, ext-macos ships macOS. Each step runs in a subshell and is
 # followed by ci_import_env, as the steps of a job script are (scripts/ci/jobs/lib.sh).

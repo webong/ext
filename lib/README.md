@@ -12,5 +12,5 @@ The language bindings and platform packages live under `pkg/`. A platform packag
 also carries that platform's native mechanisms (web, intelligence, actions and
 networking) in the platform's own language: `pkg/ext-darwin` in Swift,
 `pkg/ext-android` in Java, `pkg/ext-windows` in C# and `pkg/ext-linux` in C. Ext
-guests under `res/` adapt both to versioned capabilities, and an application can
-use either directly.
+resource guests, which sit beside the platform library they serve, adapt both to
+versioned capabilities, and an application can use either directly.

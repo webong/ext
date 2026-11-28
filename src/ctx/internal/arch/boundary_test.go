@@ -25,7 +25,6 @@ var forbiddenPrefixes = []string{
 // libraryRoots are the reusable trees that consumers may depend on. Each is
 // expected to stay free of implementation imports so it can back its own module.
 var libraryRoots = []string{
-	"res",
 	"pkg/ext-go",
 }
 

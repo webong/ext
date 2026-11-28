@@ -12,7 +12,7 @@ A provider exposes `model.tensor.infer` through Ext. The request contains an
 absolute model-store root, a `provider/name@version` reference, and 1 to 64
 float32 tensors. The response contains 1 to 64 float32 tensors. Tensor bytes
 use JSON base64 and each direction is limited to 16 MiB of raw tensor data.
-See the [request and response fixtures](testdata/v1/). Host and guest
+See the [request and response fixtures](testdata/v1). Host and guest
 implementations can use any language that supports Ext's plugin protocol.
 
 ## Use from an Ext host
@@ -21,7 +21,7 @@ implementations can use any language that supports Ext's plugin protocol.
    and install the package with the Ext package store. The executable's entry
    takes the `run` argument. Ext provides native guests for
    [Core ML](https://github.com/xallet/tab/tree/main/coreml/README.md) on macOS and [ONNX Runtime](../../../pkg/ext-windows/int/model/README.md)
-   on Windows and [Linux](../../../src/ctn/contract/model/linux/README.md).
+   on Windows and [Linux](../contract/model/linux/README.md).
 2. Use `store.ResolveEntrypoint` with the package ID, `ContractName`,
    `ContractVersion`, `Protocol`, and the consumer's reviewed package digest.
    Open that executable with the Ext host, pass `run`, and supply the host's

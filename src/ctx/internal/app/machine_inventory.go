@@ -13,7 +13,7 @@ import (
 	"time"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	browsershare "github.com/webong/ext/res/web/host/contract"
+	browsershare "github.com/webong/ext/src/ctx/web/contract"
 	"github.com/webong/ext/src/ctx/internal/config"
 	systemgraph "github.com/webong/ext/src/ctx/internal/graphapi"
 )

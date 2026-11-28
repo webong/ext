@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/src/ctx/web/contract"
 )
 
 func TestResourceTransferValidatesBeforeImport(t *testing.T) {

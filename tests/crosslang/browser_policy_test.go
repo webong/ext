@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/src/ctx/web/contract"
 )
 
 func TestPythonBrowserPolicyAdapterUsesPortableWireContract(t *testing.T) {
@@ -16,7 +16,7 @@ func TestPythonBrowserPolicyAdapterUsesPortableWireContract(t *testing.T) {
 	if err != nil {
 		t.Skip("python3 is not installed")
 	}
-	fixturePath := filepath.Join("..", "..", "res", "web", "testdata", "policy", "v2", "cases.json")
+	fixturePath := filepath.Join("..", "fixtures", "web", "policy", "v2", "cases.json")
 	data, err := os.ReadFile(fixturePath)
 	if err != nil {
 		t.Fatal(err)

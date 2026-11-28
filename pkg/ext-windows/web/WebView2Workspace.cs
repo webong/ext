@@ -34,7 +34,7 @@ public sealed class WebView2Workspace : IAsyncDisposable
         .ToArray();
 
     /// <summary>
-    /// Registers source prepared by res/web userscript tooling for future
+    /// Registers source prepared by src/ctx/web userscript tooling for future
     /// documents. This binding deliberately does not parse or widen matches.
     /// </summary>
     public async Task<DocumentScriptInfo> InstallDocumentScriptAsync(string id, string preparedSource)

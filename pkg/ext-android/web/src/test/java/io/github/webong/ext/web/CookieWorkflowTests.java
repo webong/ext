@@ -11,7 +11,7 @@ final class CookieWorkflowTests {
     private CookieWorkflowTests() {}
     static void run() throws Exception {
         String root = System.getenv("EXT_WEB_TESTDATA");
-        String text = new String(Files.readAllBytes(Paths.get(root == null ? "res/web/testdata" : root, "cookie/v2/workflows.json")), StandardCharsets.UTF_8);
+        String text = new String(Files.readAllBytes(Paths.get(root == null ? "tests/fixtures/web" : root, "cookie/v2/workflows.json")), StandardCharsets.UTF_8);
         for (Object raw : (List<?>) Json.parse(text)) {
             Map<String, Object> c = Json.object(raw, "case");
             String name = Json.string(c, "name");

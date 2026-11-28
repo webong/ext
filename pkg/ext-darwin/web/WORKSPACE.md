@@ -27,7 +27,7 @@ page.close()
 ```
 
 Records must have the selected target, a valid reviewed revision and unique IDs.
-Only enabled records are registered. `res/web` generates the page-world replay
+Only enabled records are registered. `src/ctx/web` generates the page-world replay
 source, checking URL matches/exclusions in every frame and preventing duplicate
 application per document. Registration runs at document start, before page code.
 Replacement affects future documents only; it neither executes immediately nor
@@ -82,7 +82,7 @@ to the host. Current-page source is limited to 1 MiB, with up to 64 concurrent
 evaluations and a 30-second completion deadline. Future scripts use the same
 reviewed document-start profile as `BrowserWorkspace`.
 
-See [profiled scripts](../docs/WORKSPACE_MANAGEMENT.md#profiled-scripts-on-attached-views)
+See [profiled scripts](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md#profiled-scripts-on-attached-views)
 for the opt-in `userscriptProfiles` and `replaceProfiledUserscripts` API.
 
 `scripts/web-workspace-ios.sh` tests document-start execution, exclusions,
@@ -98,9 +98,9 @@ the `ExtWebKit` product scheme has no test action. Both tests passed on an iPhon
 16 Pro simulator running iOS 18.3.1. The staged SDK also built for an iOS simulator
 consumer against the generated XCFramework archive.
 
-See [mobile cookie workflows](../docs/COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
+See [mobile cookie workflows](../../../src/ctx/web/docs/COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
 
-`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../docs/WORKSPACE_MANAGEMENT.md).
+`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md).
 
 Stored scripts can stay synchronized through `activateUserscripts`; the workspace owns
-the subscription until close or explicit replacement. See [live reconciliation](../docs/WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).
+the subscription until close or explicit replacement. See [live reconciliation](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).

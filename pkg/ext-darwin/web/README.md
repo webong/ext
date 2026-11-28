@@ -1,6 +1,6 @@
 # pkg/ext-darwin/web
 
-The iOS module of [`res/web`](../README.md): the SwiftPM package `ExtWeb`, the portable rules for
+The iOS module of [`src/ctx/web`](../README.md): the SwiftPM package `ExtWeb`, the portable rules for
 browser cookies, userscripts and bookmarklets written out in Swift, without the plugin engine.
 It is a package of its own (`Package.swift` here), so it builds and tests with Swift alone; nothing of the
 plugin code can be imported into it.
@@ -11,7 +11,7 @@ Edit the code here, not through the link.
 
 ## Using it
 
-`ExtWeb` is the part of `res/web` a phone needs: the portable rules for browser cookies, userscripts
+`ExtWeb` is the part of `src/ctx/web` a phone needs: the portable rules for browser cookies, userscripts
 and bookmarklets, without the plugin engine.
 
 ```swift
@@ -34,18 +34,18 @@ let url = try Bookmarklet.encode("alert(document.title)")           // a javascr
 let source = try Bookmarklet.decode(url)                            // back to source for review; never evaluated
 ```
 
-- `Cookie`, `CookieBundle` and `UserscriptRecord` are `Codable` with the wire names of `res/web`; a cookie's
+- `Cookie`, `CookieBundle` and `UserscriptRecord` are `Codable` with the wire names of `src/ctx/web`; a cookie's
   `description`, `debugDescription` and `dump` print its name, domain and path and never its value.
 - `UserscriptRecord.matches` and `excludeMatches` are optional because the revision digest tells `null`
   from `[]`.
 - The rules are Go's, written out for Swift. They are checked two ways: the language-neutral fixtures in
-  `res/web/testdata` (`cookie/v2`, `userscript/v1alpha1`, `bookmarklet/v1alpha1`), which the Go tests run too,
+  `tests/fixtures/web` (`cookie/v2`, `userscript/v1alpha1`, `bookmarklet/v1alpha1`), which the Go tests run too,
   and `scripts/web-differential.sh`, which compares the module with Go on about 94,000 generated URLs,
   cookie domains, names and bookmarklet strings (all agree; Go 1.27 with `GODEBUG=urlstrictcolons=1`).
 - Desktop SQLite cookie readers, native extension signing/installation and browser profile tooling remain host/adapter responsibilities.
   Mobile JSON member names match exactly where Go ignores case, and a host with several
   colons is refused (Go's default follows the consuming module's `go` line).
-  Userscript persistence is covered in [workspace management](../docs/WORKSPACE_MANAGEMENT.md).
+  Userscript persistence is covered in [workspace management](../../../src/ctx/web/docs/WORKSPACE_MANAGEMENT.md).
 
 ```sh
 scripts/web-ios.sh            # swift test of this package; needs Swift, not the engine xcframework
@@ -60,8 +60,8 @@ uses the portable `ExtWeb` userscript rules. Both products are shipped by
 `scripts/web-ios.sh` selects the portable rules tests;
 `scripts/web-workspace-ios.sh` selects the native WebKit integration tests.
 
-See [local web bundle runners](../docs/BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
+See [local web bundle runners](../../../src/ctx/web/docs/BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
 
-See [mobile cookie queries](../docs/COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
+See [mobile cookie queries](../../../src/ctx/web/docs/COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
 
-See [mobile extension artifacts](../docs/EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.
+See [mobile extension artifacts](../../../src/ctx/web/docs/EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.

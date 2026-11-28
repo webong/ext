@@ -39,7 +39,7 @@ public final class WebRoundtrips {
         UserscriptRecord folded = Userscript.inferMetadata(new UserscriptRecord("t", "", "İK-X  y.", null, null, ""), "");
         expect(failures, "id folding", "ik-x-y", folded.id);
 
-        // The digest of the baseline vector in res/web/testdata/userscript/v1alpha1/revision.json.
+        // The digest of the baseline vector in tests/fixtures/web/userscript/v1alpha1/revision.json.
         UserscriptRecord baseline = new UserscriptRecord("session", "demo", "demo", Arrays.asList("https://example.com/*"),
                 Collections.<String>emptyList(), "console.log(1);\n");
         expect(failures, "revision", "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",

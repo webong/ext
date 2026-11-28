@@ -11,27 +11,14 @@ import (
 	"testing"
 )
 
-const webHostModule = "github.com/webong/ext/res/web/host"
+const webHostModule = "github.com/webong/ext/src/ctx/web"
 
-// res/web is a container: the Go module is res/web/host, and the module of the
-// path github.com/webong/ext/res/web is never tagged again. The group
-// directories under host hold packages, not Go files of their own.
+// src/ctx/web is the Go web module. Its group directories (manage, artifact, engine)
+// hold packages, not Go files of their own.
 func TestWebHostModulePath(t *testing.T) {
 	root := repoRoot(t)
-	web := filepath.Join(root, "res", "web")
-	if _, err := os.Stat(filepath.Join(web, "go.mod")); err == nil {
-		t.Fatal("res/web is a container and has no go.mod; the Go module is res/web/host")
-	}
-	entries, err := os.ReadDir(web)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".go") {
-			t.Errorf("res/web/%s: a container holds no Go code", entry.Name())
-		}
-	}
-	data, err := os.ReadFile(filepath.Join(web, "host", "go.mod"))
+	web := filepath.Join(root, "src", "ctx", "web")
+	data, err := os.ReadFile(filepath.Join(web, "go.mod"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,16 +30,16 @@ func TestWebHostModulePath(t *testing.T) {
 		}
 	}
 	if module != webHostModule {
-		t.Errorf("res/web/host/go.mod declares module %q, want %q", module, webHostModule)
+		t.Errorf("src/ctx/web/go.mod declares module %q, want %q", module, webHostModule)
 	}
 	for _, group := range []string{"manage", "artifact", "engine"} {
-		files, err := os.ReadDir(filepath.Join(web, "host", group))
+		files, err := os.ReadDir(filepath.Join(web, group))
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, file := range files {
 			if strings.HasSuffix(file.Name(), ".go") {
-				t.Errorf("res/web/host/%s/%s: a group directory holds packages, not Go files", group, file.Name())
+				t.Errorf("src/ctx/web/%s/%s: a group directory holds packages, not Go files", group, file.Name())
 			}
 		}
 	}
@@ -72,7 +59,7 @@ var webHostMayImport = map[string][]string{
 
 func TestWebHostLayering(t *testing.T) {
 	root := repoRoot(t)
-	host := filepath.Join(root, "res", "web", "host")
+	host := filepath.Join(root, "src", "ctx", "web")
 	for group, allowed := range webHostMayImport {
 		okay := map[string]bool{group: true}
 		for _, a := range allowed {

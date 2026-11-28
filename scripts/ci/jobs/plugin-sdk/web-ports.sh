@@ -10,7 +10,7 @@
 
 # go test ./...
 (
-cd res/web/host
+cd src/ctx/web
 go test ./...
 )
 ci_import_env

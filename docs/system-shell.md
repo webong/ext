@@ -21,7 +21,7 @@ Calling an OS framework does not make a platform implementation an adapter.
 Core Graphics, Accessibility, ScreenCaptureKit, AVFoundation, User32, GDI and
 WASAPI implementations of `src/ctx/system` contracts stay beside those contracts.
 Likewise, application-owned WKWebView, Android WebView and WebView2
-implementations stay in `res/web`; browser-profile discovery and product
+implementations stay in `src/ctx/web`; browser-profile discovery and product
 installation stay in browser adapters.
 
 ## Safety shape

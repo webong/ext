@@ -133,7 +133,7 @@ script ID, with `.` and `_` escaped to three characters each, and is limited to
 longest ID the registry can register depends on its namespace;
 `registrationId(id)` throws before anything is registered, and a `prepare`
 hook can call it to refuse such a script early. Portable userscript metadata
-and preparation remain in `res/web/host/artifact/userscript`.
+and preparation remain in `src/ctx/web/artifact/userscript`.
 
 `ext-web/bridge` provides a nonce-bound `MessagePort` handshake for a
 caller-created sandbox page, plus a page-visible request bridge. The sandbox
@@ -163,12 +163,12 @@ removed when Firefox restarts. The examples require no `management` permission.
 Reloading either extension exercises reconnection. Run `npm test` in `pkg/ext-web` for the
 protocol harness. The examples use only the `storage` permission.
 
-`res/web/host/artifact/extension` can inspect and package these built directories for an
+`src/ctx/web/artifact/extension` can inspect and package these built directories for an
 external installation workflow. Browser installation and activation are supplied
 by the selected browser adapter; the embedded JavaScript peer library does not
 call those Go APIs. The `web-js` workflow builds the examples and runs
 `TestExtWebExamplesPackage` from that Go package against them; locally, run it from
-`res/web/host` after `npm run build:examples` with `go test ./artifact/extension -run TestExtWebExamplesPackage`.
+`src/ctx/web` after `npm run build:examples` with `go test ./artifact/extension -run TestExtWebExamplesPackage`.
 
 The package accepts either `browser.runtime` or `chrome.runtime`, or an injected
 runtime. The current examples passed automated host/guest checks in Firefox 159
@@ -181,5 +181,5 @@ on the way `pkg/ext-darwin` and `pkg/ext-android` are, and it is not a plugin SD
 (`pkg/ext-ts` is). It is built and tested with Node, depends on no Go code and not on
 the plugin engine, and stays `private: true` under the name `ext-web` until a registry
 is chosen. The Go side that inspects and packages what it builds is
-[`res/web/host/artifact/extension`](../../res/web/host/artifact/extension). Products such
+[`src/ctx/web/artifact/extension`](../../src/ctx/web/artifact/extension). Products such
 as Cymonkey and Xallet consume it.

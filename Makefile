@@ -26,7 +26,7 @@ test-native-installer:
 	./tests/native_installer_test.sh
 
 test-go:
-	for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm src/ctx/system res/web/host; do \
+	for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm src/ctx/system src/ctx/web; do \
 		(cd $$module && GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...) || exit; \
 	done
 

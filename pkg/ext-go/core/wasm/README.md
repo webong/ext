@@ -6,7 +6,7 @@ options, byte-stream and reactor interfaces, and the `Runtime` interface. It
 does not import wazero or the Ext plugin engine and does not select a runtime.
 
 The Go wazero implementation lives in
-[`pkg/ext-go/wasm/runtime`](../../../../../pkg/ext-go/wasm/runtime). It supports
+[`pkg/ext-go/wasm/runtime`](../../wasm/runtime). It supports
 core modules and WASI Preview 1. The sibling `pkg/ext-go/wasm` package adapts it
 to Ext plugin sessions. The installed-executable Wasmtime path remains in
 [`xallet.app/zip/wasm`](https://github.com/xallet/zip/tree/main/wasm); that adapter does not implement
@@ -25,5 +25,5 @@ does not exercise them.
 `pkg/ext-go/wasm/runtime/cmd/wasirun` checks a portable C guest core compiled to WASI. Use it through
 `scripts/plugin-wasi-core.sh`.
 
-See the [interoperability guide](../../../../../docs/plugin-interoperability.md) and
-the [runtime authoring guide](../../../../../docs/plugin-runtimes.md).
+See the [interoperability guide](../../../../docs/plugin-interoperability.md) and
+the [runtime authoring guide](../../../../docs/plugin-runtimes.md).

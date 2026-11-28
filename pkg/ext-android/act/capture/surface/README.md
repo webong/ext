@@ -29,5 +29,5 @@ mechanisms belong here when implemented through public Android APIs; consumer
 grants and remote control do not.
 
 The Java package stays `io.github.webong.ext.system`; the other Android bindings
-of `src/ctx/system` live beside their Go packages: [`capture/share`](../../share/android/README.md),
-[`capture/audio`](../../audio/android/README.md) and [`host resources`](../../../../../../pkg/ext-android/README.md).
+of `src/ctx/system` live beside their Go packages: [`capture/share`](../../share/README.md),
+[`capture/audio`](../audio/README.md) and [`host resources`](../../../README.md).

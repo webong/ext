@@ -85,7 +85,7 @@ else
   "$build_tools/d8" --lib "$platform" --min-api 24 --output "$work/dex" "${inputs[@]}"
 fi
 "$build_tools/aapt2" link -o "$work/base.apk" -I "$platform" \
-  -A res/web/testdata/extension --manifest pkg/ext-android/web/src/androidTest/AndroidManifest.xml --min-sdk-version 24 --target-sdk-version 34
+  -A tests/fixtures/web/extension --manifest pkg/ext-android/web/src/androidTest/AndroidManifest.xml --min-sdk-version 24 --target-sdk-version 34
 (cd "$work/dex" && zip -q "$work/base.apk" classes*.dex)
 "$build_tools/zipalign" -f -p 4 "$work/base.apk" "$work/aligned.apk"
 keytool -genkeypair -keystore "$work/key" -storepass android -keypass android -alias debug \

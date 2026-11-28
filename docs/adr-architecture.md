@@ -1,11 +1,11 @@
-# ADR: Layers, the rules of `res/`, and language tiers
+# ADR: Layers, the rules of capability contracts, and language tiers
 
 Status: accepted on 2026-11-10 and revised for the native-library/resource-guest split on
 2026-11-26. It collects decisions that
 were made one at a time ([hosts in every language](adr-hosts-in-every-language.md),
 [engine selection](adr-engine-selection.md), [web layout](adr-web-layout.md),
 [graph runtime](adr-graph-runtime.md)) into one picture. It adds three things: the rules every
-`res/` module follows, the plan for `res/graph` storage and the C graph `lib/ledger`, and the
+capability contract follows, the plan for `res/graph` storage and the C graph `lib/ledger`, and the
 support tier of each language.
 
 ## Layers
@@ -15,10 +15,10 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 
 | Layer | What it is | Language |
 | --- | --- | --- |
-| 1. Contracts | `ext.io.pc/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `src/ctx/system` and `res/graph` will get) | Data |
+| 1. Contracts | `ext.io.pc/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `tests/fixtures/web`, and `tests/fixtures/system`) | Data |
 | 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
 | 3. OS mechanisms | The platform packages `pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` and `pkg/ext-linux`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
-| 4. Resource guests | `src/ctx/system`, `res/web`, `src/ctn/contract`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
+| 4. Resource guests | `src/ctx/system`, `src/ctx/web`, `src/ctn/contract`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
 | 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; the platform packages also carry their platform's OS mechanisms (layer 3) | Every language |
 | 6. Adapters | [Adapter repositories](adapter-repositories.md) outside ext (`xallet/tab`, `zip`, `vat`, `tip`): one product, provider, browser or native tool each, loaded as packages | Mostly Go |
 | 7. Products | `ctx`, `ctn`, `ext`; Cymonkey and Xallet outside this repository | Selection, commands, policy |
@@ -30,16 +30,20 @@ The layers rest on three principles:
   disagree, the fixture decides and the fix lands in Go.
 - **Native code goes where the OS is.** Code that talks to OS-provided implementations lives in its platform package and uses
   the language of the native platform API: Swift on Apple platforms, Java or Kotlin on Android,
-  and C# on Windows. C is used for portable libraries with a common ABI. An Ext guest in `res/`
-  calls that library and carries the protocol; native apps can also use the library directly.
-  Existing Go `res/` imports remain available while those callers migrate.
+  and C# on Windows. C is used for portable libraries with a common ABI. An Ext resource guest beside
+  that library calls it and carries the protocol; native apps can also use the library directly.
 - **Other languages cross the protocol.** A language reaches what another language implements
   through `ext.io.pc/v1`. It does not get a C ABI per library or a second implementation.
 
-## The rules of `res/`
+## The rules of capability contracts
 
-`res/` owns mechanisms. Authorization, approval UI, remote access, routing and policy belong to
-consumers, as `AGENTS.md` already says. Every `res/` module also follows five rules. The first
+These rules were written for `res/`, which held the contracts until 2026-11-28. The contracts now
+live with the product that owns them (`src/ctx/system`, `src/ctx/web`, `src/ctn/contract`), their
+fixtures in `tests/fixtures`, and their guests beside the platform library each serves; the rules
+are unchanged.
+
+A contract owns no policy. Authorization, approval UI, remote access, routing and policy belong to
+consumers, as `AGENTS.md` already says. Every capability contract also follows five rules. The first
 three apply to new code at once and to existing packages as they are next touched. Rule 5 is a
 design obligation.
 
@@ -68,7 +72,7 @@ design obligation.
    Error text is never part of a contract and never carries a value it was given.
 4. **Bounded and cancellable.** Every operation that reads, waits or buffers has a stated bound on
    size, count and time, and can be cancelled. No package keeps hidden global state.
-5. **Served over the protocol.** Rust, Python, TypeScript and the other SDKs reach a `res/`
+5. **Served over the protocol.** Rust, Python, TypeScript and the other SDKs reach a resource
    guest through `ext.io.pc/v1`, with a thin typed wrapper in the SDK for the calls a
    consumer needs. A desktop guest can be a private Ext package process or a guest library;
    a mobile app bundles and hosts its native guest. The guest depends on its platform
@@ -132,7 +136,7 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 ## Consequences
 
 - Fixtures for `src/ctx/system` and tests for `Ext.Audio.Windows` and `Ext.Clipboard.Windows` are the
-  first work under rules 1 and 4. Each later `res/` change brings its package in line with rules 2
+  first work under rules 1 and 4. Each later contract change brings its package in line with rules 2
   and 3.
 - The `res/graph` store contract (`lib/ledger/testdata/store/v1`) and the SQLite store
   (`res/graph/store/sqlite`) are the first two steps above. `lib/ledger` has the store with its

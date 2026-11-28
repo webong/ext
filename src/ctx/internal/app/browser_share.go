@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	browsershare "github.com/webong/ext/res/web/host/contract"
-	browser "github.com/webong/ext/res/web/host/manage/cookie"
+	browsershare "github.com/webong/ext/src/ctx/web/contract"
+	browser "github.com/webong/ext/src/ctx/web/manage/cookie"
 	"github.com/webong/ext/src/ctx/internal/config"
 )
 

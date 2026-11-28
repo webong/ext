@@ -88,7 +88,7 @@ Wayland-only session reports global surface observation as unsupported because
 the compositor does not expose that state to arbitrary clients.
 
 Product-specific provider discovery belongs in the owning adapter, outside ext
-(see [adapter repositories](../../docs/adapter-repositories.md)). Calling Core Graphics, ScreenCaptureKit, AVFoundation,
+(see [adapter repositories](../../../docs/adapter-repositories.md)). Calling Core Graphics, ScreenCaptureKit, AVFoundation,
 User32, GDI or WASAPI to implement a public system API is a platform
 implementation, not a product adapter.
 
@@ -116,14 +116,14 @@ frames finite PCM16 data.
 ## The graph
 
 The graph store, the recorder that writes what these collectors find into it, and the
-process supervisor are the ledger: [`lib/ledger`](../../lib/ledger/README.md) in C and
-[`pkg/ext-go/cengine/ledger`](../../pkg/ext-go/cengine/ledger/README.md) for its Go binding.
+process supervisor are the ledger: [`lib/ledger`](../../../lib/ledger/README.md) in C and
+[`pkg/ext-go/cengine/ledger`](../../../pkg/ext-go/cengine/ledger/README.md) for its Go binding.
 The Go ledger uses its own wire records in `core/ledger/observation` and does not require this module. Nothing here depends on the ledger. The path `res/graph` was used briefly
 for an earlier form of this module (v0.1.x, deprecated), and then for the Go graph module until it moved
 into `pkg/ext-go/engine/ledger`.
-See the migration table in [module versioning](../../docs/module-versioning.md).
+See the migration table in [module versioning](../../../docs/module-versioning.md).
 
-See [host discovery](../../docs/host-discovery.md) and the
-[graph runtime decision record](../../docs/adr-graph-runtime.md). The broader
+See [host discovery](../../../docs/host-discovery.md) and the
+[graph runtime decision record](../../../docs/adr-graph-runtime.md). The broader
 ownership and safety boundary is documented in the
-[local system shell library](../../docs/system-shell.md).
+[local system shell library](../../../docs/system-shell.md).

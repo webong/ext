@@ -3,7 +3,7 @@
 The ledger in C: one library that Linux, Darwin (macOS and iOS) and Windows
 programs embed, from any language with a C FFI, with nothing beyond the C library and the OS.
 It is the ledger implementation; the contract is the data in
-[`lib/ledger/testdata`](../../lib/ledger/testdata), and this library is held to it.
+[`lib/ledger/testdata`](testdata), and this library is held to it.
 
 Ledger implements storage and machine observations for the shared
 [Ext graph model](../../docs/adr-ext-graph.md). Plugin uses that same model for
@@ -183,14 +183,14 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 
 - **memory** (`ext_ledger_store_open_memory`): one process's state.
 - **file** (`ext_ledger_store_open`): a directory laid out as
-  [`ledger.json`](../../lib/ledger/testdata/store/v1/ledger.json) says. An append-only log of
+  [`ledger.json`](testdata/store/v1/ledger.json) says. An append-only log of
   framed, checksummed canonical-JSON lines and a checkpoint; an advisory lock (`flock`,
   `LockFileEx`) serialises writers, and readers never lock. Every handle keeps the state in memory
   and catches up by reading what other handles appended. Handles in one process and in many
   processes share a directory.
 - **sqlite** (`ext_ledger_store_open_sqlite`): optional, linked against the system's SQLite (no vendored
   copy); `EXT_LEDGER_UNSUPPORTED` in a build without it. One database laid out as
-  [`tables.json`](../../lib/ledger/testdata/store/v1/tables.json) says. `scripts/ledger-sqlite-cross.sh` loads a frozen database
+  [`tables.json`](testdata/store/v1/tables.json) says. `scripts/ledger-sqlite-cross.sh` loads a frozen database
   written by the retired Go store, then checks native reads, writes and idempotent replay. The handle catches up with other connections when SQLite's
   `data_version` moves; a commit, with its compaction, is one `BEGIN IMMEDIATE` transaction.
 

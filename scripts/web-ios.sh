@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build and test the iOS module of res/web (pkg/ext-darwin/web, the SwiftPM package ExtWeb): the cookie,
-# userscript and bookmarklet rules, against the language-neutral fixtures in res/web/testdata.
+# Build and test the iOS module of src/ctx/web (pkg/ext-darwin/web, the SwiftPM package ExtWeb): the cookie,
+# userscript and bookmarklet rules, against the language-neutral fixtures in tests/fixtures/web.
 # It is a package of its own with no dependency, so this needs Swift only: no engine
 # xcframework, and nothing of the plugin code can be imported. pkg/ext-darwin ships the same
 # sources (its Sources/ExtWeb is a link to this package's target).

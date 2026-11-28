@@ -2,7 +2,7 @@
 
 The language-neutral contract of `src/ctx/system`: behaviour meant to be identical in Go, Swift, Java
 and C# is written here as versioned data, and every binding runs it. Where a binding and a fixture
-disagree, the fixture is right and the binding changes. The layout follows `res/web/testdata`.
+disagree, the fixture is right and the binding changes. The layout follows `tests/fixtures/web`.
 
 ```
 testdata/

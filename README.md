@@ -89,7 +89,7 @@ lifecycle mechanisms.
 | Store a graph, record observations or supervise processes | [`lib/ledger`](lib/ledger/README.md) |
 | Use native OS mechanisms | The platform packages [`ext-darwin`](pkg/ext-darwin/README.md), [`ext-android`](pkg/ext-android/README.md), [`ext-windows`](pkg/ext-windows/README.md) and [`ext-linux`](pkg/ext-linux/README.md); host-resource collection and private volumes in [`lib/ledger`](lib/ledger/README.md) |
 | Expose or consume system capabilities through Ext | [`src/ctx/system`](src/ctx/system/README.md) |
-| Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) for contracts and guests; each platform package's `web` library for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
+| Work with web content, WebViews or WebAssembly | [`src/ctx/web`](src/ctx/web/docs/OVERVIEW.md) for contracts and guests; each platform package's `web` library for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
 | Build code that runs inside a browser extension | [`pkg/ext-web`](pkg/ext-web/README.md) |
 | Use intelligence capabilities | [`src/ctn/contract`](src/ctn/contract/README.md) for contracts and guests; each platform package's `int` library for native mechanisms |
 
@@ -100,10 +100,11 @@ platform's language. `lib/ledger` owns host-resource
 collection and private-volume lifecycle alongside its graph, recorder and
 supervisor.
 
-`res/` exposes resource capabilities through versioned contracts, fixtures and
-guest entrypoints. Those guests use the native libraries and language SDKs;
-the native libraries do not depend on the guests. Published Go APIs under
-`res/` remain available while their callers migrate. Integrations with
+Each capability is a versioned contract: Go records, rules and provider interfaces owned by
+the product that uses it (`src/ctx/system`, `src/ctx/web`, `src/ctn/contract`), held to the
+language-neutral fixtures in `tests/fixtures` that every platform package runs. Resource
+guests expose a platform library as an installable Ext capability and sit beside that
+library; the native libraries do not depend on the guests. Integrations with
 selectable products and providers are adapters, which live outside ext in the
 [adapter repositories](docs/adapter-repositories.md), and consuming
 applications choose policy.
@@ -135,14 +136,13 @@ engine and archive support.
 | --- | --- | --- |
 | [`lib/`](lib/README.md) | libext: the portable C libraries the bindings build on | `plugin`: C plugin engine; `ledger`: C graph, recorder, supervisor and host-resource mechanics |
 | [`pkg/`](pkg) | Public language SDKs, bindings and platform packages | Go, Rust, Zig, TypeScript, Python, Ruby, PHP, Lua, .NET; Web SDK; Darwin, Android, Windows and Linux platform packages, each with that platform's native mechanisms (`web`, `int`, `act`, `net`) |
-| [`res/`](res) | Ext resource contracts, fixtures and guests; published Go APIs during migration | `system`: local OS capabilities; `web`: web capabilities; `int`: intelligence capabilities |
-| [`src/`](src) | First-class plugins built on Ext, also available as Go libraries | `ctx`: contexts; `ctn`: content; `cto`: containment |
+| [`src/`](src) | First-class plugins built on Ext, also available as Go libraries | `ctx`: contexts, with its system and web contracts; `ctn`: content, with its intelligence contracts; `cto`: containment |
 | [`cmd/ext/`](cmd/ext) | The public CLI | Package discovery, installation and command dispatch |
 | [Adapter repositories](docs/adapter-repositories.md) | Integrations with specific products, providers, browsers and native tools, kept outside ext | [`xallet/tab`](https://github.com/xallet/tab): browsers and AI; [`zip`](https://github.com/xallet/zip): package managers, runtimes and toolchains; [`vat`](https://github.com/xallet/vat): containers and cloud; [`tip`](https://github.com/xallet/tip): OS and devices |
-| [`tests/`](tests) | Tests spanning libraries and languages | Cross-language conformance and integration checks |
+| [`tests/`](tests) | Tests and fixtures spanning libraries and languages | `fixtures`: the language-neutral contract fixtures; `crosslang`: cross-language conformance and integration checks |
 | [`docs/`](docs) | Guides, contracts and architecture decisions | [Product direction](docs/adr-product-direction.md), [Architecture](docs/adr-architecture.md), [CI](docs/ci.md), [adapter authoring](docs/adapter-authoring.md) |
 
-`lib`, `pkg`, `res` and `src` are containers, not one shared package. Libraries
+`lib`, `pkg`, `src` and `tests` are containers, not one shared package. Libraries
 do not depend on product internals; products collaborate through plugin
 contracts rather than importing one another's implementation.
 Provider-specific behavior stays in adapters, while consumers choose policy.

@@ -17,7 +17,7 @@ final class UserscriptStoreTests {
         Path root = Files.createTempDirectory("ext-userscript-store-");
         try {
             String fixtures = System.getenv("EXT_WEB_TESTDATA");
-            UserscriptRecord r = UserscriptRecord.fromJson(Files.readString(Paths.get(fixtures == null ? "res/web/testdata" : fixtures,"userscript/store/record.json")));
+            UserscriptRecord r = UserscriptRecord.fromJson(Files.readString(Paths.get(fixtures == null ? "tests/fixtures/web" : fixtures,"userscript/store/record.json")));
             UserscriptStore store = new UserscriptStore(root.toFile());
             UserscriptStore writer = new UserscriptStore(root.toFile());
             int[] events = {0};

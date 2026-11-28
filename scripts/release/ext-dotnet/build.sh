@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ext-dotnet release, build: test and pack ExtIO, the .NET guest SDK, and ExtIO.Host, the .NET plugin host (the .NET counterpart of
 # ext-rust, ext-ts and ext-python). It is cross-platform (net8.0), so it builds on Linux; the
-# Windows libraries of res/ are the ext-windows package.
+# Windows libraries of pkg/ext-windows are the ext-windows package.
 . "$(dirname "$0")/../../ci/jobs/lib.sh"
 
 # Version

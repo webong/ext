@@ -17,7 +17,7 @@ use (
 	./src/ctn/contract
 	./src/ctx/system
 	./pkg/ext-linux/net/guest
-	./res/web/host
+	./src/ctx/web
 	./src/ctn
 	./src/ctn/inference
 	./src/ctn/model
@@ -43,6 +43,7 @@ replace github.com/webong/ext/src/cto/sandbox v0.1.0 => ./src/cto/sandbox
 
 // CTN's bridge module tags are not published yet.
 // The workspace resolves their new consumers to the current sources.
+replace github.com/webong/ext/src/ctx/web v0.1.0 => ./src/ctx/web
 replace github.com/webong/ext/src/ctx/system v0.1.0 => ./src/ctx/system
 replace github.com/webong/ext/src/ctn/contract v0.1.0 => ./src/ctn/contract
 replace github.com/webong/ext/src/ctn/inference v0.1.0 => ./src/ctn/inference

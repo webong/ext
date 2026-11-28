@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { createUserscriptRegistry } from './userscripts.mjs';
 
-// The rule for a userscript ID is written twice: in Go (res/web/host/artifact/userscript, whose tests run
-// the shared fixtures in res/web/testdata/userscript) and in this registry. Go, Swift and Java already run
+// The rule for a userscript ID is written twice: in Go (src/ctx/web/artifact/userscript, whose tests run
+// the shared fixtures in tests/fixtures/web/userscript) and in this registry. Go, Swift and Java already run
 // record.json; this runs its ID cases against the registry so the copies cannot drift apart.
-const web = new URL('../../res/web/', import.meta.url);
+const web = new URL('../../src/ctx/web/', import.meta.url);
 const inCheckout = existsSync(new URL('host/go.mod', web));
-const skip = !inCheckout && 'res/web/testdata is not part of this package; run the test in a checkout of the repository';
+const skip = !inCheckout && 'tests/fixtures/web is not part of this package; run the test in a checkout of the repository';
 
 const registry = createUserscriptRegistry({
   native: { getScripts: async () => [], register: async () => {}, update: async () => {}, unregister: async () => {} },

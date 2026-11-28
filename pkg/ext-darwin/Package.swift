@@ -30,7 +30,7 @@ let package = Package(
         .library(name: "ExtConformancePlugin", type: .dynamic, targets: ["ExtConformancePlugin"]),
         // The frames conformance guest: a JSON-line process the Go cross-language suite drives.
         .executable(name: "ExtFramesGuest", targets: ["ExtFramesGuest"]),
-        // The portable web rules of res/web: cookies, userscripts and bookmarklets. It has no
+        // The portable web rules of src/ctx/web: cookies, userscripts and bookmarklets. It has no
         // dependency on the plugin code or the engine. Sources/ExtWeb is a link to pkg/ext-darwin/web,
         // where the code and its tests live.
         .library(name: "ExtWeb", targets: ["ExtWeb"]),

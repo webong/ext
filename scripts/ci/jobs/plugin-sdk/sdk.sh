@@ -17,7 +17,7 @@ export EXT_LEDGER_LIBRARY="$RUNNER_TEMP/sdk-ledger/libext_ledger.$library_suffix
 test -f "$EXT_PLUGIN_LIBRARY"
 test -f "$EXT_LEDGER_LIBRARY"
 
-for module in pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/web/host examples/plugins/go examples/ledger/go examples/web/go; do
+for module in pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine src/ctx/web examples/plugins/go examples/ledger/go examples/web/go; do
   (cd "$module" && go test -race ./...)
 done
 go test -race ./pkg/ext-go/hashicorp/cmd/ext-plugin

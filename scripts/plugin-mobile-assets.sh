@@ -2,7 +2,7 @@
 # Embed the shared page assets in the mobile hosts, so Swift and Java cannot drift
 # from the one source of each:
 #   pkg/ext-go/core/wasm/reactor.js   the page-side reactor glue
-#   res/web/host/engine/bundle/shim.js            the web engine's page API shim
+#   src/ctx/web/engine/bundle/shim.js            the web engine's page API shim
 # Usage: scripts/plugin-mobile-assets.sh          write the generated files
 #        scripts/plugin-mobile-assets.sh --check  fail if any is out of date
 set -euo pipefail
@@ -13,7 +13,7 @@ import sys
 check = sys.argv[1] == '--check'
 assets = {
     'reactorPage': 'pkg/ext-go/core/wasm/reactor.js',
-    'shim': 'res/web/host/engine/bundle/shim.js',
+    'shim': 'src/ctx/web/engine/bundle/shim.js',
 }
 sources = {name: open(path, encoding='utf-8').read() for name, path in assets.items()}
 for name, text in sources.items():
@@ -61,7 +61,7 @@ targets = {
     'pkg/ext-android/src/android/java/io/github/webong/ext/plugin/webview/GeneratedAssets.java': java(),
 }
 # The standalone web runners embed only the canonical bundle shim.
-assets = {'shim': 'res/web/host/engine/bundle/shim.js'}
+assets = {'shim': 'src/ctx/web/engine/bundle/shim.js'}
 sources = {'shim': sources['shim']}
 targets['pkg/ext-darwin/web/Sources/ExtWebKit/BundleAssets.swift'] = swift().replace('enum GeneratedAssets', 'enum BundleAssets')
 targets['pkg/ext-android/web/src/android/java/io/github/webong/ext/web/android/BundleAssets.java'] = java().replace('io.github.webong.ext.plugin.webview', 'io.github.webong.ext.web.android').replace('GeneratedAssets', 'BundleAssets')

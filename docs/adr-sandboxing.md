@@ -331,7 +331,7 @@ Taken by the user on 2026-11-19.
 2. **The launch step is CTO code.** `src/cto/internal/confine`
    exports `confine.Exec` within CTO, and the installed CTO package serves `ext sandbox exec`.
    Linux and Windows need no cgo; macOS calls `sandbox_init` through purego or cgo. A
-   separate `ext-confine` executable in `src/ctx/system` was rejected because `res/` holds no
+   separate `ext-confine` executable in `src/ctx/system` was rejected because the capability contracts hold no
    commands, and C in `lib/` because it would have had no Go reference.
 3. **macOS gets both mechanisms, as drivers:** `seatbelt` and `app-sandbox`, chosen by the
    consumer (section 4). workload's Apple Virtualization or libkrun driver remains the

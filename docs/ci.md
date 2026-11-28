@@ -29,7 +29,7 @@ selected cells from all its groups and any requested release dry runs.
 | core | `base` | the Go host: library modules, the native shell libraries on each OS, products, the standalone and arch checks, the Go SDK |
 | core | `conformance` | the cross-language suites: host cases in every language, and the foreign SDKs through the C engine |
 | engine | `engines` | the C plugin engine on every toolchain, and its c2goengine translation |
-| runtime | `runtimes` | the Python, TypeScript, PHP, Ruby, Lua, .NET and web JS SDKs, and the Java, Swift and .NET libraries of `res/` |
+| runtime | `runtimes` | the Python, TypeScript, PHP, Ruby, Lua, .NET and web JS SDKs, and the Java, Swift and .NET libraries of the platform packages |
 | runtime | `platforms` | Android and iOS packaging, the WAMR hosts, the real desktop session |
 
 Every cell does the same thing: check out, run `.github/actions/setup` with its `setup` values (one

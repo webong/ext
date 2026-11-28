@@ -23,7 +23,7 @@ Descriptors, backend interfaces, profiles and errors come directly from
 `engine/plugin` aliases. The WASI command backend still embeds the existing
 `engine/plugin/transport/jsonline.Client`; its lifecycle and framing code remain
 there. The reactor uses the wazero runtime in this module, with the public
-contract defined by `res/web/host`.
+contract defined by `src/ctx/web`.
 
 This is a plugin backend (guest execution), not a driver for accessing Ext's
 canonical C libraries. No C driver, module path, default or build tag changed.

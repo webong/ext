@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/src/ctx/web/contract"
 )
 
 // Invoke calls one operation on an already selected and authorized backend.

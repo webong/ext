@@ -17,5 +17,5 @@ native mechanism, such as `xallet.app/tip/keychain`, `xallet.app/tip/credman`, o
 `client` talks to CTX's credential process protocol and has no dependency on a
 native store; using it requires a CTX host.
 
-See [native credentials](../../../../docs/credentials.md) and the
-[adapter API](../../../../docs/adapter-api.md).
+See [native credentials](../../../../../docs/credentials.md) and the
+[adapter API](../../../../../docs/adapter-api.md).

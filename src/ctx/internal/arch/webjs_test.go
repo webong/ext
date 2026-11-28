@@ -12,10 +12,10 @@ import (
 
 // The extension JavaScript library is owned by ext and lives in pkg/ext-web, with
 // the other packages for code that runs in a platform of its own. It is not a
-// source module of res/web and has no staging link there.
+// source module of src/ctx/web and has no staging link there.
 func TestWebExtLocation(t *testing.T) {
 	root := repoRoot(t)
-	for _, old := range []string{"pkg/ext-web-js", "res/web/js"} {
+	for _, old := range []string{"pkg/ext-web-js", "src/ctx/web/js"} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(old))); err == nil {
 			t.Fatalf("%s must not exist; the library lives in pkg/ext-web", old)
 		}

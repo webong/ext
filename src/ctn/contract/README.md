@@ -14,7 +14,7 @@ credentials, roots, and authorization policy.
 | `realtime` | Duplex model session and event contracts |
 
 The wire contracts remain versioned independently of Go import paths. Go
-hosts and guests use [CTN’s public `model.tensor/v1` bridge](../../src/ctn/model) for local
+hosts and guests use [CTN’s public `model.tensor/v1` bridge](../model) for local
 tensor engines. Other languages can implement the same JSON contract through
 the Ext plugin engine.
 
@@ -26,6 +26,6 @@ wire names remain stable. CTN owns its verified file catalog in
 intelligence provider.
 
 Product-specific provider wire mappings belong in the provider's adapter,
-outside ext (see [adapter repositories](../../docs/adapter-repositories.md)). The plugin
+outside ext (see [adapter repositories](../../../docs/adapter-repositories.md)). The plugin
 engine owns package integrity and trust mechanics. CTN selects installed
 providers, explicit models, roots, credentials, and user-facing workflows.

@@ -22,14 +22,14 @@ import (
 //	engine      legacy Go implementations and shared-contract compatibility exports
 //	cgoengine   the existing plugin API: linked C or the default shared native host
 //	c2goengine  the C engine's portable core translated to Go; needs engine
-//	wasm        the engine binding for pkg/ext-go/core/wasm; needs engine and res/web/host
+//	wasm        the engine binding for pkg/ext-go/core/wasm; needs engine and src/ctx/web
 //	hashicorp   the RPC backend uses core; its examples and tests retain engine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
 //	core        shared plugin/ledger contracts and driver selection; standard library only
 //	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
 //	            with C ABI guests; its guest and ledger bindings consume shared core contracts
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all
-//	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
+//	src/ctx/web  portable web and WebAssembly tooling; never imports the plugin engine
 const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
@@ -37,7 +37,7 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/engine":     {"pkg/ext-go/core"},
 	"pkg/ext-go/cgoengine":  {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
 	"pkg/ext-go/c2goengine": {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
-	"pkg/ext-go/wasm":       {"pkg/ext-go/core", "pkg/ext-go/engine", "res/web/host"},
+	"pkg/ext-go/wasm":       {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctx/web"},
 	"pkg/ext-go/hashicorp":  {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":      {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/core":       {},
@@ -48,9 +48,9 @@ var pluginRequires = map[string][]string{
 	"src/ctn/realtime":      {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
 	"src/ctn/contract":      {},
 	"src/cto/sandbox":       {},
-	"res/web/host":          {},
-	"src/ctx/system":            {},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "res/web/host", "src/ctx/system"},
+	"src/ctx/web":           {},
+	"src/ctx/system":        {},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "src/ctx/web", "src/ctx/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)

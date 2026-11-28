@@ -9,7 +9,7 @@
 
 # Test ext and the libraries it builds on
 (
-for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox src/ctx/system pkg/ext-go/engine pkg/ext-go/cgoengine res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox src/ctx/system pkg/ext-go/engine pkg/ext-go/cgoengine src/ctx/web; do
   (cd "$module" && go test ./...) || exit 1
 done
 )

@@ -17,7 +17,7 @@ on it.
 
 The packages release together as `ext-windows-vX.Y.Z` (see
 [module versioning](../../docs/module-versioning.md)). Their behaviour is held to
-the shared fixtures in `tests/fixtures/system` and `res/web/testdata`, which the
+the shared fixtures in `tests/fixtures/system` and `tests/fixtures/web`, which the
 Swift and Java implementations in the other platform packages run too.
 
 None of these libraries imports an Ext guest or a product, and none chooses a

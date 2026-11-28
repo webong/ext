@@ -10,7 +10,7 @@ import (
 	"os"
 	"regexp"
 
-	browsershare "github.com/webong/ext/res/web/host/contract"
+	browsershare "github.com/webong/ext/src/ctx/web/contract"
 	resourcekit "github.com/webong/ext/src/ctx/internal/browser/resource"
 	"github.com/webong/ext/src/ctx/internal/config"
 )

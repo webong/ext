@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The .NET language package (pkg/ext-dotnet): the guest SDK ExtIO. Needs the .NET 8 SDK and go.
 # The host binding, ExtIO.Host, runs the shared host cases in scripts/host-cases.sh; the Windows
-# libraries of res/ are scripts/lang/dotnet.sh.
+# libraries of pkg/ext-windows are scripts/lang/dotnet.sh.
 #   test   the fixtures and unit tests, the guest under the Go process host (the conformance cases
 #          and the frames suite), and the ExtIO package packed at 0.0.0-ci
 . "$(dirname "$0")/common.sh"

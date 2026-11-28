@@ -45,7 +45,7 @@ their portable contract in the owning library. An adapter represents a
 selectable external product, provider, browser, or native service and supplies
 that selection through an adapter capability or backend. For example, Safari
 and Chrome integration belongs in their adapters, while the WKWebView and
-Android WebView implementations of the public `res/web` workspace API belong in
+Android WebView implementations of the public `src/ctx/web` workspace API belong in
 `pkg/ext-darwin/web` and `pkg/ext-android/web`.
 
 `pkg/ext-web` is ext's JavaScript/TypeScript package for code that runs inside a
@@ -54,7 +54,7 @@ browser extension. Ext owns it; Cymonkey and Xallet consume it. Like `pkg/ext-da
 is not a plugin SDK. Its extension-embedded runtime messaging, in-browser
 management, themes, and `chrome`/`browser` compatibility are not adapters.
 External browser installation, profile discovery, signing, and activation
-remain adapter-owned, and `res/web/host/artifact/extension` inspects and packages the
+remain adapter-owned, and `src/ctx/web/artifact/extension` inspects and packages the
 extensions it builds. See [the plan](pkg/ext-web/PLAN.md).
 
 # Public libraries
@@ -71,7 +71,8 @@ distribution branch, `dist/ext-ios`, for SwiftPM; the others are tagged `<name>-
 Only the release workflow writes them and they are never merged; see [distribution branches](docs/module-versioning.md#distribution-branches).
 `tests/` is a container for test-only Go modules that belong to no single library: `tests/crosslang` runs
 every language's guests and hosts against each other, with `pkg/ext-go` as the host side. Its modules are
-listed in `go.work`, are never tagged or published, and no library imports them. `src/` is a container like `res/`; the context manager is the module
+listed in `go.work`, are never tagged or published, and no library imports them. `tests/fixtures` holds the language-neutral contract fixtures (`system`
+and `web`) that every platform package and Go run. `src/` is a container; the context manager is the module
 `src/ctx` (with its private code in `src/ctx/internal`), the content manager is
 `src/ctn`, and containment is `src/cto`. Each product exports a reusable Go
 library and ships a private Ext package guest. Only `cmd/ext` ships a public binary. Its `ext bridge --config` command owns the
@@ -79,9 +80,11 @@ transport bridge executable lifecycle in `cmd/ext/internal/bridgecmd`; ext-go
 retains only the reusable transport libraries. A product
 never imports another product module. The standalone `src/cto/sandbox` contract
 is available to its consumers. Reusable native OS mechanisms go in their platform package
-(`pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` or `pkg/ext-linux`);
-`res/` owns their Ext contracts and guests. Existing published Go packages under
-`res/` remain available during migration.
+(`pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` or `pkg/ext-linux`), with the
+resource guests that serve them beside the library they serve. A capability's Go contract
+belongs to the product that owns it: `src/ctx/system` and `src/ctx/web` (ctx) and
+`src/ctn/contract` (ctn), each a nested module that adapters and outside consumers import.
+The retired `res/system`, `res/int` and `res/web/host` tags keep serving existing consumers.
 `examples/` holds runnable teaching examples for every language and binding, grouped by
 purpose (`plugins/`, `ledger/`, `web/`, plus the shell adapter and Android consumer).
 It is a container, not a Go module. Related Go examples have their own unpublished
@@ -93,37 +96,30 @@ The product modules export `ctx.Run`,
 the product modules. Their module paths include `src/`, so external Go consumers
 can import them directly once their module versions are tagged and published.
 
-The layers, the rules every `res/` module follows (fixtures as the contract, capability
+The layers, the rules every capability contract follows (fixtures as the contract, capability
 reporting, one vocabulary of error codes, bounds) and the language support tiers are in
 [the architecture ADR](docs/adr-architecture.md).
 
-`res/` is the Ext resource capability layer: versioned contracts, fixtures and
-guest entrypoints. Reusable native implementations are in the platform packages, under
-the same capability areas (`web`, `int`, `act`, `net`). Remaining Go modules under `res/` keep
-their published import paths while callers migrate. Ledger-owned host, program,
-process and surface observation have been removed from Go. Do not move Go
-implementations into a platform package. Each subdirectory remains its
-own Go module, except `res/web`, which is a container too. Nothing lives at the
-root of `res/`. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/web/host` defines
-the protocol-neutral WebAssembly host contract without wazero or the plugin engine;
-`src/ctx/system` depends on `golang.org/x/sys`. The Go ledger binds C and uses ledger-owned wire records; it never requires `src/ctx/system` (`src/ctx/internal/arch` enforces it).
+The capability contracts are versioned records, rules and provider interfaces, held to the
+fixtures in `tests/fixtures`. Their Go packages live with their owning product; the native
+implementations live in the platform packages under the same capability areas (`web`, `int`,
+`act`, `net`). Ledger-owned host, program, process and surface observation have been removed
+from Go. Do not move Go implementations into a platform package. Keep repo-wide tests in
+`src/ctx/internal/arch`. `pkg/ext-go/core/wasm` defines the protocol-neutral WebAssembly host
+contract without wazero or the plugin engine. The Go ledger binds C and uses ledger-owned wire records; it never requires `src/ctx/system` (`src/ctx/internal/arch` enforces it).
 
-`res/web` has no Go code at its top. Its Go module is `res/web/host`
-(`github.com/webong/ext/res/web/host`, tagged `res/web/host/vX.Y.Z`); the module path
-`github.com/webong/ext/res/web` is never tagged again. Inside `host`, packages are
+`src/ctx/web` is the Go web module (`github.com/webong/ext/src/ctx/web`); it was
+`res/web/host`, whose published tags keep serving existing consumers. Its packages are
 grouped by role and the group directories hold no Go files of their own: `contract`
 (the shared vocabulary, which imports nothing else in the module), `manage` (`cookie`,
 `sqlite`, `guest` and `discovery`: the portable cookie rules and the kit browser adapters serve
-the browser protocols with), `artifact` (`extension`, `userscript` and `bookmarklet`) and `engine` (`bundle`
-and `wasm`). `artifact` imports only `contract`, `engine` imports nothing else in the
+the browser protocols with), `artifact` (`extension`, `userscript` and `bookmarklet`) and `engine` (`bundle`). `artifact` imports only `contract`, `engine` imports nothing else in the
 module, and `manage` may import `contract` and `artifact`; `src/ctx/internal/arch`
 enforces it. The native iOS, Android and WebView2 libraries are in
 `pkg/ext-darwin/web`, `pkg/ext-android/web` and `pkg/ext-windows/web`.
-`testdata` at the top holds the fixtures every runtime runs, and
-`docs` the guides for the mobile modules.
-The shared fixtures are outside the `host` module, so its Go tests find them by
-walking up (`host/internal/fixtures`) and skip when run without the repository.
+Its fixtures are `tests/fixtures/web`, which every runtime runs, and `docs` holds the guides for
+the mobile modules. The fixtures are outside the module, so its Go tests find them by walking up
+to the repository root (`internal/fixtures`) and skip when run without the repository.
 
 `lib/` holds libext, the portable C libraries every binding in `pkg/` is built on:
 `lib/plugin` and `lib/ledger`. Code that talks to OS-provided implementations lives in
@@ -132,8 +128,8 @@ its platform package, in the platform's language: `pkg/ext-darwin` (Swift),
 same capability areas: `web` for web, `int` for intelligence, `act` for actions such as
 clipboard, share, capture and input, and `net` for networking. `lib/ledger` owns the C
 host-resource collector; its Swift and Android Java bindings and wire models belong in
-`pkg/ext-darwin` and `pkg/ext-android`. The platform mechanisms do not depend on `res/`
-or the Ext guest SDK; their guest adapters depend on them and on the SDK for the
+`pkg/ext-darwin` and `pkg/ext-android`. The platform mechanisms do not depend on the
+capability contracts or the Ext guest SDK; their guest adapters depend on them and on the SDK for the
 implementation language. Nothing lives at the `lib/` root.
 `lib/plugin` is the portable C plugin
 engine, built with CMake; all its public names are in the `ext_plugin_` name space with the side next
@@ -222,12 +218,12 @@ CTN owns its content verification workflow and durable file catalog in
 
 The reusable libraries are:
 
-- `res/web/host` for the published Go web contracts and workflows during migration. Native WKWebView, Android WebView and WebView2 libraries live in `pkg/ext-darwin/web`, `pkg/ext-android/web` and `pkg/ext-windows/web`; `res/web` owns the Ext-facing web capability and shared fixtures.
+- `src/ctx/web` for ctx's Go web contracts: browser management, the kit browser adapters serve the browser protocols with, and the portable web artifact rules. Native WKWebView, Android WebView and WebView2 libraries live in `pkg/ext-darwin/web`, `pkg/ext-android/web` and `pkg/ext-windows/web`; `src/ctx/web` owns the Ext-facing web capability and shared fixtures.
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
-- `src/ctx/system` for the published Go system APIs during migration. Native Apple, Android, .NET and Linux system libraries live under `act` and `net` in their platform packages; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `src/ctx/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
+- `src/ctx/system` for ctx's Go system contracts (clipboard, capture, surface, credentials, per-user services). Native Apple, Android, .NET and Linux system libraries live under `act` and `net` in their platform packages; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `src/ctx/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
-- `src/ctn/contract` for the published Go intelligence contracts. Native Core ML, Android model and .NET inference libraries live under `int/model` in `pkg/ext-darwin`, `pkg/ext-android` and `pkg/ext-windows`. The Core ML and ONNX Runtime provider guests live in `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`; CTN chooses providers, models, credentials and policy.
+- `src/ctn/contract` for ctn's Go intelligence contracts (inference, model, perception, realtime). Native Core ML, Android model and .NET inference libraries live under `int/model` in `pkg/ext-darwin`, `pkg/ext-android` and `pkg/ext-windows`. The Core ML and ONNX Runtime provider guests live in `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`; CTN chooses providers, models, credentials and policy.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
 - `pkg/ext-go/engine` for Go plugin sessions and guest authoring. Shared plugin contracts are aliases of `core/plugin`; shared ledger records live directly in `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; the compatibility ledger aliases have also been removed. The recorder wrapper module, Go recorder implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library and store location; ledger mechanics execute in C.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is not committed: the `tools` module generates it on each platform, the binding beside it (`internal/ccgo`) builds only with `-tags ext_c2go`, the ext-plugin release translates, tests against the pure-Go engine (`engine/plugin/plugintest/enginetest`) and publishes each platform's as the c2go driver's archive, and a project fetches it (`go tool ext bundle fetch -lib ext_plugin -driver c2go`); it depends on `engine` only.
@@ -238,7 +234,7 @@ The reusable libraries are:
 - `pkg/ext-go/wasm` for the Go wazero implementation in `runtime` and the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the contract in `pkg/ext-go/core/wasm`. The `runtime` package imports no plugin package.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host`; it has no root Go package and holds benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `src/ctx/web`; it has no root Go package and holds benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
 
 CTN owns the nested modules `src/ctn/inference`, `src/ctn/perception`, and
 `src/ctn/realtime` for provider, perception, and duplex session contracts
@@ -309,7 +305,7 @@ macOS slice, `ext-macos-vX.Y.Z`, `dist/ext-macos`), each with a generated manife
 its platform; its own `Package.swift` stays multi-platform for development and CI. Both export the
 same module names, so an app depends on one of them, or on `pkg/ext-darwin` from source. Each SDK ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
 written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
-`res/web` is a container whose Go module is `res/web/host`; the native web libraries are the iOS module (`pkg/ext-darwin/web`, the SwiftPM packages `ExtWeb`
+`src/ctx/web` is a container whose Go module is `src/ctx/web`; the native web libraries are the iOS module (`pkg/ext-darwin/web`, the SwiftPM packages `ExtWeb`
 and `ExtWebKit`) and the Android module (`pkg/ext-android/web`, the Java packages
 `io.github.webong.ext.web` and `io.github.webong.ext.web.android`) of the same web library.
 Portable rules are checked against one set of fixtures; native workspace targets and source sets
@@ -321,7 +317,7 @@ The Go-only `pkg/ext-go/core/wasm` package defines the contract without wazero;
 reaches `pkg/ext-darwin/web` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
 `pkg/ext-android/web` into its AAR. Edit native web code in each platform package's
-`web` and Ext contracts in `res/web`. `act/clipboard` follows the same ownership model: the
+`web` and Ext contracts in `src/ctx/web`. `act/clipboard` follows the same ownership model: the
 Swift target in `pkg/ext-darwin/act/clipboard` is linked into `pkg/ext-darwin`, and the
 portable and Android Java source sets in `pkg/ext-android/act/clipboard` are compiled into
 the `pkg/ext-android` AAR. `net` follows that ownership model too: `pkg/ext-darwin/net` is
@@ -385,15 +381,15 @@ amd64 and arm64; elsewhere it returns `ErrUnsupported`). On darwin/amd64 both bu
 c-shared guest, since two Go runtimes there share the TLS slot for g. purego is a dependency
 of `pkg/ext-go/cengine` only, never of `pkg/ext-go/engine` or `cgoengine`, and both builds run the
 cshared tests and the shared host cases (`scripts/cshared-purego.sh`). `pkg/ext-go/core/wasm`
-is a package of the `res/web/host` module, not a nested module. `pkg/ext-go/wasm`
+is a package of the `core` module, not a nested module. `pkg/ext-go/wasm`
 remains a separate module because it implements that contract with wazero and
-binds it to the plugin engine without reversing the dependency into `res/`.
+binds it to the plugin engine without reversing the dependency into `core`.
 
 Moving a library into or out of `pkg/` changes public import paths. Update
 `AGENTS.md`, the docs, and the language SDKs together, and verify with
 `go build ./...` and `go vet ./...`.
 
-Mobile browser workspaces are platform implementations of the public `res/web`
+Mobile browser workspaces are platform implementations of the public `src/ctx/web`
 API, not product adapters. WKWebView code lives in `pkg/ext-darwin/web/Sources/ExtWebKit`
 and is exposed by `pkg/ext-darwin`; Android WebView and optional AndroidX
 document-start integration live in `pkg/ext-android/web/src/android` and are compiled

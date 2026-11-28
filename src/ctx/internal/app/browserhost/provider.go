@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	browser "github.com/webong/ext/res/web/host/manage/cookie"
+	browser "github.com/webong/ext/src/ctx/web/manage/cookie"
 	"github.com/webong/ext/src/ctx/internal/adapterenv"
 	"github.com/webong/ext/src/ctx/internal/adaptersnapshot"
 )

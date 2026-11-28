@@ -337,12 +337,24 @@ func (s *Session) call(ctx context.Context, contract engine.ContractRef, operati
 	finished := make(chan result, 1)
 	go func() {
 		var r result
-		var transportErr error
+		// The engine answers each event that asks on a goroutine of its own, and CallWith returns once
+		// every event has been handed out, not answered: a handler can still be running when the call
+		// has timed out. What handlers write is guarded, and nothing a handler does after the call has
+		// settled reaches its result or the caller.
+		var answered struct {
+			sync.Mutex
+			settled   bool
+			transport error
+		}
 		handlers := library.Handlers{
 			"authorize": allow(s.policyIn(ctx, func() func(context.Context, engine.Request) error { return s.options.Authorize })),
 			"backend_invoke": func(data json.RawMessage) (any, error) {
 				response, err := s.invokeIn(ctx, data)
-				transportErr = err
+				answered.Lock()
+				if !answered.settled {
+					answered.transport = err
+				}
+				answered.Unlock()
 				return response, backendError(err)
 			},
 		}
@@ -359,13 +371,23 @@ func (s *Session) call(ctx context.Context, contract engine.ContractRef, operati
 			in["progress"] = map[string]any{"events_per_second": limits.EventsPerSecond, "bytes_per_second": limits.BytesPerSecond}
 			handlers["progress"] = func(data json.RawMessage) (any, error) {
 				var p engine.Progress
-				if engine.Decode(data, &p) == nil {
+				if engine.Decode(data, &p) != nil {
+					return nil, nil
+				}
+				// Held while onProgress runs, so it is never called once the call has returned.
+				answered.Lock()
+				defer answered.Unlock()
+				if !answered.settled {
 					onProgress(p)
 				}
 				return nil, nil
 			}
 		}
 		r.err = s.host.CallWith("call", in, &r.out, handlers)
+		answered.Lock()
+		answered.settled = true
+		transportErr := answered.transport
+		answered.Unlock()
 		if r.err != nil && transportErr != nil {
 			r.err = errors.Join(r.err, transportErr)
 		}

@@ -118,6 +118,14 @@ func Prepare(o Options) (staging string, m packagekit.Manifest, err error) {
 			return
 		}
 		a.SHA256 = digest
+		// A package is sealed for one target, and a registry index files it under that
+		// target, so an artifact that names none is recorded as the target's.
+		if a.OS == "" {
+			a.OS = o.OS
+		}
+		if a.Arch == "" {
+			a.Arch = o.Arch
+		}
 		kept[a.Name] = true
 		artifacts = append(artifacts, a)
 	}

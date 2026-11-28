@@ -30,6 +30,10 @@ func Acquire(path string) (func() error, error) {
 	if err != nil {
 		return nil, err
 	}
+	// On Windows a FileInfo's identity is read from its path the first time SameFile
+	// compares it, and cached. Compare now, while path is still the directory created
+	// above; comparing first at release would identify whatever is at path by then.
+	_ = os.SameFile(owned, owned)
 	var once sync.Once
 	var releaseErr error
 	return func() error {

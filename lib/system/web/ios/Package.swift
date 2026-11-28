@@ -2,7 +2,7 @@
 import PackageDescription
 
 // The web rules of res/web for Apple platforms: cookies, userscripts and bookmarklets, written
-// out in Swift and checked against the language-neutral fixtures in ../testdata. It needs
+// out in Swift and checked against the language-neutral fixtures in res/web/testdata. It needs
 // nothing else: no engine, no plugin code. pkg/ext-darwin ships these sources next to its plugin
 // code (its Sources/ExtWeb is a link to this target). ExtWebKit is the separate native
 // browser-workspace target; the portable ExtWeb target does not depend on WebKit.

@@ -67,8 +67,14 @@ func TestAdapterRegistryRelease(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(source, "program_roots"), []byte(roots), 0600); err != nil {
 			t.Fatal(err)
 		}
-		run("packed adapter nvm", false, ext, "package", "pack", source, "--output", archive)
-		run("packed adapter nvm", false, ext, "package", "pack", source, "--os", foreignOS, "--arch", "amd64", "--output", foreign)
+		// pack never overwrites its output, so each release starts from new archives.
+		for _, path := range []string{archive, foreign} {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+		}
+		run("packed package", false, ext, "package", "pack", source, "--output", archive)
+		run("packed package", false, ext, "package", "pack", source, "--os", foreignOS, "--arch", "amd64", "--output", foreign)
 	}
 	publish := func(version, want string, fail bool) {
 		t.Helper()
@@ -297,12 +303,10 @@ rmdir "$EXT_HOME/.package-write.lock"
 		})
 	}
 	run(ext, 3, "UNSUPPORTED", "ctn", "verify", file)
-	run(ext, 1, "not trusted", "package", "doctor", "wasm")
+	// doctor checks integrity, trust and target without running the guest.
+	run(ext, 1, "trusted=false", "package", "doctor", "wasm")
 	run(ext, 0, "trusted wasm", "package", "trust", "wasm")
-	run(ext, 0, "evaluator doctor", "package", "doctor", "wasm")
-	t.Setenv("EXT_TEST_DOCTOR_FAIL", "1")
-	run(ext, 7, "evaluator doctor", "package", "doctor", "wasm")
-	t.Setenv("EXT_TEST_DOCTOR_FAIL", "")
+	run(ext, 0, "trusted=true", "package", "doctor", "wasm")
 	run(ext, 0, "trusted", "package", "verify", "wasm")
 	t.Setenv("EXT_TEST_NO_EVIDENCE", "1")
 	run(ext, 3, "no sandbox evidence", "ctn", "verify", file)

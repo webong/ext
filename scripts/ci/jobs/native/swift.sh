@@ -17,7 +17,7 @@ if [ "$RUNNER_OS" = macOS ]; then
 (
 scripts/ext-darwin-xcframework.sh --platform all
 scripts/ext-darwin-ledger-xcframework.sh --platform all
-for package in capture/share/ios:ExtShare capture/audio/ios:ExtAudio; do
+for package in act/share/ios:ExtShare act/capture/audio/ios:ExtAudio; do
   (cd "lib/system/${package%%:*}" && xcodebuild -scheme "${package##*:}" -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)
 done
 (cd pkg/ext-darwin && xcodebuild -scheme Ext-Package -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)

@@ -336,7 +336,7 @@ func (h CommandScopeHandlers) handlers() library.Handlers {
 
 // OpenCommandScope opens a command_scope, with handlers for its events; an event without one is denied (or, when
 // it asks nothing, dropped).
-func (x *Library) OpenCommandScope(config json.RawMessage, handlers CommandScopeHandlers) (*CommandScope, error) {
+func (x *Library) OpenCommandScope(config CommandScopeConfig, handlers CommandScopeHandlers) (*CommandScope, error) {
 	o, err := x.d.Open("command_scope", config, handlers.handlers())
 	if err != nil {
 		return nil, err
@@ -384,13 +384,20 @@ func (x *CommandScope) View(in json.RawMessage) (json.RawMessage, error) {
 	return out, err
 }
 
-// ExecutionGraph is a execution_graph object of ext_plugin. Owns a reviewed process-provider graph
-// and its private copies. Application owns source writer coordination and policy. Close stops
-// consumers before providers; copies survive active calls and are removed last.
+// ExecutionGraph is a execution_graph object of ext_plugin. Owns a reviewed graph of local
+// processes and host-contributed providers. Application owns source writer coordination and
+// policy. Close stops consumers before providers; copies survive active calls and are removed
+// last.
 type ExecutionGraph struct{ o *library.Object }
 
 // ExecutionGraphHandlers serve the events of a execution_graph. A nil one is no handler.
 type ExecutionGraphHandlers struct {
+	// BackendConnect answers backend_connect with a payload, or an error passed on as the public error
+	// when it marshals to an object with a code.
+	BackendConnect func(data json.RawMessage) (any, error)
+	// BackendInvoke answers backend_invoke with a payload, or an error passed on as the public error
+	// when it marshals to an object with a code.
+	BackendInvoke func(data json.RawMessage) (any, error)
 	// ReverseAuthorize answers reverse_authorize: nil allows. An active reverse request with its exact
 	// consumer and provider identities. Denied unless the application answers allow.
 	ReverseAuthorize func(data json.RawMessage) error
@@ -398,6 +405,12 @@ type ExecutionGraphHandlers struct {
 
 func (h ExecutionGraphHandlers) handlers() library.Handlers {
 	m := library.Handlers{}
+	if f := h.BackendConnect; f != nil {
+		m["backend_connect"] = f
+	}
+	if f := h.BackendInvoke; f != nil {
+		m["backend_invoke"] = f
+	}
 	if f := h.ReverseAuthorize; f != nil {
 		m["reverse_authorize"] = func(d json.RawMessage) (any, error) { return nil, f(d) }
 	}
@@ -406,7 +419,7 @@ func (h ExecutionGraphHandlers) handlers() library.Handlers {
 
 // OpenExecutionGraph opens a execution_graph, with handlers for its events; an event without one is denied (or, when
 // it asks nothing, dropped).
-func (x *Library) OpenExecutionGraph(config json.RawMessage, handlers ExecutionGraphHandlers) (*ExecutionGraph, error) {
+func (x *Library) OpenExecutionGraph(config ExecutionGraphConfig, handlers ExecutionGraphHandlers) (*ExecutionGraph, error) {
 	o, err := x.d.Open("execution_graph", config, handlers.handlers())
 	if err != nil {
 		return nil, err
@@ -440,8 +453,8 @@ func (x *ExecutionGraph) Events(in ExecutionGraphEventsInput) ([]json.RawMessage
 }
 
 // Observe runs observe on the execution_graph. Complete live session observations, with random
-// instance-qualified session IDs, selected identity/contract/routes and child PID locators. Closed
-// unless every host is ready.
+// instance-qualified session IDs, selected identity/contract/routes and child PID locators (null
+// with binding for externally supplied nodes). Closed unless every host is ready.
 func (x *ExecutionGraph) Observe(in json.RawMessage) ([]json.RawMessage, error) {
 	var out []json.RawMessage
 	err := x.o.CallWith("observe", raw(in), &out, nil)
@@ -464,8 +477,8 @@ func (x *ExecutionGraph) Sequence(in json.RawMessage) (int64, error) {
 
 // Snapshot runs snapshot on the execution_graph. Project sessions, process references and routes
 // into a complete dedicated namespace. processes must match observe order and session/PID and
-// contain ledger process_identity references. Caller owns correlation and namespace; facts grant
-// no authority.
+// contain ledger process_identity references for local nodes, null for externally supplied nodes.
+// Caller owns correlation and namespace; facts grant no authority.
 func (x *ExecutionGraph) Snapshot(in ExecutionGraphSnapshotInput) (json.RawMessage, error) {
 	var out json.RawMessage
 	err := x.o.CallWith("snapshot", in, &out, nil)
@@ -932,10 +945,17 @@ type LibraryPackageVerifyInput struct {
 	Root     string          `json:"root"`
 }
 
+// LibraryStoreDigestInputLayout is the JSON object the description gives for it.
+type LibraryStoreDigestInputLayout struct {
+	FallbackPath string `json:"fallback_path,omitempty"`
+	ManifestPath string `json:"manifest_path"`
+}
+
 // LibraryStoreDigestInput is the JSON object the description gives for it.
 type LibraryStoreDigestInput struct {
-	ID   string `json:"id"`
-	Root string `json:"root"`
+	ID     string                         `json:"id"`
+	Layout *LibraryStoreDigestInputLayout `json:"layout,omitempty"`
+	Root   string                         `json:"root"`
 }
 
 // LibraryTrustRecordInput is the JSON object the description gives for it.
@@ -959,6 +979,30 @@ type LibraryTrustStateInput struct {
 	ID     string `json:"id"`
 	Path   string `json:"path"`
 	Scope  string `json:"scope"`
+}
+
+// CommandScopeConfigLayout is the JSON object the description gives for it.
+type CommandScopeConfigLayout struct {
+	FallbackPath string `json:"fallback_path,omitempty"`
+	ManifestPath string `json:"manifest_path"`
+}
+
+// CommandScopeConfig is the JSON object the description gives for it.
+type CommandScopeConfig struct {
+	Layout *CommandScopeConfigLayout `json:"layout,omitempty"`
+}
+
+// ExecutionGraphConfigLayout is the JSON object the description gives for it.
+type ExecutionGraphConfigLayout struct {
+	FallbackPath string `json:"fallback_path,omitempty"`
+	ManifestPath string `json:"manifest_path"`
+}
+
+// ExecutionGraphConfig is the JSON object the description gives for it.
+type ExecutionGraphConfig struct {
+	Layout   *ExecutionGraphConfigLayout `json:"layout,omitempty"`
+	Packages []json.RawMessage           `json:"packages"`
+	TempRoot string                      `json:"temp_root,omitempty"`
 }
 
 // ExecutionGraphEventsInput is the JSON object the description gives for it.
@@ -1047,10 +1091,17 @@ type HostStartInput struct {
 	TimeoutMS int64 `json:"timeout_ms,omitempty"`
 }
 
+// LayeredConfigLayout is the JSON object the description gives for it.
+type LayeredConfigLayout struct {
+	FallbackPath string `json:"fallback_path,omitempty"`
+	ManifestPath string `json:"manifest_path"`
+}
+
 // LayeredConfig is the JSON object the description gives for it.
 type LayeredConfig struct {
-	Limits json.RawMessage `json:"limits,omitempty"`
-	Roots  []string        `json:"roots"`
+	Layout *LayeredConfigLayout `json:"layout,omitempty"`
+	Limits json.RawMessage      `json:"limits,omitempty"`
+	Roots  []string             `json:"roots"`
 }
 
 // LayeredLoadInput is the JSON object the description gives for it.
@@ -1073,6 +1124,12 @@ type PackageWriterConfig struct {
 type RegistryConfig struct {
 }
 
+// StoreConfigLayout is the JSON object the description gives for it.
+type StoreConfigLayout struct {
+	FallbackPath string `json:"fallback_path,omitempty"`
+	ManifestPath string `json:"manifest_path"`
+}
+
 // StoreConfigLimits is the JSON object the description gives for it.
 type StoreConfigLimits struct {
 	MaxArtifactBytes int64 `json:"max_artifact_bytes,omitempty"`
@@ -1082,6 +1139,7 @@ type StoreConfigLimits struct {
 
 // StoreConfig is the JSON object the description gives for it.
 type StoreConfig struct {
+	Layout *StoreConfigLayout `json:"layout,omitempty"`
 	Limits *StoreConfigLimits `json:"limits,omitempty"`
 	Root   string             `json:"root"`
 }

@@ -35,9 +35,12 @@ for group in macos ios iossim; do
   lipo -create "${members[@]}" -output "$work/$group/libext_ledger.a"
   libraries+=(-library "$work/$group/libext_ledger.a" -headers "$work/headers")
 done
-mkdir -p "$work/headers"
-cp lib/ledger/include/ext_ledger.h "$work/headers/"
-cat >"$work/headers/module.modulemap" <<'MODULE'
+# The headers sit in a directory named for the module: Xcode copies every binary target's
+# headers into one include directory, so two module maps at its top would collide with
+# CExtEngine's, and Clang finds include/CExtLedger/module.modulemap by the module's name.
+mkdir -p "$work/headers/CExtLedger"
+cp lib/ledger/include/ext_ledger.h "$work/headers/CExtLedger/"
+cat >"$work/headers/CExtLedger/module.modulemap" <<'MODULE'
 module CExtLedger {
   header "ext_ledger.h"
   export *

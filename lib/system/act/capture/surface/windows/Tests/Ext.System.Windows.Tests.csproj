@@ -8,6 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Ext.System.Windows.csproj" />
-    <None Include="../../../../testdata/surface/v1/cases.json" Link="cases.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../../../../res/system/testdata/surface/v1/cases.json" Link="cases.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

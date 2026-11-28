@@ -14,6 +14,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /** Binds the C ledger collector and decodes its shared resource wire record. */
+// Loading the app's own native library is what this class is for; newer JDKs flag
+// System.loadLibrary as restricted, which means nothing on Android.
+@SuppressWarnings("restricted")
 public final class SystemResourcesObserver {
     static { System.loadLibrary("ext_ledger"); }
 

@@ -46,6 +46,7 @@ release="$TEST_ROOT/release"
 mkdir -p "$stage/ext/bin" "$release"
 cp "$EXT_BIN_DIR/ext" "$stage/ext/bin/ext"
 cp -R "$EXT_BIN_DIR/ext-packages" "$stage/ext/bin/ext-packages"
+cp -R "$EXT_BIN_DIR/ext-lib" "$stage/ext/bin/ext-lib"
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m)
 case "$arch" in x86_64|amd64) arch=amd64;; arm64|aarch64) arch=arm64;; *) exit 1;; esac

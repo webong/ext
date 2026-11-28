@@ -13,11 +13,10 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
+	"github.com/webong/ext/cmd/ext/internal/nativelib"
 	"github.com/webong/ext/cmd/ext/internal/nativeplugin"
 	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
@@ -150,15 +149,10 @@ func commandEnvironment(address, token string, installed store.Installed, engine
 			env = append(env, item)
 		}
 	}
-	if os.Getenv("EXT_LEDGER_LIBRARY") == "" {
-		name := "libext_ledger.so"
-		if runtime.GOOS == "darwin" {
-			name = "libext_ledger.dylib"
+	if os.Getenv(nativelib.Ledger.Env) == "" {
+		if path, err := nativelib.Resolve(nativelib.Ledger); err == nil {
+			env = append(env, nativelib.Ledger.Env+"="+path)
 		}
-		if runtime.GOOS == "windows" {
-			name = "ext_ledger.dll"
-		}
-		env = append(env, "EXT_LEDGER_LIBRARY="+filepath.Join(filepath.Dir(enginePath), name))
 	}
 	hostExecutable, _ := os.Executable()
 	env = append(env,

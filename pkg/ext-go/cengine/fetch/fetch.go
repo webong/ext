@@ -246,7 +246,7 @@ func download(ctx context.Context, o Options, a library.Asset) ([]byte, error) {
 	}
 	get := o.Fetch
 	if get == nil {
-		get = httpsGet
+		get = HTTPS
 	}
 	body, err := get(ctx, a.URL)
 	if err != nil {
@@ -276,7 +276,9 @@ func download(ctx context.Context, o Options, a library.Asset) ([]byte, error) {
 	return data, nil
 }
 
-func httpsGet(ctx context.Context, url string) (io.ReadCloser, error) {
+// HTTPS is the download fetch uses when Options.Fetch is nil: a GET over HTTPS that follows only
+// HTTPS redirects. A caller that wraps Fetch, to report a download, calls it.
+func HTTPS(ctx context.Context, url string) (io.ReadCloser, error) {
 	if !strings.HasPrefix(url, "https://") {
 		return nil, errors.New("only https is fetched")
 	}

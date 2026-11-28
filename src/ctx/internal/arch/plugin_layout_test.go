@@ -29,7 +29,6 @@ import (
 //	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
 //	            with C ABI guests; its guest and ledger bindings consume shared core contracts
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all
-//	src/ctx/web  portable web and WebAssembly tooling; never imports the plugin engine
 const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
@@ -37,20 +36,13 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/engine":     {"pkg/ext-go/core"},
 	"pkg/ext-go/cgoengine":  {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
 	"pkg/ext-go/c2goengine": {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine"},
-	"pkg/ext-go/wasm":       {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctx/web"},
+	"pkg/ext-go/wasm":       {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/hashicorp":  {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":      {"pkg/ext-go/core", "pkg/ext-go/engine"},
 	"pkg/ext-go/core":       {},
 	"pkg/ext-go/cengine":    {"pkg/ext-go/core", "pkg/ext-go/engine"},
-	"src/ctn/inference":     {"pkg/ext-go/core", "pkg/ext-go/engine", "pkg/ext-go/cengine", "src/ctn/contract"},
-	"src/ctn/model":         {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
-	"src/ctn/perception":    {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
-	"src/ctn/realtime":      {"pkg/ext-go/core", "pkg/ext-go/engine", "src/ctn/contract"},
-	"src/ctn/contract":      {},
 	"src/cto/sandbox":       {},
-	"src/ctx/web":           {},
-	"src/ctx/system":        {},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine", "src/ctx/web", "src/ctx/system"},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/core", "pkg/ext-go/cengine"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)

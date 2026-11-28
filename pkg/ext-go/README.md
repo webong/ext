@@ -17,7 +17,7 @@ module of its own and a program that wants less takes less:
 | [`wasm`](wasm) | the Go wazero runtime and engine-facing WebAssembly backend, implementing the `pkg/ext-go/core/wasm` contract |
 
 CTN owns the `inference.provider/v1`, `intelligence.perception/v1`, and
-`intelligence.realtime/v1` bridges in nested modules under `src/ctn`.
+`intelligence.realtime/v1` bridges in the `src/ctn` module.
 CTN also owns the public `model.tensor/v1` bridge in `src/ctn/model`,
 which peer products can use to call installed provider packages directly.
 These bridges build on the generic Ext Go plugin engine.

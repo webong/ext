@@ -25,7 +25,7 @@ ci_import_env
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox src/ctx/system src/ctn/contract pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine src/ctx/web; do
+for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine; do
   (cd "$module" && go test ./...) || exit 1
 done
 )

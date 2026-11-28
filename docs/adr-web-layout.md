@@ -38,10 +38,12 @@ the web host module itself has no runtime dependency.
    and packages artifacts.
 3. **It stays private for now,** under the npm name `ext-web`. A registry and a
    version are chosen later, with a release tag of its own like the mobile SDKs.
-4. **`src/ctx/web` is a container with no Go code at its top.** Its Go module is
-   `src/ctx/web`, with the module path `github.com/webong/ext/src/ctx/web` and
-   tags `src/ctx/web/vX.Y.Z`. The old module path `github.com/webong/ext/src/ctx/web`
-   keeps its tags `v0.1.0` to `v0.6.0` and is never tagged again.
+4. **`res/web` is a container with no Go code at its top.** Its Go module is
+   `res/web/host`, with the module path `github.com/webong/ext/res/web/host` and
+   tags `res/web/host/vX.Y.Z`. The old module path `github.com/webong/ext/res/web`
+   keeps its tags `v0.1.0` to `v0.6.0` and is never tagged again. (Since 2026-11-28 the
+   host module's packages are part of ctx, at `src/ctx/web`, and version with it; the
+   `res/web/host` tags keep serving existing consumers.)
 5. **Inside `host`, packages are grouped by role.** `contract` is the shared
    vocabulary. `manage` holds `cookie` (the old root package), `sqlite`, `guest`,
    `discovery` and `policy`: the host side of reading and managing a browser.

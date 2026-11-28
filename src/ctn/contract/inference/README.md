@@ -72,7 +72,7 @@ errors.
 
 ## Module
 
-- Module path: `github.com/webong/ext/src/ctn/contract`; package path: `github.com/webong/ext/src/ctn/contract/inference`
+- Module path: `github.com/webong/ext/src/ctn`; package path: `github.com/webong/ext/src/ctn/contract/inference`
 - Go: 1.25.0
 - No external dependencies (standard library only)
 

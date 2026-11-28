@@ -1,7 +1,7 @@
 # ml
 
-`github.com/webong/ext/src/ctn/contract/model` is the local model package in the reusable
-`github.com/webong/ext/src/ctn/contract` module. It
+`github.com/webong/ext/src/ctn/contract/model` is the local model package of CTN's
+contracts, in the `github.com/webong/ext/src/ctn` module. It
 owns portable contracts for model manifests, verified artifact installation,
 and bounded inference; native model backends (CoreML on Apple platforms,
 optional TensorFlow Lite on Android, and ONNX Runtime CPU on Windows/Linux) stay beside these

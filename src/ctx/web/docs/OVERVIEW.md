@@ -1,15 +1,14 @@
 # src/ctx/web
 
-`src/ctx/web` owns the Ext-facing web contracts, fixtures and guides. It holds no Go
-code at its top. The native Apple, Android and Windows libraries are the `web` libraries of
-[`pkg/ext-darwin`](../../../../pkg/ext-darwin/web/README.md), [`pkg/ext-android`](../../../../pkg/ext-android/web/README.md) and [`pkg/ext-windows`](../../../../pkg/ext-windows/web/README.md). The published Go host module
-remains here during migration; `pkg/ext-go/wasm/runtime` implements
-the WebAssembly host contract with wazero and `pkg/ext-go/wasm` adds the Ext plugin
+`src/ctx/web` holds ctx's web contracts, as packages of the ctx module, with their guides in
+`docs`; their fixtures are `tests/fixtures/web`. The native Apple, Android and Windows libraries are the `web` libraries of
+[`pkg/ext-darwin`](../../../../pkg/ext-darwin/web/README.md), [`pkg/ext-android`](../../../../pkg/ext-android/web/README.md) and [`pkg/ext-windows`](../../../../pkg/ext-windows/web/README.md). `pkg/ext-go/wasm/runtime` implements
+the WebAssembly host contract (`pkg/ext-go/core/wasm`) with wazero and `pkg/ext-go/wasm` adds the Ext plugin
 binding.
 
 | Directory | What it is | Built and tested with |
 | --- | --- | --- |
-| [`host`](../README.md) | The Go module `github.com/webong/ext/src/ctx/web`: web code that runs on the host, outside any browser | `go test ./...` in `host` |
+| [`src/ctx/web`](../README.md) | The Go packages `github.com/webong/ext/src/ctx/web/...`: web code that runs on the host, outside any browser | `go test ./web/...` in `src/ctx` |
 | [`pkg/ext-darwin/web`](../../../../pkg/ext-darwin/web/README.md) | The SwiftPM packages `ExtWeb` and `ExtWebKit` | `scripts/web-ios.sh` |
 | [`pkg/ext-android/web`](../../../../pkg/ext-android/web/README.md) | The Java package `io.github.webong.ext.web` | `scripts/web-android.sh` |
 | [`pkg/ext-windows/web`](../../../../pkg/ext-windows/web/README.md) | The .NET library `Ext.Web.Windows` | `dotnet build` and its console test project |

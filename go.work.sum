@@ -118,6 +118,7 @@ github.com/urfave/cli/v2 v2.27.5/go.mod h1:3Sevf16NykTbInEnD0yKkjDAeZDS0A6bzhBH5
 github.com/webong/ext/pkg/ext-go/cengine v0.4.0/go.mod h1:s6oKAMyEmV1+k1wjxzCxhvNoFveiL8N9TDgM5dA3KNQ=
 github.com/webong/ext/res/system v0.5.1/go.mod h1:ChrugLedXqBaKX9eYWBh9oCUkbTyUec/uV7Df4SF1XA=
 github.com/webong/ext/res/web/host v0.1.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=
+github.com/webong/ext/res/web/host v0.2.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=
 github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1/go.mod h1:Ohn+xnUBiLI6FVj/9LpzZWtj1/D6lUovWYBkxHVV3aM=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.opencensus.io v0.24.0/go.mod h1:vNK8G9p7aAivkbmorf4v+7Hgx+Zs0yY+0fOtgBfjQKo=

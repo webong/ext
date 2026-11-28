@@ -541,22 +541,19 @@ separate modules under its product tree:
 | `pkg/ext-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
 | `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
-| `src/ctn/inference` | CTN's `inference.provider/v1` bridge and host/guest helpers | `engine`, `src/ctn/contract` |
-| `src/ctn/model` | CTN’s public `model.tensor/v1` tensor-provider bridge | `engine`, `src/ctn/contract` |
-| `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `src/ctn/contract` |
-| `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `src/ctn/contract` |
-| `src/ctx/web` | portable web tooling and the runtime-neutral WebAssembly host contract | standard library only |
-| `pkg/ext-go/wasm` | wazero implementation of `pkg/ext-go/core/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `src/ctx/web`; third-party wazero |
+| `pkg/ext-go/wasm` | wazero implementation of `pkg/ext-go/core/wasm` in `runtime`, plus the plugin-engine binding (the old `pkg/plugin-wasm`) | `engine`, `core`; third-party wazero |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/core` | shared plugin and ledger contracts, observation types, and driver selection; no root package | standard library only |
-| `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `src/ctx/system`; third-party purego |
-| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules, `src/ctx/system`, `src/ctx/web`; no CTN modules |
-| `src/ctn/contract` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
+| `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, `cguest` holds the loader, ABI, plugin backend and Go guest exports; `ledger` binds the C ledger | `core`, `engine`; third-party purego |
+| `pkg/ext-go` | the umbrella: aggregates the Ext Go plugin modules above except `yaegi` and holds benchmarks; no root Go package. The bridge command belongs to `cmd/ext`, and cross-language tests to `tests/crosslang` | Ext Go plugin modules; no product modules |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
-CTN's `inference`, `model`, and `perception` bridges are separate nested modules
-under `src/ctn`, with independent module versions and tags. The former
+CTN's contracts (`src/ctn/contract`) and bridges (`inference`, `model`, `perception`,
+`realtime`), and ctx's system and web contracts (`src/ctx/system`, `src/ctx/web`), are
+packages of the `src/ctn` and `src/ctx` modules and version with their product; they carry
+no tags of their own. The retired `res/system`, `res/int` and `res/web/host` tags keep
+serving consumers that still require them. The former
 `pkg/ext-go/inference` module tags remain available for consumers of that
 historical path; the `pkg/ext-go/model` and `pkg/ext-go/perception` tags were
 deleted.

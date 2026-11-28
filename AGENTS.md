@@ -83,7 +83,8 @@ is available to its consumers. Reusable native OS mechanisms go in their platfor
 (`pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` or `pkg/ext-linux`), with the
 resource guests that serve them beside the library they serve. A capability's Go contract
 belongs to the product that owns it: `src/ctx/system` and `src/ctx/web` (ctx) and
-`src/ctn/contract` (ctn), each a nested module that adapters and outside consumers import.
+`src/ctn/contract` (ctn). They are packages of the ctx and ctn modules and version with their
+product, with no tags of their own; adapters and outside consumers import them from there.
 The retired `res/system`, `res/int` and `res/web/host` tags keep serving existing consumers.
 `examples/` holds runnable teaching examples for every language and binding, grouped by
 purpose (`plugins/`, `ledger/`, `web/`, plus the shell adapter and Android consumer).
@@ -183,7 +184,7 @@ engine binding, with a shared-library purego build of the same API), `wasm` (the
 for `pkg/ext-go/core/wasm`), and `hashicorp` (go-plugin, grpc), plus
 `pkg/ext-go` itself as a thin umbrella module that requires them at matching
 versions. CTN owns the inference, model, perception, and realtime bridges as
-nested modules under `src/ctn`. Nested modules are excluded
+packages of the `src/ctn` module. Nested modules are excluded
 from the module that contains them, so an import path must belong to exactly one
 module and never move between modules at a version a consumer may still resolve;
 published paths are not reused by a different module.
@@ -234,11 +235,11 @@ The reusable libraries are:
 - `pkg/ext-go/wasm` for the Go wazero implementation in `runtime` and the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the contract in `pkg/ext-go/core/wasm`. The `runtime` package imports no plugin package.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `src/ctx/web`; it has no root Go package and holds benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
+- `pkg/ext-go` for the umbrella module that requires the plugin engines; it has no root Go package and holds benchmarks that need several modules together. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
 
-CTN owns the nested modules `src/ctn/inference`, `src/ctn/perception`, and
-`src/ctn/realtime` for provider, perception, and duplex session contracts
-over Ext plugin sessions. Each has its own module path and version tag.
+CTN owns `src/ctn/inference`, `src/ctn/perception`, and `src/ctn/realtime` for
+provider, perception, and duplex session contracts over Ext plugin sessions. They are
+packages of the ctn module and version with it.
 CTN owns the public `model.tensor/v1` bridge in `src/ctn/model`. Cymonkey
 and other peers can import it and open an installed provider directly through
 Ext. The portable model types and inference interfaces live in `src/ctn/contract/model`.

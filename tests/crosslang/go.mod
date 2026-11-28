@@ -8,8 +8,7 @@ require (
 	github.com/webong/ext/pkg/ext-go/cengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/core v0.1.0
 	github.com/webong/ext/pkg/ext-go/wasm v0.5.0
-	github.com/webong/ext/src/ctx/web v0.1.0
-	github.com/webong/ext/src/ctx/system v0.1.0
+	github.com/webong/ext/src/ctx v0.1.0
 )
 
 require (

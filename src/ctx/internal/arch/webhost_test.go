@@ -13,24 +13,14 @@ import (
 
 const webHostModule = "github.com/webong/ext/src/ctx/web"
 
-// src/ctx/web is the Go web module. Its group directories (manage, artifact, engine)
-// hold packages, not Go files of their own.
+// src/ctx/web holds ctx's web contracts as packages of the ctx module, versioned with it rather
+// than tagged on their own. Its group directories (manage, artifact, engine) hold packages, not
+// Go files of their own.
 func TestWebHostModulePath(t *testing.T) {
 	root := repoRoot(t)
 	web := filepath.Join(root, "src", "ctx", "web")
-	data, err := os.ReadFile(filepath.Join(web, "go.mod"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var module string
-	for _, line := range strings.Split(string(data), "\n") {
-		if rest, ok := strings.CutPrefix(line, "module "); ok {
-			module = strings.TrimSpace(rest)
-			break
-		}
-	}
-	if module != webHostModule {
-		t.Errorf("src/ctx/web/go.mod declares module %q, want %q", module, webHostModule)
+	if _, err := os.Stat(filepath.Join(web, "go.mod")); err == nil {
+		t.Fatal("src/ctx/web is part of the ctx module and has no go.mod of its own")
 	}
 	for _, group := range []string{"manage", "artifact", "engine"} {
 		files, err := os.ReadDir(filepath.Join(web, group))
@@ -127,5 +117,39 @@ func TestWebAssemblyContractDoesNotOwnWazero(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// The web contracts serve consumers without the plugin engine (mobile, WebAssembly, browser
+// adapters), so no package under src/ctx/web imports an engine.
+func TestWebContractsImportNoEngine(t *testing.T) {
+	root := repoRoot(t)
+	web := filepath.Join(root, "src", "ctx", "web")
+	engines := []string{
+		"github.com/webong/ext/pkg/ext-go/engine",
+		"github.com/webong/ext/pkg/ext-go/cgoengine",
+		"github.com/webong/ext/pkg/ext-go/c2goengine",
+		"github.com/webong/ext/pkg/ext-go/cengine",
+	}
+	err := filepath.WalkDir(web, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
+			return walkErr
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+		if err != nil {
+			return err
+		}
+		for _, imp := range file.Imports {
+			name, _ := strconv.Unquote(imp.Path.Value)
+			for _, engine := range engines {
+				if name == engine || strings.HasPrefix(name, engine+"/") {
+					t.Errorf("%s imports %s; the web contracts must not depend on a plugin engine", path, name)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

@@ -87,15 +87,16 @@ lifecycle mechanisms.
 | Use Go engines and runtime backends | [`pkg/ext-go`](pkg/ext-go), [engine selection and library loading](docs/adr-library-opener.md) |
 | Use another language or a mobile platform | [SDKs and bindings](pkg/README.md#plugin-language-sdks-and-bindings) |
 | Store a graph, record observations or supervise processes | [`lib/ledger`](lib/ledger/README.md) |
-| Use native OS mechanisms | [`lib/system`](lib/system/README.md); host-resource collection and private volumes in [`lib/ledger`](lib/ledger/README.md) |
+| Use native OS mechanisms | The platform packages [`ext-darwin`](pkg/ext-darwin/README.md), [`ext-android`](pkg/ext-android/README.md), [`ext-windows`](pkg/ext-windows/README.md) and [`ext-linux`](pkg/ext-linux/README.md); host-resource collection and private volumes in [`lib/ledger`](lib/ledger/README.md) |
 | Expose or consume system capabilities through Ext | [`res/system`](res/system/README.md) |
-| Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) for contracts and guests; [`lib/system/web`](lib/system/web) for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
+| Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) for contracts and guests; each platform package's `web` library for native WebViews; [`pkg/ext-go/wasm`](pkg/ext-go/wasm) for the Go runtime |
 | Build code that runs inside a browser extension | [`pkg/ext-web`](pkg/ext-web/README.md) |
-| Use intelligence capabilities | [`res/int`](res/int/README.md) for contracts and guests; [`lib/system/int`](lib/system/int) for native mechanisms |
+| Use intelligence capabilities | [`res/int`](res/int/README.md) for contracts and guests; each platform package's `int` library for native mechanisms |
 
-Native mechanisms live in `lib/`, and language SDKs and bindings live in `pkg/`.
-`lib/system` owns OS-provided implementations for web, intelligence, actions
-such as clipboard and capture, and networking. `lib/ledger` owns host-resource
+The portable C libraries (libext) live in `lib/`, and language bindings and platform
+packages live in `pkg/`. Each platform package carries its OS-provided implementations
+for web, intelligence, actions such as clipboard and capture, and networking, in the
+platform's language. `lib/ledger` owns host-resource
 collection and private-volume lifecycle alongside its graph, recorder and
 supervisor.
 
@@ -132,9 +133,8 @@ engine and archive support.
 
 | Directory | Responsibility | Main components |
 | --- | --- | --- |
-| [`lib/`](lib) | Reusable native libraries | `plugin`: C plugin engine; `ledger`: C graph, recorder, supervisor and host-resource mechanics; `system`: native OS implementations |
-| [`lib/system/`](lib/system/README.md) | OS-provided mechanisms, independent of Ext guests | `web`: native web libraries; `int`: intelligence; `act`: clipboard, share, capture and input; `net`: networking |
-| [`pkg/`](pkg) | Public language SDKs, bindings and platform packages | Go, Rust, Zig, TypeScript, Python, Ruby, PHP, Lua, .NET; Web, Darwin and Android SDKs |
+| [`lib/`](lib/README.md) | libext: the portable C libraries the bindings build on | `plugin`: C plugin engine; `ledger`: C graph, recorder, supervisor and host-resource mechanics |
+| [`pkg/`](pkg) | Public language SDKs, bindings and platform packages | Go, Rust, Zig, TypeScript, Python, Ruby, PHP, Lua, .NET; Web SDK; Darwin, Android, Windows and Linux platform packages, each with that platform's native mechanisms (`web`, `int`, `act`, `net`) |
 | [`res/`](res) | Ext resource contracts, fixtures and guests; published Go APIs during migration | `system`: local OS capabilities; `web`: web capabilities; `int`: intelligence capabilities |
 | [`src/`](src) | First-class plugins built on Ext, also available as Go libraries | `ctx`: contexts; `ctn`: content; `cto`: containment |
 | [`cmd/ext/`](cmd/ext) | The public CLI | Package discovery, installation and command dispatch |

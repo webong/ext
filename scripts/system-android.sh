@@ -10,20 +10,20 @@ platform="$(ls -d "$sdk"/platforms/android-*/android.jar 2>/dev/null | sort -V |
 mkdir -p "$build/portable" "$build/android"
 javac -Xlint:all -Werror -d "$build/portable" \
   res/system/internal/fixtures/java/io/github/webong/ext/system/fixtures/*.java \
-  lib/system/act/capture/surface/android/src/main/java/io/github/webong/ext/system/*.java \
+  pkg/ext-android/act/capture/surface/src/main/java/io/github/webong/ext/system/*.java \
   pkg/ext-android/src/main/java/io/github/webong/ext/system/*.java \
-  lib/system/act/share/android/src/main/java/io/github/webong/ext/system/share/*.java \
-  lib/system/act/share/android/src/main/java/io/github/webong/ext/system/keyboard/*.java \
-  lib/system/act/capture/surface/android/src/test/java/io/github/webong/ext/system/*.java \
+  pkg/ext-android/act/share/src/main/java/io/github/webong/ext/system/share/*.java \
+  pkg/ext-android/act/share/src/main/java/io/github/webong/ext/system/keyboard/*.java \
+  pkg/ext-android/act/capture/surface/src/test/java/io/github/webong/ext/system/*.java \
   pkg/ext-android/src/test/java/io/github/webong/ext/system/*.java \
-  lib/system/act/share/android/src/test/java/io/github/webong/ext/system/share/*.java \
-  lib/system/act/share/android/src/test/java/io/github/webong/ext/system/keyboard/*.java \
-  lib/system/act/capture/audio/android/src/main/java/io/github/webong/ext/system/audio/*.java \
-  lib/system/act/capture/audio/android/src/test/java/io/github/webong/ext/system/audio/*.java \
-  lib/system/act/clipboard/android/src/main/java/io/github/webong/ext/clipboard/*.java \
-  lib/system/act/clipboard/android/src/test/java/io/github/webong/ext/clipboard/*.java \
-  lib/system/net/android/src/main/java/io/github/webong/ext/network/*.java \
-  lib/system/net/android/src/test/java/io/github/webong/ext/network/*.java
+  pkg/ext-android/act/share/src/test/java/io/github/webong/ext/system/share/*.java \
+  pkg/ext-android/act/share/src/test/java/io/github/webong/ext/system/keyboard/*.java \
+  pkg/ext-android/act/capture/audio/src/main/java/io/github/webong/ext/system/audio/*.java \
+  pkg/ext-android/act/capture/audio/src/test/java/io/github/webong/ext/system/audio/*.java \
+  pkg/ext-android/act/clipboard/src/main/java/io/github/webong/ext/clipboard/*.java \
+  pkg/ext-android/act/clipboard/src/test/java/io/github/webong/ext/clipboard/*.java \
+  pkg/ext-android/net/src/main/java/io/github/webong/ext/network/*.java \
+  pkg/ext-android/net/src/test/java/io/github/webong/ext/network/*.java
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceCancellationTests
@@ -43,9 +43,9 @@ java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkCancellationTests
 javac -Xlint:all -Werror -classpath "$platform:$build/portable" -d "$build/android" \
-  lib/system/act/capture/surface/android/src/android/java/io/github/webong/ext/system/android/*.java \
+  pkg/ext-android/act/capture/surface/src/android/java/io/github/webong/ext/system/android/*.java \
   pkg/ext-android/src/android/java/io/github/webong/ext/system/android/*.java \
-  lib/system/act/share/android/src/android/java/io/github/webong/ext/system/android/*.java \
-  lib/system/act/capture/audio/android/src/android/java/io/github/webong/ext/system/android/*.java \
-  lib/system/act/clipboard/android/src/android/java/io/github/webong/ext/clipboard/android/*.java \
-  lib/system/net/android/src/android/java/io/github/webong/ext/network/android/*.java
+  pkg/ext-android/act/share/src/android/java/io/github/webong/ext/system/android/*.java \
+  pkg/ext-android/act/capture/audio/src/android/java/io/github/webong/ext/system/android/*.java \
+  pkg/ext-android/act/clipboard/src/android/java/io/github/webong/ext/clipboard/android/*.java \
+  pkg/ext-android/net/src/android/java/io/github/webong/ext/network/android/*.java

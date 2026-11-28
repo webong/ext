@@ -88,7 +88,7 @@ class CIPlanTests(unittest.TestCase):
                     self.assertTrue({"python", "ruby", "lua", "php", "dotnet"} <= cell["setup"].keys())
 
     def test_platform_specific_changes_use_their_runner(self):
-        path = "lib/system/web/windows/Ext.Web.Windows.csproj"
+        path = "pkg/ext-windows/web/Ext.Web.Windows.csproj"
         cells = self.cells([path])
         self.assertTrue(cells)
         self.assertTrue(all(cell["runner"].startswith("windows") for cell in cells))

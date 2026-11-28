@@ -1,7 +1,7 @@
 # Windows network resource guest
 
 This private Ext guest serves `ext.system.network/v1` from the native
-`lib/system/net/windows` .NET library. It reports bounded local interfaces,
+`pkg/ext-windows/net` .NET library. It reports bounded local interfaces,
 addresses and resolver state. Route collection is explicitly unsupported on
 Windows.
 

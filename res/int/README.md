@@ -1,14 +1,14 @@
 # Intelligence resources
 
 `res/int` retains its published Go intelligence contracts. Native model
-libraries live in `lib/system/int/model`; provider guests live in
+libraries live in each platform package's `int/model`; provider guests live in
 `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`.
 Applications choose providers, models,
 credentials, roots, and authorization policy.
 
 | Package | Scope |
 | --- | --- |
-| `model` | Go model contracts and verified bundles; Core ML, Android and .NET backends are in `lib/system/int/model` |
+| `model` | Go model contracts and verified bundles; Core ML, Android and .NET backends are in `pkg/ext-darwin`, `pkg/ext-android` and `pkg/ext-windows` under `int/model` |
 | `inference` | Generation, embeddings, transcription, speech, and provider contracts |
 | `perception` | Multimodal findings and image observations |
 | `realtime` | Duplex model session and event contracts |

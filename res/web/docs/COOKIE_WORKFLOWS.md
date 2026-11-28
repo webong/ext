@@ -1,7 +1,7 @@
 # Mobile cookie workflows
 
-The portable `CookieWorkflows` API lives in `lib/system/web/ios/Sources/ExtWeb` and
-`lib/system/web/android/src/main`. It has no native WebView dependency. The SDKs ship
+The portable `CookieWorkflows` API lives in `pkg/ext-darwin/web/Sources/ExtWeb` and
+`pkg/ext-android/web/src/main`. It has no native WebView dependency. The SDKs ship
 these sources through their existing source links/source sets.
 
 - `parse` accepts UTF-8 bytes (at most 8 MiB and 128 JSON nesting levels): a cookie JSON array, a query's

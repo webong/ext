@@ -1,0 +1,3 @@
+# .NET build output of every project in the package
+bin/
+obj/

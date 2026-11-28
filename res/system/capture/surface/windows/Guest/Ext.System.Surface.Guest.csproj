@@ -7,7 +7,7 @@
     <AssemblyName>Ext.System.Surface.Guest</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../../../../lib/system/act/capture/surface/windows/Ext.System.Windows.csproj" />
+    <ProjectReference Include="../../../../../../pkg/ext-windows/act/capture/surface/Ext.System.Windows.csproj" />
     <ProjectReference Include="../../../../../../pkg/ext-dotnet/ExtIO/ExtIO.csproj" />
   </ItemGroup>
 </Project>

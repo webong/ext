@@ -118,10 +118,10 @@ renamed, so those two keep the old name.
 The .NET code ships as two packages, through `.github/workflows/release.yml`, both published with
 `--latest=false`. `ext-windows-vX.Y.Z` (package `ext-windows`) is the Windows platform package, the
 counterpart of `ext-ios` and `ext-android`: the NuGet packages `Ext.Audio.Windows`
-(`lib/system/act/capture/audio/windows`), `Ext.Clipboard.Windows` (`lib/system/act/clipboard/windows`),
-`Ext.System.Windows` (`lib/system/act/capture/surface/windows`),
-`Ext.Network.Windows` (`lib/system/net/windows`), `Ext.Web.Windows` (`lib/system/web/windows`)
-and `Ext.ML.Windows` (`lib/system/int/model/windows`), at one version, built,
+(`pkg/ext-windows/act/capture/audio`), `Ext.Clipboard.Windows` (`pkg/ext-windows/act/clipboard`),
+`Ext.System.Windows` (`pkg/ext-windows/act/capture/surface`),
+`Ext.Network.Windows` (`pkg/ext-windows/net`), `Ext.Web.Windows` (`pkg/ext-windows/web`)
+and `Ext.ML.Windows` (`pkg/ext-windows/int/model`), at one version, built,
 tested and packed on Windows.
 Windows platform releases also attach sealed `system.clipboard.windows.zip`,
 `system.network.windows.zip`, and `system.surface.windows.zip` Ext resource guests. These are installed
@@ -168,7 +168,7 @@ Python package `ext-plugin` and the Zig package `ext_plugin`. None of the four i
 first four have since become `ext-io` (see [the `ext-io` language packages](#the-ext-io-language-packages)).
 `pkg/plugin-go` keeps its name for now, because renaming it changes published Go module paths.
 
-`lib/system/web/ios` (the SwiftPM package `ExtWeb`) and `lib/system/web/android` (the Java package
+`pkg/ext-darwin/web` (the SwiftPM package `ExtWeb`) and `pkg/ext-android/web` (the Java package
 `io.github.webong.ext.web`) sit beside the Go module `res/web/host`, not inside it: its module zip does
 not carry them, and a change to them needs no `res/web/host/vX.Y.Z` tag.
 They reach apps through `pkg/ext-darwin` and `pkg/ext-android`, so they are released with those, under
@@ -282,7 +282,7 @@ import; generic Go execution uses its `runtime` subpackage. The old
 those functions must migrate to `pkg/ext-go/wasm/runtime`.
 
 Clipboard, credential and local network-observation code were consolidated into
-the `res/system` module as `lib/system/act/clipboard`, `res/system/service/credential` and
+the `res/system` module as the platform packages' `act/clipboard` libraries, `res/system/service/credential` and
 `res/system/service/network`. The historical `res/clipboard`, `res/credential` and
 `res/network` module paths are retired rather than reused. Clipboard and
 network Apple and Android source sets still reach applications through

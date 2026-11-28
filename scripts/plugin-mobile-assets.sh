@@ -63,8 +63,8 @@ targets = {
 # The standalone web runners embed only the canonical bundle shim.
 assets = {'shim': 'res/web/host/engine/bundle/shim.js'}
 sources = {'shim': sources['shim']}
-targets['lib/system/web/ios/Sources/ExtWebKit/BundleAssets.swift'] = swift().replace('enum GeneratedAssets', 'enum BundleAssets')
-targets['lib/system/web/android/src/android/java/io/github/webong/ext/web/android/BundleAssets.java'] = java().replace('io.github.webong.ext.plugin.webview', 'io.github.webong.ext.web.android').replace('GeneratedAssets', 'BundleAssets')
+targets['pkg/ext-darwin/web/Sources/ExtWebKit/BundleAssets.swift'] = swift().replace('enum GeneratedAssets', 'enum BundleAssets')
+targets['pkg/ext-android/web/src/android/java/io/github/webong/ext/web/android/BundleAssets.java'] = java().replace('io.github.webong.ext.plugin.webview', 'io.github.webong.ext.web.android').replace('GeneratedAssets', 'BundleAssets')
 stale = []
 for path, content in targets.items():
     try:

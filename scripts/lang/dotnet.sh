@@ -6,12 +6,12 @@
 . "$(dirname "$0")/common.sh"
 
 lang_cmd_test() {
-  dotnet run --project lib/system/act/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
-  dotnet run --project lib/system/act/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
-  dotnet run --project lib/system/act/capture/surface/windows/Tests/Ext.System.Windows.Tests.csproj
-  dotnet run --project lib/system/net/windows/Tests/Ext.Network.Windows.Tests.csproj
-  dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
-  dotnet run --project lib/system/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+  dotnet run --project pkg/ext-windows/act/capture/audio/Tests/Ext.Audio.Windows.Tests.csproj
+  dotnet run --project pkg/ext-windows/act/clipboard/Tests/Ext.Clipboard.Windows.Tests.csproj
+  dotnet run --project pkg/ext-windows/act/capture/surface/Tests/Ext.System.Windows.Tests.csproj
+  dotnet run --project pkg/ext-windows/net/Tests/Ext.Network.Windows.Tests.csproj
+  dotnet run --project pkg/ext-windows/int/model/Tests/Ext.ML.Windows.Tests.csproj
+  dotnet run --project pkg/ext-windows/web/Tests/Ext.Web.Windows.Tests.csproj
   dotnet build res/system/capture/clipboard/windows/Guest/Ext.System.Clipboard.Guest.csproj
   dotnet build res/system/service/network/windows/Guest/Ext.System.Network.Guest.csproj
 }
@@ -21,12 +21,12 @@ lang_cmd_pack() {
   lang_temp
   out="$LANG_TEMP/nupkg"
   for project in \
-    lib/system/act/capture/audio/windows/Ext.Audio.Windows.csproj \
-    lib/system/act/clipboard/windows/Ext.Clipboard.Windows.csproj \
-    lib/system/act/capture/surface/windows/Ext.System.Windows.csproj \
-    lib/system/net/windows/Ext.Network.Windows.csproj \
-    lib/system/web/windows/Ext.Web.Windows.csproj \
-    lib/system/int/model/windows/Ext.ML.Windows.csproj; do
+    pkg/ext-windows/act/capture/audio/Ext.Audio.Windows.csproj \
+    pkg/ext-windows/act/clipboard/Ext.Clipboard.Windows.csproj \
+    pkg/ext-windows/act/capture/surface/Ext.System.Windows.csproj \
+    pkg/ext-windows/net/Ext.Network.Windows.csproj \
+    pkg/ext-windows/web/Ext.Web.Windows.csproj \
+    pkg/ext-windows/int/model/Ext.ML.Windows.csproj; do
     dotnet pack "$project" -c Release -p:Version=0.0.0-ci -o "$out"
   done
   # The packages hold the libraries only, not their tests.

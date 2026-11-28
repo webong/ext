@@ -1,3 +1,3 @@
 //go:build linux && cgo
 
-#include "../../../../../../lib/system/net/linux/src/network.c"
+#include "../../../../../../pkg/ext-linux/net/src/network.c"

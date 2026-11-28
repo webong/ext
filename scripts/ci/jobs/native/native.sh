@@ -50,7 +50,7 @@ ci_import_env
 fi
 if [ "$RUNNER_OS" = Linux ]; then
 (
-cmake -S lib/system/net/linux -B "$RUNNER_TEMP/ext-system-net"
+cmake -S pkg/ext-linux/net -B "$RUNNER_TEMP/ext-system-net"
 cmake --build "$RUNNER_TEMP/ext-system-net"
 ctest --test-dir "$RUNNER_TEMP/ext-system-net" --output-on-failure
 (cd res/system/service/network/linux/guest && go build -o "$RUNNER_TEMP/network-linux" .)
@@ -84,7 +84,7 @@ fi
 # Validate Linux ONNX guest through CTN
 if [ "$RUNNER_OS" = Linux ]; then
 (
-dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/int/model/Tests/Ext.ML.Windows.Tests.csproj
 if [ -n "${EXT_ADAPTERS:-}" ]; then
   cp -RL "$EXT_ADAPTERS/onnxruntime" "$RUNNER_TEMP/onnx-source"
   python3 "$RUNNER_TEMP/onnx-source/build.py" linux-x64 --output "$RUNNER_TEMP/onnx-guest"

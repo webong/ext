@@ -48,6 +48,8 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`ext-dotnet`](ext-dotnet/README.md) | .NET guest SDK (`ExtIO`, serving JSON lines) and host SDK (`ExtIO.Host`, which runs any plugin through the C engine with P/Invoke), NuGet packages for `net8.0` |
 | [`ext-darwin`](ext-darwin/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts, web and clipboard libraries, and local system and network observation; released as two packages, `ext-ios` (iOS and the Simulator) and `ext-macos` (macOS) |
 | [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts, web and clipboard libraries, and app-scoped system and local network observation |
+| [`ext-windows`](ext-windows/README.md) | .NET platform libraries for Windows: audio, window capture and input, clipboard, the ONNX Runtime model backend, network observation and WebView2; NuGet packages released together as `ext-windows` |
+| [`ext-linux`](ext-linux/README.md) | C platform libraries for Linux: local network observation, compiled into the Linux network resource guest |
 
 `ext-ts` is the plugin SDK for JavaScript and TypeScript. [`ext-web`](ext-web/README.md) is a
 different package: it is for code that runs inside a browser extension, and it is named for

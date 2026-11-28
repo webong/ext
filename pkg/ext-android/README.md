@@ -10,17 +10,17 @@ Kotlin calls it directly.
   in WAMR.
 - **Web** (`io.github.webong.ext.web`): the cookie, userscript and bookmarklet rules of
   [`res/web`](../../res/web/README.md), in plain Java with no native code, run against the same fixtures as
-  Go. The code is `lib/system/web/android`; this AAR ships it. See Web rules.
+  Go. The code is `pkg/ext-android/web`; this AAR ships it. See Web rules.
 - **System** (`io.github.webong.ext.system`): bounded display metadata and the
   calling application's visible window and view structure, plus permission-state
-  observation, from `lib/system/act/capture/surface/android` and this package's resource binding.
+  observation, from `pkg/ext-android/act/capture/surface` and this package's resource binding.
   The Java resource observer binds the C ledger collector and decodes its wire
   record. The collector reports unavailable memory, storage or battery values
   without inventing them.
 - **Network** (`io.github.webong.ext.network`): bounded local interfaces,
-  assigned addresses, routes and DNS configuration from `lib/system/net/android`.
+  assigned addresses, routes and DNS configuration from `pkg/ext-android/net`.
 
-The web package lives in [`lib/system/web/android`](../../lib/system/web/android/README.md), imports nothing of the plugin
+The web package lives in [`pkg/ext-android/web`](../../pkg/ext-android/web/README.md), imports nothing of the plugin
 package and loads no native library. It is still in the same AAR as the plugin code, so an app that wants only
 the web rules takes the native libraries and the minimum SDK with it.
 
@@ -84,7 +84,7 @@ try (Guest guest = new Guest(descriptor, call -> {
 
 `io.github.webong.ext.web` is the Android module of [`res/web`](../../res/web/README.md): the cookie,
 userscript and bookmarklet rules in plain Java, with no dependency, no native code and no use of the plugin
-package. Its code, its tests and its usage are in [`lib/system/web/android`](../../lib/system/web/android/README.md); the AAR
+package. Its code, its tests and its usage are in [`pkg/ext-android/web`](../../pkg/ext-android/web/README.md); the AAR
 of this package carries its classes beside the plugin ones.
 
 ```java
@@ -94,7 +94,7 @@ String url = Bookmarklet.encode("alert(document.title)");
 ```
 
 ```sh
-scripts/web-android.sh        # javac -Xlint:all -Werror and the tests of lib/system/web/android; needs a JDK only
+scripts/web-android.sh        # javac -Xlint:all -Werror and the tests of pkg/ext-android/web; needs a JDK only
 ```
 
 ## What a JVM guest cannot do
@@ -289,14 +289,14 @@ the shared fixtures, and `RouterTests` covers the router.
 
 ```sh
 scripts/ext-android.sh          # the plugin part; needs a JDK and CMake
-scripts/web-android.sh          # the web part (lib/system/web/android); needs a JDK only
+scripts/web-android.sh          # the web part (pkg/ext-android/web); needs a JDK only
 ```
 
 ## Clipboard
 
 The AAR ships `io.github.webong.ext.clipboard` and
 `io.github.webong.ext.clipboard.android.SystemClipboard` from
-[`lib/system/act/clipboard`](../../lib/system/act/clipboard/README.md). The binding provides bounded,
+[`act/clipboard`](act/clipboard/README.md). The binding provides bounded,
 generation-checked access to the app-visible Android system clipboard without
 transport or approval UI.
 
@@ -310,7 +310,7 @@ not enumerate other applications, prompt, capture, or send input.
 The AAR ships `io.github.webong.ext.system.share` and
 `io.github.webong.ext.system.keyboard`, with the
 `io.github.webong.ext.system.android.SystemShare` and `SystemKeyboard` bindings
-from [`lib/system/act/share/android`](../../lib/system/act/share/android/README.md). `SystemShare`
+from [`pkg/ext-android/act/share`](../../pkg/ext-android/act/share/README.md). `SystemShare`
 normalizes `ACTION_SEND` and `ACTION_SEND_MULTIPLE` intents and copies
 attachments into a caller-supplied directory; `SystemKeyboard` adapts an
 `InputMethodService` connection. The SDK ships no input view, capability inbox,
@@ -459,7 +459,7 @@ code, so a native plugin must ship inside the signed app bundle or package.
 ## Browser workspace
 
 The AAR includes `io.github.webong.ext.web.android.BrowserWorkspace` from
-[`lib/system/web/android`](../../lib/system/web/android/WORKSPACE.md). It provides
+[`pkg/ext-android/web`](../../pkg/ext-android/web/WORKSPACE.md). It provides
 a native page and navigation/state callbacks, using `res/web` for reviewed
 userscript preparation. Document-start scripts require the consuming app to add
 AndroidX WebKit 1.9+ and an installed WebView supporting that feature; navigation

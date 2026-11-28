@@ -13,14 +13,14 @@ and product policy.
 
 The module has no root package. Its existing Go packages sit in three groups,
 which are plain directories. Their Swift, Java and C# implementations now live
-in `lib/system` and ship through the platform SDKs. The Go import paths stay
+in the platform packages under `pkg/`. The Go import paths stay
 available during the migration to Ext resource guests.
 
 ## service: what the host provides
 
 | Package | What it is |
 | --- | --- |
-| `service/network` | Versioned local interface, address, route and resolver records and validation; native observation runs in `lib/system/net` through Ext resource guests |
+| `service/network` | Versioned local interface, address, route and resolver records and validation; native observation runs in each platform package's `net` through Ext resource guests |
 | `service/credential` | Portable credential-store adapter framing (`adapterkit`) and the local CTX credential client (`client`); native stores remain product adapters |
 | `service/user` | Go manager contract and OS manager integrations. Rendering and safe publication execute in `lib/ledger` through the injected `Definitions` interface |
 
@@ -38,9 +38,9 @@ when it revalidates a target before native capture or input.
 
 | Package | What it is |
 | --- | --- |
-| `capture/surface` | Portable display and window records, bounds, and the `ext.system.surface/v1` capture/input request contract. The C ledger observes windows; installed macOS and Windows resource guests use native libraries in `lib/system/act/capture/surface` to act on them. `DesktopDriver` remains the seam for caller-selected desktop tools |
+| `capture/surface` | Portable display and window records, bounds, and the `ext.system.surface/v1` capture/input request contract. The C ledger observes windows; installed macOS and Windows resource guests use native libraries in `pkg/ext-darwin/act/capture/surface` and `pkg/ext-windows/act/capture/surface` to act on them. `DesktopDriver` remains the seam for caller-selected desktop tools |
 | `capture/audio` | Bounded, transport-free audio-device observation and caller-selected PCM16 capture/playback interfaces; native implementations select no device |
-| `capture/clipboard` | Portable clipboard contract and bounds; the native Swift, Java and C# implementations live in `lib/system/act/clipboard`, with a Windows Ext resource guest under `capture/clipboard/windows/Guest` |
+| `capture/clipboard` | Portable clipboard contract and bounds; the native Swift, Java and C# implementations live in each platform package's `act/clipboard`, with a Windows Ext resource guest under `capture/clipboard/windows/Guest` |
 | `capture/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |
 | `capture/media` | Bounded PCM16 and RIFF/WAVE framing; picture-image sampling/change detection, crop, annotation and contact sheets; caller-supplied video frame sampling; recording options and stream contract |
 
@@ -58,14 +58,14 @@ when it revalidates a target before native capture or input.
 
 | Path | What it is |
 | --- | --- |
-| `lib/system/act/capture/surface/ios` (`ExtSystem`) | Apple surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture |
+| `pkg/ext-darwin/act/capture/surface` (`ExtSystem`) | Apple surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture |
 | `pkg/ext-darwin/Sources/ExtHost` | Swift binding to C ledger host-resource observation |
-| `lib/system/act/share/ios` (`ExtShare`) | Apple share-extension normalization and keyboard-extension editing helpers |
-| `lib/system/act/capture/audio/ios` (`ExtAudio`) | Bounded PCM playback |
-| `lib/system/act/clipboard/ios`, `lib/system/net/ios` | `ExtClipboard`, `ExtNetwork` |
+| `pkg/ext-darwin/act/share` (`ExtShare`) | Apple share-extension normalization and keyboard-extension editing helpers |
+| `pkg/ext-darwin/act/capture/audio` (`ExtAudio`) | Bounded PCM playback |
+| `pkg/ext-darwin/act/clipboard`, `pkg/ext-darwin/net` | `ExtClipboard`, `ExtNetwork` |
 | Android implementations beside those libraries | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission/resource APIs, MediaProjection capture, bounded PCM playback, clipboard and network observation. Java packages stay `io.github.webong.ext.system.*`, `...clipboard`, `...network` |
-| `lib/system/act/capture/audio/windows` (`Ext.Audio.Windows`) | Windows WASAPI endpoint discovery, system or microphone capture and bounded PCM playback for .NET consumers (NAudio) |
-| `lib/system/act/clipboard/windows` (`Ext.Clipboard.Windows`) | Generation-checked Win32 clipboard access for .NET consumers, with no package dependencies |
+| `pkg/ext-windows/act/capture/audio` (`Ext.Audio.Windows`) | Windows WASAPI endpoint discovery, system or microphone capture and bounded PCM playback for .NET consumers (NAudio) |
+| `pkg/ext-windows/act/clipboard` (`Ext.Clipboard.Windows`) | Generation-checked Win32 clipboard access for .NET consumers, with no package dependencies |
 
 Android observes app-visible surfaces, accessibility structure and permission
 state and exposes caller-consented MediaProjection capture and bounded PCM

@@ -20,7 +20,7 @@ implementations can use any language that supports Ext's plugin protocol.
 1. Build a provider guest, then seal its executable with `PackageExecutable`
    and install the package with the Ext package store. The executable's entry
    takes the `run` argument. Ext provides native guests for
-   [Core ML](https://github.com/xallet/tab/tree/main/coreml/README.md) on macOS and [ONNX Runtime](../../../lib/system/int/model/windows/README.md)
+   [Core ML](https://github.com/xallet/tab/tree/main/coreml/README.md) on macOS and [ONNX Runtime](../../../pkg/ext-windows/int/model/README.md)
    on Windows and [Linux](../../../res/int/model/linux/README.md).
 2. Use `store.ResolveEntrypoint` with the package ID, `ContractName`,
    `ContractVersion`, `Protocol`, and the consumer's reviewed package digest.

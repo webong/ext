@@ -17,9 +17,9 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 | --- | --- | --- |
 | 1. Contracts | `ext.io.pc/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
 | 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
-| 3. OS mechanisms | `lib/system`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
+| 3. OS mechanisms | The platform packages `pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` and `pkg/ext-linux`: access to OS-provided implementations for kernel, shell, web, intelligence, action and network capabilities | C where a common ABI is needed; Swift, Java and C# beside their native platform APIs |
 | 4. Resource guests | `res/system`, `res/web`, `res/int`: versioned Ext contracts, fixtures and guest entrypoints | The language of the library each guest serves; existing Go APIs remain during migration |
-| 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; `ext-ios` and `ext-android` bundle the native `lib/system` code | Every language |
+| 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; the platform packages also carry their platform's OS mechanisms (layer 3) | Every language |
 | 6. Adapters | [Adapter repositories](adapter-repositories.md) outside ext (`xallet/tab`, `zip`, `vat`, `tip`): one product, provider, browser or native tool each, loaded as packages | Mostly Go |
 | 7. Products | `ctx`, `ctn`, `ext`; Cymonkey and Xallet outside this repository | Selection, commands, policy |
 
@@ -28,7 +28,7 @@ The layers rest on three principles:
 - **A contract is data.** What a library means is written down as versioned fixtures, not as the
   behaviour of one implementation. Go is the reference implementation, but where Go and a fixture
   disagree, the fixture decides and the fix lands in Go.
-- **Native code goes where the OS is.** Code that talks to OS-provided implementations lives in `lib/system` and uses
+- **Native code goes where the OS is.** Code that talks to OS-provided implementations lives in its platform package and uses
   the language of the native platform API: Swift on Apple platforms, Java or Kotlin on Android,
   and C# on Windows. C is used for portable libraries with a common ABI. An Ext guest in `res/`
   calls that library and carries the protocol; native apps can also use the library directly.
@@ -71,8 +71,8 @@ design obligation.
 5. **Served over the protocol.** Rust, Python, TypeScript and the other SDKs reach a `res/`
    guest through `ext.io.pc/v1`, with a thin typed wrapper in the SDK for the calls a
    consumer needs. A desktop guest can be a private Ext package process or a guest library;
-   a mobile app bundles and hosts its native guest. The guest depends on its `lib/system`
-   mechanism and the Ext guest SDK; the mechanism imports neither. The service is designed
+   a mobile app bundles and hosts its native guest. The guest depends on its platform
+   package's mechanism and the Ext guest SDK; the mechanism imports neither. The service is designed
    before the first consumer asks, and built when one does. Until then the `ext-io` names
    `system`, `web` and `int` stay reserved
    ([module versioning](module-versioning.md#the-ext-io-language-packages)).

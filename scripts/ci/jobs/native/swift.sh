@@ -6,7 +6,7 @@
 # Generic iOS ExtSystem build
 if [ "$RUNNER_OS" = macOS ]; then
 (
-cd lib/system/act/capture/surface/ios
+cd pkg/ext-darwin/act/capture/surface
 xcodebuild -scheme ExtSystem -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
 )
 ci_import_env
@@ -17,8 +17,8 @@ if [ "$RUNNER_OS" = macOS ]; then
 (
 scripts/ext-darwin-xcframework.sh --platform all
 scripts/ext-darwin-ledger-xcframework.sh --platform all
-for package in act/share/ios:ExtShare act/capture/audio/ios:ExtAudio; do
-  (cd "lib/system/${package%%:*}" && xcodebuild -scheme "${package##*:}" -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)
+for package in act/share:ExtShare act/capture/audio:ExtAudio; do
+  (cd "pkg/ext-darwin/${package%%:*}" && xcodebuild -scheme "${package##*:}" -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)
 done
 (cd pkg/ext-darwin && xcodebuild -scheme Ext-Package -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)
 )
@@ -28,7 +28,7 @@ fi
 # Generic iOS ExtNetwork build
 if [ "$RUNNER_OS" = macOS ]; then
 (
-cd lib/system/net/ios
+cd pkg/ext-darwin/net
 xcodebuild -scheme ExtNetwork -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
 )
 ci_import_env
@@ -37,7 +37,7 @@ fi
 # Swift tests (ExtSystem)
 if [ "$RUNNER_OS" = macOS ]; then
 (
-cd lib/system/act/capture/surface/ios
+cd pkg/ext-darwin/act/capture/surface
 swift test
 )
 ci_import_env
@@ -46,11 +46,11 @@ fi
 # Swift tests (ExtHost, ExtShare and ExtAudio)
 if [ "$RUNNER_OS" = macOS ]; then
 (
-for package in capture/share/ios capture/audio/ios; do
-  swift test --package-path "lib/system/$package"
+for package in act/share act/capture/audio; do
+  swift test --package-path "pkg/ext-darwin/$package"
 done
 swift test --package-path pkg/ext-darwin --filter ExtHostTests
-swift test --package-path lib/system/act/clipboard/ios
+swift test --package-path pkg/ext-darwin/act/clipboard
 )
 ci_import_env
 fi
@@ -58,7 +58,7 @@ fi
 # Swift tests (ExtNetwork)
 if [ "$RUNNER_OS" = macOS ]; then
 (
-cd lib/system/net/ios
+cd pkg/ext-darwin/net
 swift test
 )
 ci_import_env
@@ -67,7 +67,7 @@ fi
 # Swift tests (ExtML)
 if [ "$RUNNER_OS" = macOS ]; then
 (
-cd lib/system/int/model/ios
+cd pkg/ext-darwin/int/model
 swift test
 )
 ci_import_env

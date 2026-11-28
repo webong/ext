@@ -21,9 +21,9 @@ mkdir -p "$build_dir/classes"
 javac -Xlint:all -Werror -d "$build_dir/classes" \
   "$sdk"/src/main/java/io/github/webong/ext/plugin/*.java \
   "$sdk"/src/test/java/io/github/webong/ext/plugin/*.java \
-  lib/system/int/model/android/src/main/java/io/github/webong/ext/ml/*.java \
-  lib/system/int/model/android/src/android/java/io/github/webong/ext/ml/android/*.java \
-  lib/system/int/model/android/src/test/java/org/tensorflow/lite/*.java \
+  pkg/ext-android/int/model/src/main/java/io/github/webong/ext/ml/*.java \
+  pkg/ext-android/int/model/src/android/java/io/github/webong/ext/ml/android/*.java \
+  pkg/ext-android/int/model/src/test/java/org/tensorflow/lite/*.java \
   "$sdk"/examples/ConformanceGuest.java
 java -ea -Djava.library.path="$build_dir/native" -cp "$build_dir/classes" \
   io.github.webong.ext.plugin.GuestTests

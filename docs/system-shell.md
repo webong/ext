@@ -101,7 +101,7 @@ library selects between them by name.
 `res/system/capture/surface.DesktopDriver` is the portable seam for desktop-scoped operations by
 external tools. CTX's selected-window capture and input on macOS and Windows
 use installed `system.surface` resource guests backed by the Swift and .NET
-libraries in `lib/system/act/capture/surface`; the C ledger supplies the
+libraries in `pkg/ext-darwin/act/capture/surface` and `pkg/ext-windows/act/capture/surface`; the C ledger supplies the
 observed window and process identity. The native libraries also provide
 pointer sessions to their direct language consumers. Recording needs an
 encoder; `xallet.app/tip/ffmpeg` supplies one for macOS and Windows. The tool-based

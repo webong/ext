@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and test the iOS module of res/web (lib/system/web/ios, the SwiftPM package ExtWeb): the cookie,
+# Build and test the iOS module of res/web (pkg/ext-darwin/web, the SwiftPM package ExtWeb): the cookie,
 # userscript and bookmarklet rules, against the language-neutral fixtures in res/web/testdata.
 # It is a package of its own with no dependency, so this needs Swift only: no engine
 # xcframework, and nothing of the plugin code can be imported. pkg/ext-darwin ships the same
@@ -11,4 +11,4 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo 'web-ios.sh needs macOS (ExtWeb uses CryptoKit)' >&2; exit 1; }
 scratch="${1:-$(mktemp -d "${TMPDIR:-/tmp}/ext-web-swift.XXXXXX")}"
-swift test --package-path lib/system/web/ios --filter ExtWebTests --scratch-path "$scratch"
+swift test --package-path pkg/ext-darwin/web --filter ExtWebTests --scratch-path "$scratch"

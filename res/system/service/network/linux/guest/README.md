@@ -2,7 +2,7 @@
 
 This private Ext guest serves `ext.system.network/v1`. Go handles only
 `ext.io.pc/v1` transport and record translation; the native network read
-is compiled from `lib/system/net/linux`.
+is compiled from `pkg/ext-linux/net`.
 
 On Linux, build `go build -o network-linux .` in this module. Seal the binary
 with `scripts/release/pack-resource-guest.py` and its `ext.json`, then

@@ -82,7 +82,7 @@ reproducible packaging.
 - `go test ./...` from `res/web/host`
 - `scripts/web-ios.sh`
 - `scripts/web-android.sh`
-- iOS simulator: `xcodebuild -scheme ExtWeb-Package -destination 'platform=iOS Simulator,id=<id>' -only-testing:ExtWebTests/ExtensionArtifactTests test` from `lib/system/web/ios`
+- iOS simulator: `xcodebuild -scheme ExtWeb-Package -destination 'platform=iOS Simulator,id=<id>' -only-testing:ExtWebTests/ExtensionArtifactTests test` from `pkg/ext-darwin/web`
 - Android device: `scripts/web-workspace-android.sh --without-androidx`; the same checks also run with `--aar <SDK AAR> --minify`.
 
 The Swift codec uses the platform zlib library; Java uses `java.util.zip`.

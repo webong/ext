@@ -63,7 +63,7 @@ provider credentials are required for live API verification.
 
 ## Native model backends
 
-`lib/system/int/model/ios` contains a CoreML backend for verified `.mlmodel` artifacts and
+`pkg/ext-darwin/int/model` contains a CoreML backend for verified `.mlmodel` artifacts and
 float32 multi-array tensors. Android has an optional TensorFlow Lite backend
 for verified `.tflite` artifacts; the host app supplies its interpreter
 runtime. Windows and Linux have an optional bounded ONNX Runtime CPU backend

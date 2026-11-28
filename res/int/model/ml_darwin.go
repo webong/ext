@@ -3,7 +3,7 @@
 package model
 
 // platformProvider reports that native CoreML inference is not implemented in
-// the Go module; the CoreML provider ships in lib/system/int/model/ios as part of the ExtML
+// the Go module; the CoreML provider ships in pkg/ext-darwin/int/model as part of the ExtML
 // Swift target, which builds on both macOS and iOS.
 func platformProvider() (Provider, error) {
 	return nil, ErrUnavailable

@@ -16,12 +16,12 @@ ci_import_env
 (
 set -euo pipefail
 # The audio and clipboard tests skip, and say why, what needs a device or a clipboard.
-dotnet run --project lib/system/act/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
-dotnet run --project lib/system/act/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
-dotnet run --project lib/system/act/capture/surface/windows/Tests/Ext.System.Windows.Tests.csproj
-dotnet run --project lib/system/net/windows/Tests/Ext.Network.Windows.Tests.csproj
-dotnet run --project lib/system/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
-dotnet run --project lib/system/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/act/capture/audio/Tests/Ext.Audio.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/act/clipboard/Tests/Ext.Clipboard.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/act/capture/surface/Tests/Ext.System.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/net/Tests/Ext.Network.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/int/model/Tests/Ext.ML.Windows.Tests.csproj
+dotnet run --project pkg/ext-windows/web/Tests/Ext.Web.Windows.Tests.csproj
 )
 ci_import_env
 
@@ -31,12 +31,12 @@ set -euo pipefail
 out="dist/ext-windows-$VERSION"
 mkdir -p "$out"
 for project in \
-  lib/system/act/capture/audio/windows/Ext.Audio.Windows.csproj \
-  lib/system/act/clipboard/windows/Ext.Clipboard.Windows.csproj \
-  lib/system/act/capture/surface/windows/Ext.System.Windows.csproj \
-  lib/system/net/windows/Ext.Network.Windows.csproj \
-  lib/system/web/windows/Ext.Web.Windows.csproj \
-  lib/system/int/model/windows/Ext.ML.Windows.csproj; do
+  pkg/ext-windows/act/capture/audio/Ext.Audio.Windows.csproj \
+  pkg/ext-windows/act/clipboard/Ext.Clipboard.Windows.csproj \
+  pkg/ext-windows/act/capture/surface/Ext.System.Windows.csproj \
+  pkg/ext-windows/net/Ext.Network.Windows.csproj \
+  pkg/ext-windows/web/Ext.Web.Windows.csproj \
+  pkg/ext-windows/int/model/Ext.ML.Windows.csproj; do
   dotnet pack "$project" -c Release -p:Version="$VERSION" -o "$out"
 done
 [[ "$(ls "$out"/*.nupkg | wc -l)" -eq 6 ]] || { echo 'expected six packages' >&2; ls "$out" >&2; exit 1; }

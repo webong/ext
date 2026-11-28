@@ -3,7 +3,7 @@
 package main
 
 /*
-#cgo CFLAGS: -D_GNU_SOURCE -I${SRCDIR}/../../../../../../lib/system/net/linux/include
+#cgo CFLAGS: -D_GNU_SOURCE -I${SRCDIR}/../../../../../../pkg/ext-linux/net/include
 #include <net/if.h>
 #include "ext_system_net.h"
 */

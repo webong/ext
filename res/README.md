@@ -2,15 +2,15 @@
 
 `res/` owns versioned Ext resource contracts and their guest entrypoints.
 Reusable native OS, web and intelligence implementations live in
-[`lib/system`](../lib/system/README.md). The existing Go modules in `res/` keep
+the platform packages under [`pkg/`](../pkg/README.md). The existing Go modules in `res/` keep
 their published import paths during migration; they still contain Go mechanisms
 that have not yet been moved behind Ext guests. Nothing lives at the `res/` root.
 
 | Module | Import path | Contents |
 | --- | --- | --- |
-| [`web`](web/README.md) | `github.com/webong/ext/res/web/host` | Existing Go web contracts and workflows, Ext-facing fixtures and guides; native web libraries are in `lib/system/web` |
-| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Existing Go system APIs, contracts and fixtures; native platform libraries are in `lib/system/act/capture` and `lib/system/service` |
-| [`int`](int/README.md) | `github.com/webong/ext/res/int` | Existing Go intelligence contracts and Ext model guests; native model libraries are in `lib/system/int` |
+| [`web`](web/README.md) | `github.com/webong/ext/res/web/host` | Existing Go web contracts and workflows, Ext-facing fixtures and guides; native web libraries are in each platform package's `web` |
+| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Existing Go system APIs, contracts and fixtures; native platform libraries are in each platform package's `act` and `net` |
+| [`int`](int/README.md) | `github.com/webong/ext/res/int` | Existing Go intelligence contracts and Ext model guests; native model libraries are in each platform package's `int/model` |
 
 All resource modules are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.

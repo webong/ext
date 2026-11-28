@@ -46,7 +46,7 @@ selectable external product, provider, browser, or native service and supplies
 that selection through an adapter capability or backend. For example, Safari
 and Chrome integration belongs in their adapters, while the WKWebView and
 Android WebView implementations of the public `res/web` workspace API belong in
-`lib/system/web/ios` and `lib/system/web/android`.
+`pkg/ext-darwin/web` and `pkg/ext-android/web`.
 
 `pkg/ext-web` is ext's JavaScript/TypeScript package for code that runs inside a
 browser extension. Ext owns it; Cymonkey and Xallet consume it. Like `pkg/ext-darwin` and
@@ -78,7 +78,8 @@ library and ships a private Ext package guest. Only `cmd/ext` ships a public bin
 transport bridge executable lifecycle in `cmd/ext/internal/bridgecmd`; ext-go
 retains only the reusable transport libraries. A product
 never imports another product module. The standalone `src/cto/sandbox` contract
-is available to its consumers. Reusable native OS mechanisms go in `lib/system`;
+is available to its consumers. Reusable native OS mechanisms go in their platform package
+(`pkg/ext-darwin`, `pkg/ext-android`, `pkg/ext-windows` or `pkg/ext-linux`);
 `res/` owns their Ext contracts and guests. Existing published Go packages under
 `res/` remain available during migration.
 `examples/` holds runnable teaching examples for every language and binding, grouped by
@@ -97,11 +98,11 @@ reporting, one vocabulary of error codes, bounds) and the language support tiers
 [the architecture ADR](docs/adr-architecture.md).
 
 `res/` is the Ext resource capability layer: versioned contracts, fixtures and
-guest entrypoints. Reusable native implementations are in `lib/system`, including
-`lib/system/web` and `lib/system/int`. Remaining Go modules under `res/` keep
+guest entrypoints. Reusable native implementations are in the platform packages, under
+the same capability areas (`web`, `int`, `act`, `net`). Remaining Go modules under `res/` keep
 their published import paths while callers migrate. Ledger-owned host, program,
 process and surface observation have been removed from Go. Do not move Go
-implementations into `lib/system`. Each subdirectory remains its
+implementations into a platform package. Each subdirectory remains its
 own Go module, except `res/web`, which is a container too. Nothing lives at the
 root of `res/`. Keep container directories free of shared logic
 and keep repo-wide tests in `src/ctx/internal/arch`. `res/web/host` defines
@@ -118,20 +119,22 @@ browser), `artifact` (`extension`, `userscript` and `bookmarklet`) and `engine` 
 and `wasm`). `artifact` imports only `contract`, `engine` imports nothing else in the
 module, and `manage` may import `contract` and `artifact`; `src/ctx/internal/arch`
 enforces it. The native iOS, Android and WebView2 libraries are in
-`lib/system/web/ios`, `lib/system/web/android` and `lib/system/web/windows`.
+`pkg/ext-darwin/web`, `pkg/ext-android/web` and `pkg/ext-windows/web`.
 `testdata` at the top holds the fixtures every runtime runs, and
 `docs` the guides for the mobile modules.
 The shared fixtures are outside the `host` module, so its Go tests find them by
 walking up (`host/internal/fixtures`) and skip when run without the repository.
 
-`lib/` is a container for reusable native libraries. `lib/system` owns code
-that talks to OS-provided implementations across capability areas. `web` is
-for web, `int` for intelligence, `act` for actions such as clipboard, share,
-capture and input, and `net` for networking. `lib/ledger` owns the C host-resource
-collector. Its Swift and Android Java bindings and wire models belong in
-`pkg/ext-darwin` and `pkg/ext-android`. Platform implementations use Swift, Java and C#. Those libraries do not depend
-on `res/` or the Ext guest SDK; their guest adapters depend on the libraries
-and the SDK for the implementation language. Nothing lives at the `lib/` root.
+`lib/` holds libext, the portable C libraries every binding in `pkg/` is built on:
+`lib/plugin` and `lib/ledger`. Code that talks to OS-provided implementations lives in
+its platform package, in the platform's language: `pkg/ext-darwin` (Swift),
+`pkg/ext-android` (Java), `pkg/ext-windows` (C#) and `pkg/ext-linux` (C). Each uses the
+same capability areas: `web` for web, `int` for intelligence, `act` for actions such as
+clipboard, share, capture and input, and `net` for networking. `lib/ledger` owns the C
+host-resource collector; its Swift and Android Java bindings and wire models belong in
+`pkg/ext-darwin` and `pkg/ext-android`. The platform mechanisms do not depend on `res/`
+or the Ext guest SDK; their guest adapters depend on them and on the SDK for the
+implementation language. Nothing lives at the `lib/` root.
 `lib/plugin` is the portable C plugin
 engine, built with CMake; all its public names are in the `ext_plugin_` name space with the side next
 (`ext_plugin_host_*` for the host ABI, `ext_plugin_guest_*` for the guest ABI and the C guest API,
@@ -219,12 +222,12 @@ CTN owns its content verification workflow and durable file catalog in
 
 The reusable libraries are:
 
-- `res/web/host` for the published Go web contracts and workflows during migration. Native WKWebView, Android WebView and WebView2 libraries live under `lib/system/web`; `res/web` owns the Ext-facing web capability and shared fixtures.
+- `res/web/host` for the published Go web contracts and workflows during migration. Native WKWebView, Android WebView and WebView2 libraries live in `pkg/ext-darwin/web`, `pkg/ext-android/web` and `pkg/ext-windows/web`; `res/web` owns the Ext-facing web capability and shared fixtures.
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
-- `res/system` for the published Go system APIs during migration. Native Apple, Android and .NET system libraries live under `lib/system/act` and `lib/system/net`; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `res/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
+- `res/system` for the published Go system APIs during migration. Native Apple, Android, .NET and Linux system libraries live under `act` and `net` in their platform packages; mobile bindings to the C ledger live in `pkg/ext-darwin` and `pkg/ext-android`. `res/system` owns the Ext-facing contracts, fixtures and guests. No resource chooses product policy or authorization.
 - `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
-- `res/int` for the published Go intelligence contracts. Native Core ML, Android model and .NET inference libraries live under `lib/system/int/model`. The Core ML and ONNX Runtime provider guests live in `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`; CTN chooses providers, models, credentials and policy.
+- `res/int` for the published Go intelligence contracts. Native Core ML, Android model and .NET inference libraries live under `int/model` in `pkg/ext-darwin`, `pkg/ext-android` and `pkg/ext-windows`. The Core ML and ONNX Runtime provider guests live in `xallet.app/tab/coreml` and `xallet.app/tab/onnxruntime`; CTN chooses providers, models, credentials and policy.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
 - `pkg/ext-go/engine` for Go plugin sessions and guest authoring. Shared plugin contracts are aliases of `core/plugin`; shared ledger records live directly in `core/ledger`. It depends on `core`, never `cengine`. The duplicate Go memory store and supervisor have been removed; the compatibility ledger aliases have also been removed. The recorder wrapper module, Go recorder implementation and SQLite store were removed. The C-backed ledger API lives in `cengine/ledger`, including its native supervisor in `cengine/ledger/supervisor`. CTX uses that binding through its private `graphapi`, which owns library and store location; ledger mechanics execute in C.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is not committed: the `tools` module generates it on each platform, the binding beside it (`internal/ccgo`) builds only with `-tags ext_c2go`, the ext-plugin release translates, tests against the pure-Go engine (`engine/plugin/plugintest/enginetest`) and publishes each platform's as the c2go driver's archive, and a project fetches it (`go tool ext bundle fetch -lib ext_plugin -driver c2go`); it depends on `engine` only.
@@ -306,41 +309,41 @@ macOS slice, `ext-macos-vX.Y.Z`, `dist/ext-macos`), each with a generated manife
 its platform; its own `Package.swift` stays multi-platform for development and CI. Both export the
 same module names, so an app depends on one of them, or on `pkg/ext-darwin` from source. Each SDK ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
 written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
-`res/web` is a container whose Go module is `res/web/host`; the native web libraries are the iOS module (`lib/system/web/ios`, the SwiftPM packages `ExtWeb`
-and `ExtWebKit`) and the Android module (`lib/system/web/android`, the Java packages
+`res/web` is a container whose Go module is `res/web/host`; the native web libraries are the iOS module (`pkg/ext-darwin/web`, the SwiftPM packages `ExtWeb`
+and `ExtWebKit`) and the Android module (`pkg/ext-android/web`, the Java packages
 `io.github.webong.ext.web` and `io.github.webong.ext.web.android`) of the same web library.
 Portable rules are checked against one set of fixtures; native workspace targets and source sets
-remain separate from those portable rules. The native mobile web libraries in `lib/system/web` import nothing of
+remain separate from those portable rules. The native mobile web libraries in `pkg/ext-darwin/web` and `pkg/ext-android/web` import nothing of
 the plugin code or the C engine and build and test with Swift or a JDK/Android SDK
 (`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`).
 The Go-only `res/web/host/engine/wasm` package defines the contract without wazero;
 `pkg/ext-go/wasm/runtime` supplies the implementation and `pkg/ext-go/wasm` the plugin binding. `pkg/ext-darwin`
-reaches `lib/system/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
+reaches `pkg/ext-darwin/web` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
-`lib/system/web/android` into its AAR. Edit native web code in `lib/system/web`
-and Ext contracts in `res/web`, never in the SDKs. `lib/system/act/clipboard` follows the same ownership model: its Swift
-target is linked into `pkg/ext-darwin`, and its portable and Android Java source
-sets are compiled into the `pkg/ext-android` AAR. Edit native clipboard code in
-`lib/system/act/clipboard`. `lib/system/net` follows that ownership model: its
-Swift target is linked into `pkg/ext-darwin`, and its Java source sets are compiled
-into the `pkg/ext-android` AAR. Edit those implementations in `lib/system/net`.
+`pkg/ext-android/web` into its AAR. Edit native web code in each platform package's
+`web` and Ext contracts in `res/web`. `act/clipboard` follows the same ownership model: the
+Swift target in `pkg/ext-darwin/act/clipboard` is linked into `pkg/ext-darwin`, and the
+portable and Android Java source sets in `pkg/ext-android/act/clipboard` are compiled into
+the `pkg/ext-android` AAR. `net` follows that ownership model too: `pkg/ext-darwin/net` is
+linked into `pkg/ext-darwin`, and the Java source sets in `pkg/ext-android/net` are
+compiled into the `pkg/ext-android` AAR.
 `res/system/capture/clipboard` retains the portable Go contract; CTX on Windows
 invokes the installed `system.clipboard.windows` Ext resource guest backed by
-`lib/system/act/clipboard/windows`, with no Go Win32 fallback.
-`lib/system/net/linux` owns Linux native network observation in C. The
+`pkg/ext-windows/act/clipboard`, with no Go Win32 fallback.
+`pkg/ext-linux/net` owns Linux native network observation in C. The
 private-volume creation, inspection and removal live in `lib/ledger` and are
 reached from Go through `pkg/ext-go/cengine/ledger`; `res/system/device/volume`
 has no Go implementation or fallback.
 The Windows network resource guest in `res/system/service/network/windows/Guest`
-serves `ext.system.network/v1` using `lib/system/net/windows`.
+serves `ext.system.network/v1` using `pkg/ext-windows/net`.
 The private Linux network guest is a nested, unpublished Go module at
 `res/system/service/network/linux/guest`; it uses Go only for Ext transport
-and links the C mechanism from `lib/system/net/linux`.
+and links the C mechanism from `pkg/ext-linux/net`.
 `res/system/service/network` exposes local state only.
-`lib/system/act/share` follows the same ownership model for mobile share and
+`act/share` follows the same ownership model for mobile share and
 keyboard extensions: its Swift target ships through `pkg/ext-darwin` as `ExtShare`, and its Java source sets compile into the `pkg/ext-android` AAR.
 The Android share and keyboard binding classes live in
-`lib/system/act/share/android/src/android`, beside the portable model.
+`pkg/ext-android/act/share/src/android`, beside the portable model.
 `act/capture/surface` (`ExtSystem`) and `act/capture/audio` (`ExtAudio`) follow the same
 model. The mobile `ExtHost` binding belongs to `pkg/ext-darwin`; C owns its resource collection.
 The C ledger owns host inventory, exact filesystem and access checks, named
@@ -391,16 +394,16 @@ Moving a library into or out of `pkg/` changes public import paths. Update
 `go build ./...` and `go vet ./...`.
 
 Mobile browser workspaces are platform implementations of the public `res/web`
-API, not product adapters. WKWebView code lives in `lib/system/web/ios/Sources/ExtWebKit`
+API, not product adapters. WKWebView code lives in `pkg/ext-darwin/web/Sources/ExtWebKit`
 and is exposed by `pkg/ext-darwin`; Android WebView and optional AndroidX
-document-start integration live in `lib/system/web/android/src/android` and are compiled
+document-start integration live in `pkg/ext-android/web/src/android` and are compiled
 into the `pkg/ext-android` AAR. Portable reviewed-userscript preparation stays in
 the portable targets and source sets. Keep Expo, app identity, storage policy,
 and UI out of these libraries. Native changes are tested with
 `scripts/web-workspace-ios.sh` and `scripts/web-workspace-android.sh`.
 
 The same rule applies to an application-owned WebView2: its document-script and
-profile-extension implementation lives in `lib/system/web/windows`, not in an Edge or
+profile-extension implementation lives in `pkg/ext-windows/web`, not in an Edge or
 Chromium product adapter. The caller supplies source already prepared by the
 portable userscript tooling and owns persistence, profile choice and approval.
 

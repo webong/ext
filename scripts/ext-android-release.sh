@@ -53,14 +53,14 @@ done
 
 # classes.jar (Java 17, which the guest SDK uses; the app's D8 desugars it): the guest SDK, WebView host, web rules and clipboard binding, plus the WAMR host classes when requested.
 mkdir -p "$work/classes"
-# The plugin code and the WebView host are this package's; the web rules are lib/system/web/android's.
-sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" lib/system/web/android/src/main/java lib/system/web/android/src/android/java \
-  lib/system/act/clipboard/android/src/main/java lib/system/act/clipboard/android/src/android/java \
-  lib/system/act/capture/surface/android/src/main/java lib/system/act/capture/surface/android/src/android/java \
-  lib/system/act/share/android/src/main/java lib/system/act/share/android/src/android/java \
-  lib/system/act/capture/audio/android/src/main/java lib/system/act/capture/audio/android/src/android/java \
-  lib/system/net/android/src/main/java lib/system/net/android/src/android/java \
-  lib/system/int/model/android/src/main/java lib/system/int/model/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+# The plugin code and the WebView host are this package's; the web rules are pkg/ext-android/web's.
+sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" pkg/ext-android/web/src/main/java pkg/ext-android/web/src/android/java \
+  pkg/ext-android/act/clipboard/src/main/java pkg/ext-android/act/clipboard/src/android/java \
+  pkg/ext-android/act/capture/surface/src/main/java pkg/ext-android/act/capture/surface/src/android/java \
+  pkg/ext-android/act/share/src/main/java pkg/ext-android/act/share/src/android/java \
+  pkg/ext-android/act/capture/audio/src/main/java pkg/ext-android/act/capture/audio/src/android/java \
+  pkg/ext-android/net/src/main/java pkg/ext-android/net/src/android/java \
+  pkg/ext-android/int/model/src/main/java pkg/ext-android/int/model/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )

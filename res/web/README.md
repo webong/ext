@@ -1,8 +1,8 @@
 # res/web
 
 `res/web` owns the Ext-facing web contracts, fixtures and guides. It holds no Go
-code at its top. The native Apple, Android and Windows libraries have moved to
-[`lib/system/web`](../../lib/system/web/README.md). The published Go host module
+code at its top. The native Apple, Android and Windows libraries are the `web` libraries of
+[`pkg/ext-darwin`](../../pkg/ext-darwin/web/README.md), [`pkg/ext-android`](../../pkg/ext-android/web/README.md) and [`pkg/ext-windows`](../../pkg/ext-windows/web/README.md). The published Go host module
 remains here during migration; `pkg/ext-go/wasm/runtime` implements
 the WebAssembly host contract with wazero and `pkg/ext-go/wasm` adds the Ext plugin
 binding.
@@ -10,9 +10,9 @@ binding.
 | Directory | What it is | Built and tested with |
 | --- | --- | --- |
 | [`host`](host/README.md) | The Go module `github.com/webong/ext/res/web/host`: web code that runs on the host, outside any browser | `go test ./...` in `host` |
-| [`lib/system/web/ios`](../../lib/system/web/ios/README.md) | The SwiftPM packages `ExtWeb` and `ExtWebKit` | `scripts/web-ios.sh` |
-| [`lib/system/web/android`](../../lib/system/web/android/README.md) | The Java package `io.github.webong.ext.web` | `scripts/web-android.sh` |
-| [`lib/system/web/windows`](../../lib/system/web/windows/README.md) | The .NET library `Ext.Web.Windows` | `dotnet build` and its console test project |
+| [`pkg/ext-darwin/web`](../../pkg/ext-darwin/web/README.md) | The SwiftPM packages `ExtWeb` and `ExtWebKit` | `scripts/web-ios.sh` |
+| [`pkg/ext-android/web`](../../pkg/ext-android/web/README.md) | The Java package `io.github.webong.ext.web` | `scripts/web-android.sh` |
+| [`pkg/ext-windows/web`](../../pkg/ext-windows/web/README.md) | The .NET library `Ext.Web.Windows` | `dotnet build` and its console test project |
 | [`docs`](docs) | Guides for the mobile modules | |
 | [`testdata`](testdata) | Language-neutral fixtures that the Go, Swift and Java modules all run | |
 
@@ -25,7 +25,7 @@ platform like `pkg/ext-darwin` and `pkg/ext-android`.
 | It provides | Where | What it is for |
 | --- | --- | --- |
 | **A browser-management kit** | `host/contract`, `host/manage`, `host/artifact/extension` | The protocol that hosts and browser adapters agree on, the workflows served through adapter-provided backends, and the mechanisms every browser adapter needs: artifact inspection and packaging, executable discovery, policy files, and reading cookie stores |
-| **Web artifacts on every runtime** | `host/artifact`, `lib/system/web`, and `pkg/ext-web` | The same rules for each place web code runs: the host (Go), inside a native app's WebView, and inside a browser extension (`pkg/ext-web`) |
+| **Web artifacts on every runtime** | `host/artifact`, the platform packages' `web` libraries, and `pkg/ext-web` | The same rules for each place web code runs: the host (Go), inside a native app's WebView, and inside a browser extension (`pkg/ext-web`) |
 | **A way to run web content** | `host/engine` | The web engine serves a bundle to a browser the host opens; `engine/wasm` defines a runtime-neutral WebAssembly host contract implemented with wazero in `pkg/ext-go/wasm/runtime`. Neither manages a browser |
 
 Native storage, discovery and tooling belong in the owning adapter, outside ext
@@ -35,7 +35,7 @@ policy.
 
 ## Platform modules
 
-`lib/system/web/ios` and `lib/system/web/android` are the cookie, userscript and bookmarklet rules written out for their
+`pkg/ext-darwin/web` and `pkg/ext-android/web` are the cookie, userscript and bookmarklet rules written out for their
 platform, so a phone app needs no Go runtime and no native library for them. `windows`
 hosts prepared userscripts in WebView2. None of them is a Go package, and none is part
 of the `host` module zip or its version: apps take the mobile modules through
@@ -56,8 +56,8 @@ lifetime.
 `WorkspaceScripts.prepare` in the mobile modules validates a complete set of
 reviewed userscript records, rejects duplicate IDs and target mismatches, and
 generates replay source for enabled records. Native workspaces also live here:
-[`ExtWebKit`](../../lib/system/web/ios/WORKSPACE.md) and
-[`Android WebView`](../../lib/system/web/android/WORKSPACE.md), shipped by the platform SDKs.
+[`ExtWebKit`](../../pkg/ext-darwin/web/WORKSPACE.md) and
+[`Android WebView`](../../pkg/ext-android/web/WORKSPACE.md), shipped by the platform SDKs.
 Separate targets/source sets keep the portable rules free of native webview imports.
 
 `userscript.InspectCompatibility`, `Userscript.compatibility(of:)`, and

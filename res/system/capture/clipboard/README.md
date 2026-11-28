@@ -13,7 +13,7 @@ permission onboarding. A native mutation receipt reports dispatch separately fro
 verification because operating-system clipboard APIs do not provide a cross-process transaction.
 
 The native Apple, Android and .NET implementations live in
-[`lib/system/act/clipboard`](../../../../lib/system/act/clipboard/README.md).
+`act/clipboard` of [`pkg/ext-darwin`](../../../../pkg/ext-darwin/act/clipboard), [`pkg/ext-android`](../../../../pkg/ext-android/act/clipboard/README.md) and [`pkg/ext-windows`](../../../../pkg/ext-windows/act/clipboard/README.md).
 This Go package retains the portable contract. On Windows, CTX invokes the
 installed `system.clipboard.windows` Ext resource guest; it does not implement
 Win32 clipboard calls in Go.

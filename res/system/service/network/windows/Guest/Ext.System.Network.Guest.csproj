@@ -7,7 +7,7 @@
     <AssemblyName>Ext.System.Network.Guest</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../../../../lib/system/net/windows/Ext.Network.Windows.csproj" />
+    <ProjectReference Include="../../../../../../pkg/ext-windows/net/Ext.Network.Windows.csproj" />
     <ProjectReference Include="../../../../../../pkg/ext-dotnet/ExtIO/ExtIO.csproj" />
   </ItemGroup>
 </Project>

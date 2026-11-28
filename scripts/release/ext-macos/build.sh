@@ -14,21 +14,21 @@ ci_import_env
 
 # Clipboard contracts and native binding
 (
-swift test --package-path lib/system/act/clipboard/ios
+swift test --package-path pkg/ext-darwin/act/clipboard
 )
 ci_import_env
 
 # System shell contracts and native binding
 (
-for package in capture/surface/ios capture/share/ios capture/audio/ios; do
-  swift test --package-path "lib/system/$package"
+for package in act/capture/surface act/share act/capture/audio; do
+  swift test --package-path "pkg/ext-darwin/$package"
 done
 )
 ci_import_env
 
 # System network observation contracts and native binding
 (
-swift test --package-path lib/system/net/ios
+swift test --package-path pkg/ext-darwin/net
 )
 ci_import_env
 

@@ -114,7 +114,7 @@ if [[ "$(go env GOOS)" != windows ]]; then
 fi
 
 # Shared writer coordination, including product-owned catalog setup helpers.
-go test ./res/system/device/dirlock ./cmd/ext/internal/packagelock -count=1
+go test ./pkg/ext-go/core/dirlock ./cmd/ext/internal/packagelock -count=1
 go test ./src/ctn/internal/app -run '^(TestProviderMutationsCoordinateWithPackageWriter|TestProviderSessionsCoordinateWithPackageWriter|TestInferenceProviderRequiresTrustedPackage|TestPerceptionProviderPackageTrustAndCall|TestModelRunThroughTrustedProviderPackage)$' -count=1 -json | python3 scripts/check-go-test-results.py \
   TestProviderMutationsCoordinateWithPackageWriter TestProviderSessionsCoordinateWithPackageWriter TestPerceptionProviderPackageTrustAndCall/cancel-owned-session TestInferenceProviderRequiresTrustedPackage TestPerceptionProviderPackageTrustAndCall TestModelRunThroughTrustedProviderPackage
 EXT_PLUGIN_LIBRARY="$library_path" go test ./src/ctx/internal/app -run '^(TestCatalogWritersRespectPackageLock|TestCatalogAddInstallsPackageDependency)$' -count=1 -json | python3 scripts/check-go-test-results.py TestCatalogWritersRespectPackageLock TestCatalogAddInstallsPackageDependency

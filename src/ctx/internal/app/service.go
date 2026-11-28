@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/system/service/user"
-	"github.com/webong/ext/res/system/service/user/launchd"
-	"github.com/webong/ext/res/system/service/user/taskscheduler"
+	"github.com/webong/ext/src/ctx/internal/service/launchd"
+	"github.com/webong/ext/src/ctx/internal/service/taskscheduler"
 )
 
 func serviceCommand(args []string, stdout, stderr io.Writer) int {

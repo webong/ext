@@ -13,7 +13,6 @@ packages, not Go files of their own.
 | --- | --- |
 | `contract` | Request, response, cookie, policy and session types with their validation; native WebView script capability contracts; `session.endpoint` result validation and redaction (`EndpointResult`). Imports nothing else in the module |
 | `manage/cookie` | Parses, queries and combines cookies. `Get` and `Normalize` use an injected `Backend`; `ListForSite`, `Select`, `ExportSelected`, `Import` and `Copy` use caller-selected browser backends and verify the selected cookie before transferring its value. ctx imports it as `browser` |
-| `manage/resource` | Exports, validates and imports opaque browser resource bundles through caller-selected backends. The adapter owns each resource payload |
 | `manage/sqlite` | Read-only SQLite reader for browser cookie stores (standard library only, no sqlite3 program) and the sqlite3 helper used by cookie import |
 | `manage/guest` | Portable browser workflows served through adapter-provided backends |
 | `manage/discovery` | Finding the native executables an adapter declares, without launching them |

@@ -12,6 +12,7 @@ It never imports `engine` or `cengine`. Both implementations use the same types.
 | `ledger/supervisor` | Shared supervisor state and result types |
 | `ledger/ledgertest` | Implementation-independent store conformance fixtures |
 | `driver` | Library-independent driver selection, using only the standard library |
+| `dirlock` | An exclusive directory lock for cooperating processes, shared by ext and its products (package, adapter and browser writers) |
 
 Engine implementations and native bindings depend on core; core never depends
 on them. Core requires Go 1.25 and uses only the standard library. Consumers own host-selection policy.

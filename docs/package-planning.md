@@ -64,7 +64,7 @@ Built-in package mutations hold `EXT_HOME/.package-write.lock` across preflight
 and publication; bundle installation and explicit trust changes use the
 same lock. CTX adapter install/trust/remove/add/refresh and its catalog setup
 helpers participate too, including when CTX runs as an installed guest. They use
-the shared filesystem utility `res/system/device/dirlock`; the lock remains
+the shared filesystem utility `pkg/ext-go/core/dirlock`; the lock remains
 held through dependency checks, trust and shim updates. An adapter-root override
 uses the same lock filename beside that store. Direct library clients do not yet
 participate automatically and must coordinate explicitly. Native C described

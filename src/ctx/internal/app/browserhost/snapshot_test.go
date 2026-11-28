@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/webong/ext/pkg/ext-go/core/dirlock"
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	"github.com/webong/ext/res/system/device/dirlock"
 	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 

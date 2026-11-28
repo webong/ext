@@ -11,7 +11,7 @@ import (
 	"regexp"
 
 	browsershare "github.com/webong/ext/res/web/host/contract"
-	resourcekit "github.com/webong/ext/res/web/host/manage/resource"
+	resourcekit "github.com/webong/ext/src/ctx/internal/browser/resource"
 	"github.com/webong/ext/src/ctx/internal/config"
 )
 

@@ -49,7 +49,6 @@ when it revalidates a target before native capture or input.
 | Package | What it is |
 | --- | --- |
 | Private directories | The C ledger owns create, inspect and bounded removal; Go consumers use `pkg/ext-go/cengine/ledger` |
-| `device/dirlock` | A shared directory lock utility used by package and adapter writers |
 | `device/image` | Bounded snapshot (`Export`), restore and archive digest of a caller-selected directory tree. It is a tar.gz snapshot today; real disk-image tooling (`hdiutil`, VHD) would be a native tool owned by an adapter |
 
 "Device" here means storage devices. Audio devices are `capture/audio`.

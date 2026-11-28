@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/webong/ext/res/system/device/dirlock"
+	"github.com/webong/ext/pkg/ext-go/core/dirlock"
 )
 
 // Acquire fails immediately while another writer owns the home. A crashed

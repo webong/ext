@@ -114,8 +114,8 @@ the protocol-neutral WebAssembly host contract without wazero or the plugin engi
 `github.com/webong/ext/res/web` is never tagged again. Inside `host`, packages are
 grouped by role and the group directories hold no Go files of their own: `contract`
 (the shared vocabulary, which imports nothing else in the module), `manage` (`cookie`,
-`resource`, `sqlite`, `guest`, `discovery` and `policy`: the host side of reading and managing a
-browser), `artifact` (`extension`, `userscript` and `bookmarklet`) and `engine` (`bundle`
+`sqlite`, `guest` and `discovery`: the portable cookie rules and the kit browser adapters serve
+the browser protocols with), `artifact` (`extension`, `userscript` and `bookmarklet`) and `engine` (`bundle`
 and `wasm`). `artifact` imports only `contract`, `engine` imports nothing else in the
 module, and `manage` may import `contract` and `artifact`; `src/ctx/internal/arch`
 enforces it. The native iOS, Android and WebView2 libraries are in
@@ -352,10 +352,10 @@ publication. CTX binds these through `pkg/ext-go/cengine/ledger` and keeps
 installer declaration expansion and candidate merging in `src/ctx/internal/program`.
 `res/system/service/host`, `res/system/service/program` and
 `res/system/service/process` have no Go package;
-the shared directory lock is `res/system/device/dirlock`.
-`res/system/service/user` retains the Go manager contract, while the
-macOS launchd and Windows Task Scheduler backends are platform implementations
-there; `systemctl --user` remains a selectable native tool owned by
+the shared directory lock is `pkg/ext-go/core/dirlock`.
+`res/system/service/user` retains the Go manager contract; CTX, its only user, owns the
+macOS launchd and Windows Task Scheduler backends in `src/ctx/internal/service`;
+`systemctl --user` remains a selectable native tool owned by
 `xallet.app/tip/systemd`. Managers receive a ledger-backed definition interface.
 `res/system/capture/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,

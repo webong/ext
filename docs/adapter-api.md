@@ -765,7 +765,7 @@ The library also exposes `browser.ParseCookies` for portable JSON and Netscape
 exports, `browser.BundleCookie` for a selected single-cookie import, and
 `browser.ListForSite`, `browser.Select`, `browser.ExportSelected`, `browser.Import`
 and `browser.Copy` for a single-cookie transfer through caller-selected backends.
-`res/web/host/manage/resource` exports and imports opaque browser resource
+`src/ctx/internal/browser/resource` exports and imports opaque browser resource
 bundles through the same kind of caller-selected backend. Cookie
 input validation preserves native scope and rejects fields it cannot interpret.
 Queries retain nonfatal source/row warnings; cancellation and timeout return an

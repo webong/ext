@@ -81,7 +81,7 @@ start, stop, and status go through a `service.Manager` the consumer selects;
 the shared package never picks a backend by name.
 
 launchd and Task Scheduler are the operating system's own mechanism and ship in
-`res/system/service/user/launchd` and `res/system/service/user/taskscheduler`. systemd's
+`src/ctx/internal/service/launchd` and `src/ctx/internal/service/taskscheduler`. systemd's
 `systemctl --user` is a selectable native tool, so its backend lives in
 `xallet.app/tip/systemd`. The consumer supplies the service name, executable,
 arguments, environment, working directory, restart policy, definition

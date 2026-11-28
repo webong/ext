@@ -12,10 +12,10 @@ import (
 	"runtime"
 
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
+	"github.com/webong/ext/pkg/ext-go/core/dirlock"
 	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/storelayout"
-	"github.com/webong/ext/res/system/device/dirlock"
 )
 
 // Prepare reviews and snapshots the complete dependency closure under the writer.

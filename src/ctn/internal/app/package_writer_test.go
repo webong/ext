@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/webong/ext/pkg/ext-go/core/dirlock"
 	ml "github.com/webong/ext/res/int/model"
-	"github.com/webong/ext/res/system/device/dirlock"
 	inferencebridge "github.com/webong/ext/src/ctn/inference"
 	perceptionbridge "github.com/webong/ext/src/ctn/perception"
 )

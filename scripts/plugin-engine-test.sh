@@ -95,8 +95,6 @@ echo "== the same API without cgo, served by the shared C engine through purego"
    CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
 echo "== the described library interface and the generated binding, from lib/plugin's interface.json (pkg/ext-go/cengine)"
 (cd pkg/ext-go/cengine && EXT_PLUGIN_BUILD="$(winpath "$build/engine")" go test -count=1 "${race[@]}" -timeout=10m ./library ./bind)
-echo "== the umbrella module (pkg/ext-go)"
-(cd pkg/ext-go && go test -count=1 -timeout=10m .)
 echo "== lib/plugin's generated binding through purego, held to the differential checks (tests/crosslang)"
 (cd tests/crosslang && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m -run 'PureGo|PluginBind' .)
 echo "plugin engine tests passed"

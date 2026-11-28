@@ -22,9 +22,10 @@ named `xallet.app/<repository>/<adapter>`, are not fetched with `go get`, and
 carry no Go release tags. See
 [registry releases](docs/source-management.md#publish-an-adapter-release).
 Adapter repositories build against published or pinned ext modules, never paths
-into an ext checkout. Do not add adapter code back to ext: ext tests and CI fetch
-the adapter repositories with `scripts/adapters.sh` (exported as `EXT_ADAPTERS`)
-to check ext against real adapters, including the Core ML Swift guest.
+into an ext checkout. Do not add adapter code back to ext. The adapter
+repositories own their tests: ext's checks against real adapters (including the
+Core ML Swift guest) run only when the caller exports `EXT_ADAPTERS`, a directory
+`scripts/adapters.sh` lays out, and ext's own CI never fetches them.
 
 Shared libraries may
 implement portable workflows and utilities, but must not choose native behavior
@@ -363,7 +364,7 @@ implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
 by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters
 implement, and the shared library never selects a driver by name.
-`src/cto/internal/confine` confines one local process to a `src/cto/sandbox` grant and then becomes the guest; its drivers (Seatbelt on macOS now, Landlock and seccomp on Linux, AppContainer and a job object on Windows next) are CTO platform implementations, not adapters. It never chooses a policy. `res/system` has no CTO dependency.
+`src/cto/internal/confine` confines one local process to a `src/cto/sandbox` grant and then becomes the guest; its drivers (Seatbelt on macOS and Landlock with seccomp on Linux now, AppContainer and a job object on Windows next) are CTO platform implementations, not adapters. It never chooses a policy. `res/system` has no CTO dependency.
 `src/cto/internal/app` owns `ext cto exec|check` and its `ext sandbox` alias, dispatched
 through the installed CTO package. Each product's private `plugin/` entrypoint serves its command through the Ext guest SDK; Ext's host dispatch lives in `cmd/ext/internal/pkgcmd`. Product dispatch is not part of `pkg/ext-go`.
 `res/system` may also perform bounded local shell mechanisms such as capture,

@@ -6,4 +6,5 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/src/cto/sandbox v0.1.0
+	golang.org/x/sys v0.49.0
 )

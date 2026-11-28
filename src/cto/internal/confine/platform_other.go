@@ -1,8 +1,7 @@
-//go:build !darwin
+//go:build !darwin && !linux
 
 package confine
 
-// The Linux (Landlock and seccomp) and Windows (AppContainer and a job object) drivers are the
-// next pieces of phase 2; until they land this build offers no driver, so every launch fails
-// with ErrNoDriver.
+// The Windows driver (AppContainer and a job object) is the next piece of phase 2; until it
+// lands this build offers no driver, so every launch fails with ErrNoDriver.
 func platformDrivers() []Driver { return nil }

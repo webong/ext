@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 func guest(args []string) int {
 	report := func(err error) int {
 		if err != nil {
+			fmt.Fprintln(os.Stderr, "guest:", err)
 			fmt.Println("refused")
 			return 0
 		}
@@ -64,6 +65,9 @@ func guest(args []string) int {
 	case "env":
 		fmt.Println(strings.Join(os.Environ(), ";"))
 		return 0
+	}
+	if err, ok := platformGuest(args); ok {
+		return report(err)
 	}
 	return 3
 }
@@ -206,7 +210,7 @@ func TestRefusedLaunches(t *testing.T) {
 	}{
 		{"lifecycle not enforced by anyone", Launch{Grant: grant}, "unsupported"},
 		{"lifecycle accepted unenforced", Launch{Grant: grant, Accept: []string{"lifecycle.fresh"}}, ""},
-		{"a class nobody enforces", Launch{Grant: withMemory(grant), Runner: []string{"lifecycle.fresh"}}, "unsupported"},
+		{"a class nobody enforces", Launch{Grant: withMilliCPU(grant), Runner: []string{"lifecycle.fresh"}}, "unsupported"},
 		{"the guest is not executable", Launch{Grant: sandbox.Policy{Filesystem: []sandbox.Path{{Path: dir, Access: []sandbox.Access{sandbox.Read}}}}, Runner: []string{"lifecycle.fresh"}}, "denied"},
 		{"an unknown runner class", Launch{Grant: grant, Runner: []string{"lifecycle.fresh", "everything"}}, "invalid"},
 		{"an unknown driver", Launch{Grant: grant, Runner: []string{"lifecycle.fresh"}, Driver: "nope"}, "unsupported"},
@@ -231,9 +235,10 @@ func TestRefusedLaunches(t *testing.T) {
 	})
 }
 
-func withMemory(p sandbox.Policy) sandbox.Policy {
-	v := int64(1 << 30)
-	p.Resources.MemoryBytes = &v
+// withMilliCPU bounds CPU shares, which needs a cgroup: no driver enforces it.
+func withMilliCPU(p sandbox.Policy) sandbox.Policy {
+	v := int64(500)
+	p.Resources.MilliCPU = &v
 	return p
 }
 

@@ -104,7 +104,9 @@ static int valid(const lj_value *in, const char **platform, const char **name, c
                  const char **user, const lj_value **arguments, const lj_value **environment) {
   const lj_value *spec = lj_get(in, "spec");
   *platform = field(in, "platform");
-  if (!*platform || (strcmp(*platform, "darwin") && strcmp(*platform, "linux") && strcmp(*platform, "windows"))) return EXT_LEDGER_UNSUPPORTED;
+  /* A missing platform is a bad request; only a named platform the ledger cannot render is unsupported. */
+  if (!*platform || !**platform) return EXT_LEDGER_INVALID;
+  if (strcmp(*platform, "darwin") && strcmp(*platform, "linux") && strcmp(*platform, "windows")) return EXT_LEDGER_UNSUPPORTED;
   int windows = !strcmp(*platform, "windows");
   if (!spec || spec->type != LJ_OBJECT) return EXT_LEDGER_INVALID;
   *name = field(spec, "name");
